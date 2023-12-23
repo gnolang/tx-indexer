@@ -2,10 +2,12 @@ package tx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/storage"
 )
 
 type NodeFetcher struct {
@@ -57,14 +59,21 @@ func (f *NodeFetcher) FetchTransactions(ctx context.Context) error {
 		return latest, nil
 	}
 
+	// The current height assumes
+	// the storage has no previous txs -> 0
+	var currentHeight int64
+
 	// Fetch the latest tx from storage
 	lastTx, err := f.storage.GetLatestTx(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, storage.ErrNotFound) {
 		return fmt.Errorf("unable to fetch latest transaction, %w", err)
 	}
 
-	// The height present in storage
-	currentHeight := lastTx.Height
+	if lastTx != nil {
+		// The height present in storage,
+		// set it as the starting point
+		currentHeight = lastTx.Height
+	}
 
 	// "Catch up" initially with the chain
 	if currentHeight, err = catchupWithChain(currentHeight); err != nil {

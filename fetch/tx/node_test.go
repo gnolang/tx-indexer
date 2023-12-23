@@ -3,10 +3,15 @@ package tx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/gnolang/gno/tm2/pkg/amino"
+	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
+	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +23,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		t.Parallel()
 
 		var (
-			fetchErr = errors.New("unable to fetch local db data")
+			fetchErr = errors.New("random DB error")
 
 			mockStorage = &mockStorage{
 				getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
@@ -161,13 +166,143 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 	t.Parallel()
 
-	t.Run("simple chain catchup", func(t *testing.T) {
-		t.Parallel()
+	var cancelFn context.CancelFunc
 
-	})
+	var (
+		blockNum      = 10
+		txCount       = 10
+		txs           = generateTransactions(t, txCount)
+		serializedTxs = serializeTxs(t, txs)
+		blocks        = generateBlocks(t, blockNum+1, txs)
 
-	t.Run("chain is caught up, listen for blocks", func(t *testing.T) {
-		t.Parallel()
+		savedTxs = make([]*types.TxResult, 0, txCount*blockNum)
 
-	})
+		mockStorage = &mockStorage{
+			getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
+				return nil, nil // no tx in storage
+			},
+			saveTxFn: func(_ context.Context, result *types.TxResult) error {
+				savedTxs = append(savedTxs, result)
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (int64, error) {
+				return int64(blockNum), nil
+			},
+			getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+				// Sanity check
+				if num > int64(blockNum) {
+					t.Fatalf("invalid block requested, %d", num)
+				}
+
+				return &core_types.ResultBlock{
+					Block: blocks[num],
+				}, nil
+			},
+			getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+				// Sanity check
+				if num > int64(blockNum) {
+					t.Fatalf("invalid block requested, %d", num)
+				}
+
+				// Check if all blocks are synced
+				if num == int64(blockNum) {
+					// At this point, we can cancel the process
+					cancelFn()
+				}
+
+				return &core_types.ResultBlockResults{
+					Height: num,
+					Results: &state.ABCIResponses{
+						DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
+					},
+				}, nil
+			},
+		}
+	)
+
+	// Create the fetcher
+	f := NewNodeFetcher(mockStorage, mockClient)
+
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
+	// Run the fetch
+	require.NoError(t, f.FetchTransactions(ctx))
+
+	// Verify the transactions are saved correctly
+	assert.Len(t, savedTxs, blockNum*txCount)
+
+	for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
+		for txIndex := 0; txIndex < txCount; txIndex++ {
+			// since this is a linearized array of transactions
+			// we can access each item with: blockNum * length + txIndx
+			// where blockNum is the y-axis, and txIndx is the x-axis
+			tx := savedTxs[blockIndex*txCount+txIndex]
+
+			assert.EqualValues(t, blockIndex+1, tx.Height)
+			assert.EqualValues(t, txIndex, tx.Index)
+			assert.Equal(t, serializedTxs[txIndex], tx.Tx)
+		}
+	}
+}
+
+// generateTransactions generates dummy transactions
+func generateTransactions(t *testing.T, count int) []*std.Tx {
+	t.Helper()
+
+	txs := make([]*std.Tx, count)
+
+	for i := 0; i < count; i++ {
+		txs[i] = &std.Tx{
+			Memo: fmt.Sprintf("memo %d", i),
+		}
+	}
+
+	return txs
+}
+
+// generateBlocks generates dummy blocks
+func generateBlocks(
+	t *testing.T,
+	count int,
+	txs []*std.Tx,
+) []*types.Block {
+	t.Helper()
+
+	blocks := make([]*types.Block, count)
+
+	for i := 0; i < count; i++ {
+		blocks[i] = &types.Block{
+			Header: types.Header{
+				NumTxs: int64(len(txs)),
+				Height: int64(i),
+			},
+			Data: types.Data{
+				Txs: serializeTxs(t, txs),
+			},
+		}
+	}
+
+	return blocks
+}
+
+// serializeTxs encodes the transactions into Amino JSON
+func serializeTxs(t *testing.T, txs []*std.Tx) types.Txs {
+	t.Helper()
+
+	serializedTxs := make(types.Txs, 0, len(txs))
+
+	for _, tx := range txs {
+		serializedTx, err := amino.MarshalJSON(tx)
+		require.NoError(t, err)
+
+		serializedTxs = append(serializedTxs, serializedTx)
+	}
+
+	return serializedTxs
 }
