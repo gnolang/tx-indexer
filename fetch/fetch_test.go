@@ -161,97 +161,171 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 	t.Parallel()
 
-	var cancelFn context.CancelFunc
+	t.Run("valid txs flow", func(t *testing.T) {
+		t.Parallel()
 
-	var (
-		blockNum      = 10
-		txCount       = 5
-		txs           = generateTransactions(t, txCount)
-		serializedTxs = serializeTxs(t, txs)
-		blocks        = generateBlocks(t, blockNum+1, txs)
+		var cancelFn context.CancelFunc
 
-		savedTxs    = make([]*types.TxResult, 0, txCount*blockNum)
-		savedBlocks = make([]*types.Block, 0, blockNum)
+		var (
+			blockNum      = 10
+			txCount       = 5
+			txs           = generateTransactions(t, txCount)
+			serializedTxs = serializeTxs(t, txs)
+			blocks        = generateBlocks(t, blockNum+1, txs)
 
-		mockStorage = &mockStorage{
-			getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
-				return 0, storage.ErrNotFound
-			},
-			saveBlockFn: func(_ context.Context, block *types.Block) error {
-				savedBlocks = append(savedBlocks, block)
+			savedTxs    = make([]*types.TxResult, 0, txCount*blockNum)
+			savedBlocks = make([]*types.Block, 0, blockNum)
 
-				return nil
-			},
-			saveTxFn: func(_ context.Context, result *types.TxResult) error {
-				savedTxs = append(savedTxs, result)
+			mockStorage = &mockStorage{
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return 0, storage.ErrNotFound
+				},
+				saveBlockFn: func(_ context.Context, block *types.Block) error {
+					savedBlocks = append(savedBlocks, block)
 
-				return nil
-			},
+					return nil
+				},
+				saveTxFn: func(_ context.Context, result *types.TxResult) error {
+					savedTxs = append(savedTxs, result)
+
+					return nil
+				},
+			}
+
+			mockClient = &mockClient{
+				getLatestBlockNumberFn: func() (int64, error) {
+					return int64(blockNum), nil
+				},
+				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+					// Sanity check
+					if num > int64(blockNum) {
+						t.Fatalf("invalid block requested, %d", num)
+					}
+
+					return &core_types.ResultBlock{
+						Block: blocks[num],
+					}, nil
+				},
+				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+					// Sanity check
+					if num > int64(blockNum) {
+						t.Fatalf("invalid block requested, %d", num)
+					}
+
+					// Check if all blocks are synced
+					if num == int64(blockNum) {
+						// At this point, we can cancel the process
+						cancelFn()
+					}
+
+					return &core_types.ResultBlockResults{
+						Height: num,
+						Results: &state.ABCIResponses{
+							DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
+						},
+					}, nil
+				},
+			}
+		)
+
+		// Create the fetcher
+		f := NewFetcher(mockStorage, mockClient)
+
+		// Create the context
+		ctx, cancelFn := context.WithCancel(context.Background())
+		defer cancelFn()
+
+		// Run the fetch
+		require.NoError(t, f.FetchTransactions(ctx))
+
+		// Verify the transactions are saved correctly
+		assert.Len(t, savedTxs, blockNum*txCount)
+
+		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+
+			for txIndex := 0; txIndex < txCount; txIndex++ {
+				// since this is a linearized array of transactions
+				// we can access each item with: blockNum * length + txIndx
+				// where blockNum is the y-axis, and txIndx is the x-axis
+				tx := savedTxs[blockIndex*txCount+txIndex]
+
+				assert.EqualValues(t, blockIndex+1, tx.Height)
+				assert.EqualValues(t, txIndex, tx.Index)
+				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
+			}
 		}
+	})
 
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (int64, error) {
-				return int64(blockNum), nil
-			},
-			getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
-				// Sanity check
-				if num > int64(blockNum) {
-					t.Fatalf("invalid block requested, %d", num)
-				}
+	t.Run("no txs in block", func(t *testing.T) {
+		t.Parallel()
 
-				return &core_types.ResultBlock{
-					Block: blocks[num],
-				}, nil
-			},
-			getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
-				// Sanity check
-				if num > int64(blockNum) {
-					t.Fatalf("invalid block requested, %d", num)
-				}
+		var cancelFn context.CancelFunc
 
-				// Check if all blocks are synced
-				if num == int64(blockNum) {
-					// At this point, we can cancel the process
-					cancelFn()
-				}
+		var (
+			blockNum = 5
+			blocks   = generateBlocks(t, blockNum+1, []*std.Tx{})
 
-				return &core_types.ResultBlockResults{
-					Height: num,
-					Results: &state.ABCIResponses{
-						DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
-					},
-				}, nil
-			},
+			savedBlocks = make([]*types.Block, 0, blockNum)
+
+			mockStorage = &mockStorage{
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return 0, storage.ErrNotFound
+				},
+				saveBlockFn: func(_ context.Context, block *types.Block) error {
+					savedBlocks = append(savedBlocks, block)
+
+					return nil
+				},
+				saveTxFn: func(_ context.Context, _ *types.TxResult) error {
+					t.Fatalf("should not save txs")
+
+					return nil
+				},
+			}
+
+			mockClient = &mockClient{
+				getLatestBlockNumberFn: func() (int64, error) {
+					return int64(blockNum), nil
+				},
+				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+					// Sanity check
+					if num > int64(blockNum) {
+						t.Fatalf("invalid block requested, %d", num)
+					}
+
+					// Check if all blocks are synced
+					if num == int64(blockNum) {
+						// At this point, we can cancel the process
+						cancelFn()
+					}
+
+					return &core_types.ResultBlock{
+						Block: blocks[num],
+					}, nil
+				},
+				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+					t.Fatalf("should not request results")
+
+					return nil, nil
+				},
+			}
+		)
+
+		// Create the fetcher
+		f := NewFetcher(mockStorage, mockClient)
+
+		// Create the context
+		ctx, cancelFn := context.WithCancel(context.Background())
+		defer cancelFn()
+
+		// Run the fetch
+		require.NoError(t, f.FetchTransactions(ctx))
+
+		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
 		}
-	)
-
-	// Create the fetcher
-	f := NewFetcher(mockStorage, mockClient)
-
-	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
-
-	// Run the fetch
-	require.NoError(t, f.FetchTransactions(ctx))
-
-	// Verify the transactions are saved correctly
-	assert.Len(t, savedTxs, blockNum*txCount)
-
-	for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-		assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
-
-		for txIndex := 0; txIndex < txCount; txIndex++ {
-			// since this is a linearized array of transactions
-			// we can access each item with: blockNum * length + txIndx
-			// where blockNum is the y-axis, and txIndx is the x-axis
-			tx := savedTxs[blockIndex*txCount+txIndex]
-
-			assert.EqualValues(t, blockIndex+1, tx.Height)
-			assert.EqualValues(t, txIndex, tx.Index)
-			assert.Equal(t, serializedTxs[txIndex], tx.Tx)
-		}
-	}
+	})
 }
 
 // generateTransactions generates dummy transactions
