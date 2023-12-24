@@ -99,8 +99,8 @@ func (f *Fetcher) fetchAndSaveBlockData(
 		return fmt.Errorf("unable to fetch block, %w", err)
 	}
 
-	if err := f.storage.SaveBlock(ctx, block.Block); err != nil {
-		return fmt.Errorf("unable to save block, %w", err)
+	if saveErr := f.storage.SaveBlock(ctx, block.Block); saveErr != nil {
+		return fmt.Errorf("unable to save block, %w", saveErr)
 	}
 
 	// Skip empty blocks
