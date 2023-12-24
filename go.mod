@@ -1,8 +1,9 @@
 module github.com/gnolang/tx-indexer
 
-go 1.20
+go 1.21
 
 require (
+	github.com/google/uuid v1.5.0
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/stretchr/testify v1.8.4
 )
