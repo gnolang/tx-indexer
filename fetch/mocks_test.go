@@ -1,4 +1,4 @@
-package tx
+package fetch
 
 import (
 	"context"
@@ -8,26 +8,36 @@ import (
 )
 
 type (
-	getLatestTxDelegate func(context.Context) (*types.TxResult, error)
-	saveTxDelegate      func(context.Context, *types.TxResult) error
+	getLatestSavedHeightDelegate func(context.Context) (int64, error)
+	saveBlockDelegate            func(context.Context, *types.Block) error
+	saveTxDelegate               func(context.Context, *types.TxResult) error
 )
 
 type mockStorage struct {
-	getLatestTxFn getLatestTxDelegate
-	saveTxFn      saveTxDelegate
+	getLatestSavedHeightFn getLatestSavedHeightDelegate
+	saveBlockFn            saveBlockDelegate
+	saveTxFn               saveTxDelegate
 }
 
-func (m *mockStorage) GetLatestTx(ctx context.Context) (*types.TxResult, error) {
-	if m.getLatestTxFn != nil {
-		return m.getLatestTxFn(ctx)
+func (m *mockStorage) GetLatestSavedHeight(ctx context.Context) (int64, error) {
+	if m.getLatestSavedHeightFn != nil {
+		return m.getLatestSavedHeightFn(ctx)
 	}
 
-	return nil, nil
+	return 0, nil
 }
 
 func (m *mockStorage) SaveTx(ctx context.Context, tx *types.TxResult) error {
 	if m.saveTxFn != nil {
 		return m.saveTxFn(ctx, tx)
+	}
+
+	return nil
+}
+
+func (m *mockStorage) SaveBlock(ctx context.Context, block *types.Block) error {
+	if m.saveBlockFn != nil {
+		return m.saveBlockFn(ctx, block)
 	}
 
 	return nil

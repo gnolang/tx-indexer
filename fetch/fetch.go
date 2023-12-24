@@ -1,4 +1,4 @@
-package tx
+package fetch
 
 import (
 	"context"
@@ -10,21 +10,21 @@ import (
 	"github.com/gnolang/tx-indexer/storage"
 )
 
-type NodeFetcher struct {
+type Fetcher struct {
 	storage Storage
 	client  Client
 
 	queryInterval time.Duration // block query interval
 }
 
-// NewNodeFetcher creates a new transaction result fetcher instance
+// NewFetcher creates a new transaction result fetcher instance
 // that gets data from a remote chain
 // TODO add logger
-func NewNodeFetcher(
+func NewFetcher(
 	storage Storage,
 	client Client,
-) *NodeFetcher {
-	return &NodeFetcher{
+) *Fetcher {
+	return &Fetcher{
 		storage:       storage,
 		client:        client,
 		queryInterval: 1 * time.Second,
@@ -32,7 +32,7 @@ func NewNodeFetcher(
 }
 
 // FetchTransactions runs the transaction fetcher [BLOCKING]
-func (f *NodeFetcher) FetchTransactions(ctx context.Context) error {
+func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 	// catchupWithChain syncs any transactions that have occurred
 	// between the local last block (in storage) and the chain state (latest head)
 	catchupWithChain := func(lastBlock int64) (int64, error) {
@@ -50,7 +50,7 @@ func (f *NodeFetcher) FetchTransactions(ctx context.Context) error {
 
 		// Catch up to the latest block
 		for block := lastBlock + 1; block <= latest; block++ {
-			if fetchErr := f.saveTxsFromBlock(ctx, block); fetchErr != nil {
+			if fetchErr := f.fetchAndSaveBlockData(ctx, block); fetchErr != nil {
 				return 0, fetchErr
 			}
 		}
@@ -59,20 +59,10 @@ func (f *NodeFetcher) FetchTransactions(ctx context.Context) error {
 		return latest, nil
 	}
 
-	// The current height assumes
-	// the storage has no previous txs -> 0
-	var currentHeight int64
-
 	// Fetch the latest tx from storage
-	lastTx, err := f.storage.GetLatestTx(ctx)
+	currentHeight, err := f.storage.GetLatestSavedHeight(ctx)
 	if err != nil && !errors.Is(err, storage.ErrNotFound) {
 		return fmt.Errorf("unable to fetch latest transaction, %w", err)
-	}
-
-	if lastTx != nil {
-		// The height present in storage,
-		// set it as the starting point
-		currentHeight = lastTx.Height
 	}
 
 	// "Catch up" initially with the chain
@@ -97,8 +87,8 @@ func (f *NodeFetcher) FetchTransactions(ctx context.Context) error {
 	}
 }
 
-// saveTxsFromBlock commits the block transactions to storage
-func (f *NodeFetcher) saveTxsFromBlock(
+// fetchAndSaveBlockData commits the block data to storage
+func (f *Fetcher) fetchAndSaveBlockData(
 	ctx context.Context,
 	blockNum int64,
 ) error {
@@ -107,6 +97,10 @@ func (f *NodeFetcher) saveTxsFromBlock(
 	block, err := f.client.GetBlock(blockNum)
 	if err != nil {
 		return fmt.Errorf("unable to fetch block, %w", err)
+	}
+
+	if err := f.storage.SaveBlock(ctx, block.Block); err != nil {
+		return fmt.Errorf("unable to save block, %w", err)
 	}
 
 	// Skip empty blocks

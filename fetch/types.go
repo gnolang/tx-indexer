@@ -1,4 +1,4 @@
-package tx
+package fetch
 
 import (
 	"context"
@@ -9,8 +9,10 @@ import (
 
 // Storage defines the transaction storage interface
 type Storage interface {
-	// GetLatestTx returns the latest transaction from the storage
-	GetLatestTx(ctx context.Context) (*types.TxResult, error)
+	// GetLatestSavedHeight returns the latest block height from the storage
+	GetLatestSavedHeight(ctx context.Context) (int64, error)
+
+	SaveBlock(ctx context.Context, block *types.Block) error
 
 	// SaveTx saves the transaction to the permanent storage
 	SaveTx(ctx context.Context, tx *types.TxResult) error

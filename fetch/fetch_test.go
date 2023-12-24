@@ -1,4 +1,4 @@
-package tx
+package fetch
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
+	"github.com/gnolang/tx-indexer/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,14 +27,14 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("random DB error")
 
 			mockStorage = &mockStorage{
-				getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
-					return nil, fetchErr
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return 0, fetchErr
 				},
 			}
 		)
 
 		// Create the fetcher
-		f := NewNodeFetcher(mockStorage, &mockClient{})
+		f := NewFetcher(mockStorage, &mockClient{})
 
 		assert.ErrorIs(
 			t,
@@ -49,10 +50,8 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block height")
 
 			mockStorage = &mockStorage{
-				getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
-					return &types.TxResult{
-						Height: 0,
-					}, nil
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return 0, nil
 				},
 			}
 
@@ -64,7 +63,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewNodeFetcher(mockStorage, mockClient)
+		f := NewFetcher(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -81,10 +80,8 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block data")
 
 			mockStorage = &mockStorage{
-				getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
-					return &types.TxResult{
-						Height: blockNum - 1, // to trigger a fetch
-					}, nil
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return blockNum - 1, nil
 				},
 			}
 
@@ -102,7 +99,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewNodeFetcher(mockStorage, mockClient)
+		f := NewFetcher(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -119,10 +116,8 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block results")
 
 			mockStorage = &mockStorage{
-				getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
-					return &types.TxResult{
-						Height: blockNum - 1, // to trigger a fetch
-					}, nil
+				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+					return blockNum - 1, nil
 				},
 			}
 
@@ -153,7 +148,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewNodeFetcher(mockStorage, mockClient)
+		f := NewFetcher(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -170,16 +165,22 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 
 	var (
 		blockNum      = 10
-		txCount       = 10
+		txCount       = 5
 		txs           = generateTransactions(t, txCount)
 		serializedTxs = serializeTxs(t, txs)
 		blocks        = generateBlocks(t, blockNum+1, txs)
 
-		savedTxs = make([]*types.TxResult, 0, txCount*blockNum)
+		savedTxs    = make([]*types.TxResult, 0, txCount*blockNum)
+		savedBlocks = make([]*types.Block, 0, blockNum)
 
 		mockStorage = &mockStorage{
-			getLatestTxFn: func(_ context.Context) (*types.TxResult, error) {
-				return nil, nil // no tx in storage
+			getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+				return 0, storage.ErrNotFound
+			},
+			saveBlockFn: func(_ context.Context, block *types.Block) error {
+				savedBlocks = append(savedBlocks, block)
+
+				return nil
 			},
 			saveTxFn: func(_ context.Context, result *types.TxResult) error {
 				savedTxs = append(savedTxs, result)
@@ -225,7 +226,7 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 	)
 
 	// Create the fetcher
-	f := NewNodeFetcher(mockStorage, mockClient)
+	f := NewFetcher(mockStorage, mockClient)
 
 	// Create the context
 	ctx, cancelFn := context.WithCancel(context.Background())
@@ -238,6 +239,8 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 	assert.Len(t, savedTxs, blockNum*txCount)
 
 	for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
+		assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+
 		for txIndex := 0; txIndex < txCount; txIndex++ {
 			// since this is a linearized array of transactions
 			// we can access each item with: blockNum * length + txIndx
