@@ -50,9 +50,9 @@ func (es *eventSubscription) runLoop() {
 }
 
 // eventSupported checks if any notification event needs to be triggered
-func (es *eventSubscription) eventSupported(event Event) bool {
+func (es *eventSubscription) eventSupported(eventType Type) bool {
 	for _, supportedType := range es.eventTypes {
-		if supportedType == event.GetType() {
+		if supportedType == eventType {
 			return true
 		}
 	}
@@ -62,7 +62,7 @@ func (es *eventSubscription) eventSupported(event Event) bool {
 
 // pushEvent sends the event off for processing by the subscription. [NON-BLOCKING]
 func (es *eventSubscription) pushEvent(event Event) {
-	if !es.eventSupported(event) {
+	if !es.eventSupported(event.GetType()) {
 		return
 	}
 
