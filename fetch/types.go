@@ -12,6 +12,7 @@ type Storage interface {
 	// GetLatestSavedHeight returns the latest block height from the storage
 	GetLatestSavedHeight(ctx context.Context) (int64, error)
 
+	// SaveBlock saves the block to the permanent storage
 	SaveBlock(ctx context.Context, block *types.Block) error
 
 	// SaveTx saves the transaction to the permanent storage

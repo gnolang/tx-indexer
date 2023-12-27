@@ -15,7 +15,7 @@ func main() {
 	// Create the root command
 	cmd := &ffcli.Command{
 		ShortUsage: "<subcommand> [flags] [<arg>...]",
-		LongHelp:   "The Gno / TM2 faucet service",
+		LongHelp:   "The TM2 indexer service",
 		FlagSet:    fs,
 		Exec: func(_ context.Context, _ []string) error {
 			return flag.ErrHelp

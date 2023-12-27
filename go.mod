@@ -3,9 +3,12 @@ module github.com/gnolang/tx-indexer
 go 1.21
 
 require (
+	github.com/go-chi/chi/v5 v5.0.11
 	github.com/google/uuid v1.5.0
+	github.com/olahol/melody v1.1.4
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/stretchr/testify v1.8.4
+	go.uber.org/zap v1.26.0
 )
 
 require (
@@ -22,6 +25,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
+	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/klauspost/compress v1.12.3 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
@@ -31,6 +35,7 @@ require (
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	go.opencensus.io v0.22.5 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.14.0 // indirect

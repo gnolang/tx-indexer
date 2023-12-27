@@ -19,7 +19,7 @@ func newStartCmd() *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "start",
 		ShortUsage: "start [flags]",
-		LongHelp:   "Starts the transaction indexer",
+		LongHelp:   "Starts the indexer",
 		FlagSet:    fs,
 		Exec:       cfg.exec,
 	}

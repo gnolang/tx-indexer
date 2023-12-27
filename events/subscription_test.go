@@ -1,10 +1,7 @@
 package events
 
 import (
-	"context"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -52,37 +49,4 @@ func TestSubscription_EventSupported(t *testing.T) {
 			}
 		})
 	}
-}
-
-// retryUntilTimeout retries the callback until it returns false,
-// otherwise it times out when the context is cancelled
-func retryUntilTimeout(ctx context.Context, t *testing.T, cb func() bool) error {
-	t.Helper()
-
-	resCh := make(chan error, 1)
-
-	go func() {
-		defer close(resCh)
-
-		for {
-			select {
-			case <-ctx.Done():
-				resCh <- errors.New("timeout")
-
-				return
-			default:
-				retry := cb()
-
-				if !retry {
-					resCh <- nil
-
-					return
-				}
-			}
-
-			time.Sleep(time.Millisecond * 100)
-		}
-	}()
-
-	return <-resCh
 }
