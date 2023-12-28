@@ -24,6 +24,7 @@ func New(logger *zap.Logger, w http.ResponseWriter) ResponseWriter {
 }
 
 func (h ResponseWriter) WriteResponse(response any) {
+	// TODO add amino support
 	if err := json.NewEncoder(h.w).Encode(response); err != nil {
 		h.logger.Info(
 			"unable to encode JSON response",
