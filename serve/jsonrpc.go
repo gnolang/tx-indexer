@@ -1,9 +1,13 @@
 package serve
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
@@ -17,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/olahol/melody"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -27,6 +32,10 @@ const (
 const (
 	// wsIDKey is the key used for WS connection metadata
 	wsIDKey = "ws-id"
+)
+
+const (
+	DefaultListenAddress = "0.0.0.0:8545"
 )
 
 // maxSizeMiddleware enforces a 1MB size limit on the request body
@@ -41,6 +50,10 @@ func maxSizeMiddleware(next http.Handler) http.Handler {
 // JSONRPC is the JSONRPC server instance, that is capable
 // of handling both HTTP and WS requests
 type JSONRPC struct {
+	// wsConns keeps track of WS connections
+	// that need to be directly accessed by certain methods
+	wsConns conns.ConnectionManager
+
 	logger *zap.Logger
 
 	// handlers are the registered method handlers
@@ -49,17 +62,17 @@ type JSONRPC struct {
 	// ws handles incoming and active WS connections
 	ws *melody.Melody
 
-	// wsConns keeps track of WS connections
-	// that need to be directly accessed by certain methods
-	wsConns conns.ConnectionManager
+	// listenAddress is the serve address
+	listenAddress string
 }
 
 // NewJSONRPC creates a new instance of the JSONRPC server
 func NewJSONRPC(opts ...Option) *JSONRPC {
 	j := &JSONRPC{
-		logger:   zap.NewNop(),
-		handlers: newHandlers(),
-		ws:       melody.New(),
+		logger:        zap.NewNop(),
+		handlers:      newHandlers(),
+		ws:            melody.New(),
+		listenAddress: DefaultListenAddress,
 	}
 
 	for _, opt := range opts {
@@ -75,8 +88,52 @@ func NewJSONRPC(opts ...Option) *JSONRPC {
 	return j
 }
 
-// SetupRouter sets up the request router for the indexer service
-func (j *JSONRPC) SetupRouter() *chi.Mux {
+// Serve serves the JSON-RPC server
+func (j *JSONRPC) Serve(ctx context.Context) error {
+	faucet := &http.Server{
+		Addr:              j.listenAddress,
+		Handler:           j.setupRouter(),
+		ReadHeaderTimeout: 60 * time.Second,
+	}
+
+	group, gCtx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		defer j.logger.Info("JSON-RPC server shut down")
+
+		ln, err := net.Listen("tcp", faucet.Addr)
+		if err != nil {
+			return err
+		}
+
+		j.logger.Info(
+			"JSON-RPC server started",
+			zap.String("address", ln.Addr().String()),
+		)
+
+		if err := faucet.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+
+		return nil
+	})
+
+	group.Go(func() error {
+		<-gCtx.Done()
+
+		j.logger.Info("JSON-RPC server to be shut down")
+
+		wsCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel()
+
+		return faucet.Shutdown(wsCtx)
+	})
+
+	return group.Wait()
+}
+
+// setupRouter sets up the request router for the indexer service
+func (j *JSONRPC) setupRouter() *chi.Mux {
 	mux := chi.NewRouter()
 
 	// Set up the middlewares

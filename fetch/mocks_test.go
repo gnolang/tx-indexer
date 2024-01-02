@@ -6,13 +6,15 @@ import (
 )
 
 type (
-	getLatestSavedHeightDelegate func() (int64, error)
-	saveBlockDelegate            func(*types.Block) error
-	saveTxDelegate               func(*types.TxResult) error
+	getLatestHeightDelegate  func() (int64, error)
+	saveLatestHeightDelegate func(int64) error
+	saveBlockDelegate        func(*types.Block) error
+	saveTxDelegate           func(*types.TxResult) error
 )
 
 type mockStorage struct {
-	getLatestSavedHeightFn getLatestSavedHeightDelegate
+	getLatestSavedHeightFn getLatestHeightDelegate
+	saveLatestHeightFn     saveLatestHeightDelegate
 	saveBlockFn            saveBlockDelegate
 	saveTxFn               saveTxDelegate
 }
@@ -23,6 +25,14 @@ func (m *mockStorage) GetLatestHeight() (int64, error) {
 	}
 
 	return 0, nil
+}
+
+func (m *mockStorage) SaveLatestHeight(blockNum int64) error {
+	if m.saveLatestHeightFn != nil {
+		return m.saveLatestHeightFn(blockNum)
+	}
+
+	return nil
 }
 
 func (m *mockStorage) SaveTx(tx *types.TxResult) error {

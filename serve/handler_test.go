@@ -161,7 +161,7 @@ func newWebServer(t *testing.T, callbacks ...func(s *JSONRPC)) *testWebServer {
 	}
 
 	// Hook up the JSON-RPC server to the mux
-	mux.Mount("/", s.SetupRouter())
+	mux.Mount("/", s.setupRouter())
 
 	return webServer
 }

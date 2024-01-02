@@ -11,3 +11,11 @@ func WithLogger(logger *zap.Logger) Option {
 		s.logger = logger
 	}
 }
+
+// WithListenAddress sets the listen address
+// for the JSON-RPC server
+func WithListenAddress(address string) Option {
+	return func(s *JSONRPC) {
+		s.listenAddress = address
+	}
+}

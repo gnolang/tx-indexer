@@ -35,7 +35,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, &mockClient{}, WithLogger(zap.NewNop()))
+		f := New(mockStorage, &mockClient{}, WithLogger(zap.NewNop()))
 
 		assert.ErrorIs(
 			t,
@@ -64,7 +64,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, mockClient)
+		f := New(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -100,7 +100,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, mockClient)
+		f := New(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -149,7 +149,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, mockClient)
+		f := New(mockStorage, mockClient)
 
 		assert.ErrorIs(
 			t,
@@ -230,7 +230,7 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, mockClient)
+		f := New(mockStorage, mockClient)
 
 		// Create the context
 		ctx, cancelFn := context.WithCancel(context.Background())
@@ -314,7 +314,7 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, mockClient)
+		f := New(mockStorage, mockClient)
 
 		// Create the context
 		ctx, cancelFn := context.WithCancel(context.Background())

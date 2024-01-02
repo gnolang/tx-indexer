@@ -7,8 +7,11 @@ import (
 
 // Storage defines the transaction storage interface
 type Storage interface {
-	// GetLatestSavedHeight returns the latest block height from the storage
+	// GetLatestHeight returns the latest block height from the storage
 	GetLatestHeight() (int64, error)
+
+	// SaveLatestHeight saves the latest block height to the storage
+	SaveLatestHeight(int64) error
 
 	// SaveBlock saves the block to the permanent storage
 	SaveBlock(block *types.Block) error
