@@ -15,6 +15,7 @@ import (
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
@@ -34,7 +35,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 		)
 
 		// Create the fetcher
-		f := NewFetcher(mockStorage, &mockClient{})
+		f := NewFetcher(mockStorage, &mockClient{}, WithLogger(zap.NewNop()))
 
 		assert.ErrorIs(
 			t,

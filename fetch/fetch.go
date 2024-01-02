@@ -8,27 +8,36 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
+	"go.uber.org/zap"
 )
 
 type Fetcher struct {
 	storage Storage
 	client  Client
 
+	logger        *zap.Logger
 	queryInterval time.Duration // block query interval
 }
 
 // NewFetcher creates a new transaction result fetcher instance
 // that gets data from a remote chain
-// TODO add logger
 func NewFetcher(
 	storage Storage,
 	client Client,
+	opts ...Option,
 ) *Fetcher {
-	return &Fetcher{
+	f := &Fetcher{
 		storage:       storage,
 		client:        client,
 		queryInterval: 1 * time.Second,
+		logger:        zap.NewNop(),
 	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	return f
 }
 
 // FetchTransactions runs the transaction fetcher [BLOCKING]
@@ -77,7 +86,8 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			// TODO log
+			f.logger.Info("Stopping fetch service...")
+
 			return nil
 		case <-ticker.C:
 			if currentHeight, err = catchupWithChain(currentHeight); err != nil {
@@ -89,7 +99,6 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 
 // fetchAndSaveBlockData commits the block data to storage
 func (f *Fetcher) fetchAndSaveBlockData(blockNum int64) error {
-	// TODO log
 	// Get block info from the chain
 	block, err := f.client.GetBlock(blockNum)
 	if err != nil {
@@ -100,8 +109,12 @@ func (f *Fetcher) fetchAndSaveBlockData(blockNum int64) error {
 		return fmt.Errorf("unable to save block, %w", saveErr)
 	}
 
+	f.logger.Info("Saved block data", zap.Int64("number", block.Block.Height))
+
 	// Skip empty blocks
 	if block.Block.NumTxs == 0 {
+		f.logger.Debug("Block is empty", zap.Int64("number", block.Block.Height))
+
 		return nil
 	}
 
@@ -123,6 +136,12 @@ func (f *Fetcher) fetchAndSaveBlockData(blockNum int64) error {
 		if err := f.storage.SaveTx(result); err != nil {
 			return fmt.Errorf("unable to save tx, %w", err)
 		}
+
+		f.logger.Info(
+			"Saved block tx",
+			zap.Int64("number", block.Block.Height),
+			zap.String("hash", string(tx.Hash())),
+		)
 	}
 
 	return nil
