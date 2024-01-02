@@ -12,7 +12,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
-	"github.com/gnolang/tx-indexer/storage"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +27,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("random DB error")
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+				getLatestSavedHeightFn: func() (int64, error) {
 					return 0, fetchErr
 				},
 			}
@@ -50,7 +50,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block height")
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+				getLatestSavedHeightFn: func() (int64, error) {
 					return 0, nil
 				},
 			}
@@ -80,7 +80,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block data")
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+				getLatestSavedHeightFn: func() (int64, error) {
 					return blockNum - 1, nil
 				},
 			}
@@ -116,7 +116,7 @@ func TestNodeFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("unable to get block results")
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
+				getLatestSavedHeightFn: func() (int64, error) {
 					return blockNum - 1, nil
 				},
 			}
@@ -177,15 +177,15 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 			savedBlocks = make([]*types.Block, 0, blockNum)
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
-					return 0, storage.ErrNotFound
+				getLatestSavedHeightFn: func() (int64, error) {
+					return 0, storageErrors.ErrNotFound
 				},
-				saveBlockFn: func(_ context.Context, block *types.Block) error {
+				saveBlockFn: func(block *types.Block) error {
 					savedBlocks = append(savedBlocks, block)
 
 					return nil
 				},
-				saveTxFn: func(_ context.Context, result *types.TxResult) error {
+				saveTxFn: func(result *types.TxResult) error {
 					savedTxs = append(savedTxs, result)
 
 					return nil
@@ -269,15 +269,15 @@ func TestNodeFetcher_FetchTransactions_Valid(t *testing.T) {
 			savedBlocks = make([]*types.Block, 0, blockNum)
 
 			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func(_ context.Context) (int64, error) {
-					return 0, storage.ErrNotFound
+				getLatestSavedHeightFn: func() (int64, error) {
+					return 0, storageErrors.ErrNotFound
 				},
-				saveBlockFn: func(_ context.Context, block *types.Block) error {
+				saveBlockFn: func(block *types.Block) error {
 					savedBlocks = append(savedBlocks, block)
 
 					return nil
 				},
-				saveTxFn: func(_ context.Context, _ *types.TxResult) error {
+				saveTxFn: func(_ *types.TxResult) error {
 					t.Fatalf("should not save txs")
 
 					return nil

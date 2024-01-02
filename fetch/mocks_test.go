@@ -1,16 +1,14 @@
 package fetch
 
 import (
-	"context"
-
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
 
 type (
-	getLatestSavedHeightDelegate func(context.Context) (int64, error)
-	saveBlockDelegate            func(context.Context, *types.Block) error
-	saveTxDelegate               func(context.Context, *types.TxResult) error
+	getLatestSavedHeightDelegate func() (int64, error)
+	saveBlockDelegate            func(*types.Block) error
+	saveTxDelegate               func(*types.TxResult) error
 )
 
 type mockStorage struct {
@@ -19,25 +17,25 @@ type mockStorage struct {
 	saveTxFn               saveTxDelegate
 }
 
-func (m *mockStorage) GetLatestSavedHeight(ctx context.Context) (int64, error) {
+func (m *mockStorage) GetLatestHeight() (int64, error) {
 	if m.getLatestSavedHeightFn != nil {
-		return m.getLatestSavedHeightFn(ctx)
+		return m.getLatestSavedHeightFn()
 	}
 
 	return 0, nil
 }
 
-func (m *mockStorage) SaveTx(ctx context.Context, tx *types.TxResult) error {
+func (m *mockStorage) SaveTx(tx *types.TxResult) error {
 	if m.saveTxFn != nil {
-		return m.saveTxFn(ctx, tx)
+		return m.saveTxFn(tx)
 	}
 
 	return nil
 }
 
-func (m *mockStorage) SaveBlock(ctx context.Context, block *types.Block) error {
+func (m *mockStorage) SaveBlock(block *types.Block) error {
 	if m.saveBlockFn != nil {
-		return m.saveBlockFn(ctx, block)
+		return m.saveBlockFn(block)
 	}
 
 	return nil
