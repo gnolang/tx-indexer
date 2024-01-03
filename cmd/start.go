@@ -8,6 +8,8 @@ import (
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
+	"github.com/gnolang/tx-indexer/serve/handlers/block"
+	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
@@ -22,6 +24,7 @@ type startCfg struct {
 	listenAddress string
 	remote        string
 	dbPath        string
+	logLevel      string
 }
 
 // newStartCmd creates the indexer start command
@@ -65,15 +68,32 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		defaultDBPath,
 		"the absolute path for the indexer DB (embedded)",
 	)
+
+	fs.StringVar(
+		&c.logLevel,
+		"log-level",
+		zap.InfoLevel.String(),
+		"the log level for the CLI output",
+	)
 }
 
 // exec executes the indexer start command
 func (c *startCfg) exec(ctx context.Context) error {
+	// Parse the log level
+	logLevel, err := zap.ParseAtomicLevel(c.logLevel)
+	if err != nil {
+		return fmt.Errorf("unable to parse log level, %w", err)
+	}
+
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level = logLevel
+
 	// Create a new logger
-	logger, err := zap.NewDevelopment()
+	logger, err := cfg.Build()
 	if err != nil {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
+	defer logger.Sync()
 
 	// Create a DB instance
 	db, err := storage.New(c.dbPath)
@@ -104,6 +124,20 @@ func (c *startCfg) exec(ctx context.Context) error {
 		serve.WithListenAddress(
 			c.listenAddress,
 		),
+	)
+
+	txHandler := tx.NewHandler(db)
+	blockHandler := block.NewHandler(db)
+
+	// Register handlers
+	j.RegisterHandler(
+		"getTx",
+		txHandler.GetTxHandler,
+	)
+
+	j.RegisterHandler(
+		"getBlock",
+		blockHandler.GetBlockHandler,
 	)
 
 	// Create a new waiter

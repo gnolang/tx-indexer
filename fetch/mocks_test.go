@@ -3,6 +3,7 @@ package fetch
 import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	clientTypes "github.com/gnolang/tx-indexer/client/types"
 )
 
 type (
@@ -55,12 +56,16 @@ type (
 	getLatestBlockNumberDelegate func() (int64, error)
 	getBlockDelegate             func(int64) (*core_types.ResultBlock, error)
 	getBlockResultsDelegate      func(int64) (*core_types.ResultBlockResults, error)
+
+	createBatchDelegate func() clientTypes.Batch
 )
 
 type mockClient struct {
 	getLatestBlockNumberFn getLatestBlockNumberDelegate
 	getBlockFn             getBlockDelegate
 	getBlockResultsFn      getBlockResultsDelegate
+
+	createBatchFn createBatchDelegate
 }
 
 func (m *mockClient) GetLatestBlockNumber() (int64, error) {
@@ -85,4 +90,12 @@ func (m *mockClient) GetBlockResults(blockNum int64) (*core_types.ResultBlockRes
 	}
 
 	return nil, nil
+}
+
+func (m *mockClient) CreateBatch() clientTypes.Batch {
+	if m.createBatchFn != nil {
+		return m.createBatchFn()
+	}
+
+	return nil
 }

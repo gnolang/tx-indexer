@@ -7,7 +7,7 @@ import (
 
 type chunk struct {
 	blocks  []*types.Block
-	results [][]*types.TxResult
+	results []*types.TxResult
 }
 
 // slot is a single chunk slot

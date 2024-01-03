@@ -15,7 +15,7 @@ import (
 
 const (
 	maxSlots     = 100
-	maxChunkSize = 50
+	maxChunkSize = 100
 )
 
 type Fetcher struct {
@@ -54,9 +54,9 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 		f.logger.Info("Fetcher service shut down")
 	}()
 
-	collectorCh := make(chan *workerResponse, 10)
+	collectorCh := make(chan *workerResponse, maxSlots)
 
-	callback := func() error {
+	startRangeFetch := func() error {
 		// Check if there are any free slots
 		if f.chunkBuffer.Len() == maxSlots {
 			// Currently no free slot exists
@@ -112,7 +112,8 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 	ticker := time.NewTicker(f.queryInterval)
 	defer ticker.Stop()
 
-	if err := callback(); err != nil {
+	// Execute the initial "catch up" with the chain
+	if err := startRangeFetch(); err != nil {
 		return err
 	}
 
@@ -121,21 +122,10 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := callback(); err != nil {
+			if err := startRangeFetch(); err != nil {
 				return err
 			}
 		case response := <-collectorCh:
-			pruneSlot := func(index int) {
-				// Prune the element
-				f.chunkBuffer.Queue = append(
-					f.chunkBuffer.Queue[:index],
-					f.chunkBuffer.Queue[index+1:]...,
-				)
-
-				// Fix the queue
-				f.chunkBuffer.Fix()
-			}
-
 			// Find the slot index
 			index := sort.Search(f.chunkBuffer.Len(), func(i int) bool {
 				return f.chunkBuffer.getSlot(i).chunkRange.from >= response.chunkRange.from
@@ -144,31 +134,19 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 			if response.error != nil {
 				f.logger.Error(
 					"error encountered during chunk fetch",
-					zap.Error(response.error),
+					zap.String("error", response.error.Error()),
 				)
-
-				// Prune the chunk as it is invalid
-				pruneSlot(index)
-
-				continue
 			}
 
 			// Save the chunk
 			f.chunkBuffer.setChunk(index, response.chunk)
 
-			// Fetch the latest store sequence
-			latestLocal, err := f.storage.GetLatestHeight()
-			if err != nil && !errors.Is(err, storageErrors.ErrNotFound) {
-				return fmt.Errorf("unable to fetch latest block height, %w", err)
-			}
-
 			for f.chunkBuffer.Len() > 0 {
 				item := f.chunkBuffer.getSlot(0)
 
-				isConsecutive := item.chunkRange.from == latestLocal+1
 				isFetched := item.chunk != nil
 
-				if !isConsecutive || !isFetched {
+				if !isFetched {
 					break
 				}
 
@@ -183,33 +161,35 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 						// have blocks / transactions that are no longer compatible
 						// with latest "master" changes for Amino, so these blocks / txs are ignored,
 						// as opposed to this error being a show-stopper for the fetcher
-						f.logger.Error("unable to save block", zap.String("err", err.Error()))
+						f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
 
 						continue
 					}
 
-					f.logger.Info("Saved block data", zap.Int64("number", block.Height))
+					f.logger.Debug("Saved block data", zap.Int64("number", block.Height))
 				}
 
-				for _, results := range item.chunk.results {
-					for _, tx := range results {
-						if err := f.storage.SaveTx(tx); err != nil {
-							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+				for _, txResult := range item.chunk.results {
+					if err := f.storage.SaveTx(txResult); err != nil {
+						f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
 
-							continue
-						}
-
-						f.logger.Info(
-							"Saved tx",
-							zap.String("hash", base64.StdEncoding.EncodeToString(tx.Tx.Hash())),
-						)
+						continue
 					}
+
+					f.logger.Debug(
+						"Saved tx",
+						zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+					)
 				}
 
-				latestLocal = item.chunkRange.to
+				f.logger.Info(
+					"Saved block and tx data for range",
+					zap.Int64("from", item.chunkRange.from),
+					zap.Int64("to", item.chunkRange.to),
+				)
 
 				// Save the latest height data
-				if err := f.storage.SaveLatestHeight(latestLocal); err != nil {
+				if err := f.storage.SaveLatestHeight(item.chunkRange.to); err != nil {
 					return fmt.Errorf("unable to save latest height info, %w", err)
 				}
 			}

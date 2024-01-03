@@ -3,6 +3,7 @@ package fetch
 import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	clientTypes "github.com/gnolang/tx-indexer/client/types"
 )
 
 // Storage defines the transaction storage interface
@@ -31,4 +32,7 @@ type Client interface {
 	// GetBlockResults returns the results of executing the transactions
 	// for the specified block
 	GetBlockResults(int64) (*core_types.ResultBlockResults, error)
+
+	// CreateBatch creates a new client batch
+	CreateBatch() clientTypes.Batch
 }

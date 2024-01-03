@@ -5,17 +5,25 @@ import (
 
 	rpcClient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
+	clientTypes "github.com/gnolang/tx-indexer/client/types"
 )
 
 // Client is the TM2 HTTP client
 type Client struct {
-	client rpcClient.Client
+	client *rpcClient.HTTP
 }
 
 // NewClient creates a new TM2 HTTP client
 func NewClient(remote string) *Client {
 	return &Client{
 		client: rpcClient.NewHTTP(remote, ""),
+	}
+}
+
+// CreateBatch creates a new request batch
+func (c *Client) CreateBatch() clientTypes.Batch {
+	return &Batch{
+		batch: c.client.NewBatch(),
 	}
 }
 
