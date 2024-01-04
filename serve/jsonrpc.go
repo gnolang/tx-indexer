@@ -11,6 +11,10 @@ import (
 
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
+	"github.com/gnolang/tx-indexer/serve/filters"
+	"github.com/gnolang/tx-indexer/serve/handlers/block"
+	"github.com/gnolang/tx-indexer/serve/handlers/subs"
+	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/serve/writer"
@@ -27,11 +31,7 @@ import (
 const (
 	jsonMimeType       = "application/json" // Only JSON is supported
 	maxRequestBodySize = 1 << 20            // 1MB
-)
-
-const (
-	// wsIDKey is the key used for WS connection metadata
-	wsIDKey = "ws-id"
+	wsIDKey            = "ws-id"            // key used for WS connection metadata
 )
 
 const (
@@ -54,6 +54,10 @@ type JSONRPC struct {
 	// that need to be directly accessed by certain methods
 	wsConns conns.ConnectionManager
 
+	// events keeps track of event subscriptions
+	// that are used within the JSON-RPC server
+	events Events
+
 	logger *zap.Logger
 
 	// handlers are the registered method handlers
@@ -67,11 +71,12 @@ type JSONRPC struct {
 }
 
 // NewJSONRPC creates a new instance of the JSONRPC server
-func NewJSONRPC(opts ...Option) *JSONRPC {
+func NewJSONRPC(events Events, opts ...Option) *JSONRPC {
 	j := &JSONRPC{
 		logger:        zap.NewNop(),
 		handlers:      newHandlers(),
 		ws:            melody.New(),
+		events:        events,
 		listenAddress: DefaultListenAddress,
 	}
 
@@ -161,6 +166,60 @@ func (j *JSONRPC) RegisterHandler(method string, handler Handler) {
 // UnregisterHandler removes the method handler for the specified method, if any
 func (j *JSONRPC) UnregisterHandler(method string) {
 	j.handlers.removeHandler(method)
+}
+
+// RegisterTxEndpoints registers the transaction endpoints
+func (j *JSONRPC) RegisterTxEndpoints(db tx.Storage) {
+	txHandler := tx.NewHandler(db)
+
+	j.RegisterHandler(
+		"getTx",
+		txHandler.GetTxHandler,
+	)
+}
+
+// RegisterBlockEndpoints registers the block endpoints
+func (j *JSONRPC) RegisterBlockEndpoints(db block.Storage) {
+	blockHandler := block.NewHandler(db)
+
+	j.RegisterHandler(
+		"getBlock",
+		blockHandler.GetBlockHandler,
+	)
+}
+
+func (j *JSONRPC) RegisterSubEndpoints(db filters.Storage) {
+	fm := filters.NewFilterManager(context.Background(), db, j.events)
+
+	subsHandler := subs.NewHandler(
+		fm,
+		j.wsConns,
+	)
+
+	j.RegisterHandler(
+		"subscribe",
+		subsHandler.SubscribeHandler,
+	)
+
+	j.RegisterHandler(
+		"unsubscribe",
+		subsHandler.UnsubscribeHandler,
+	)
+
+	j.RegisterHandler(
+		"newBlockFilter",
+		subsHandler.NewBlockFilterHandler,
+	)
+
+	j.RegisterHandler(
+		"getFilterChanges",
+		subsHandler.GetFilterChangesHandler,
+	)
+
+	j.RegisterHandler(
+		"uninstallFilter",
+		subsHandler.UninstallFilterHandler,
+	)
 }
 
 // setupWSListeners sets up handlers for WS events
@@ -314,8 +373,8 @@ func (j *JSONRPC) handleRequest(
 		}
 
 		j.logger.Debug(
-			"handle request",
-			zap.Any("response", handleResp),
+			"handled request",
+			zap.Any("request", baseRequest),
 		)
 
 		responses[i] = spec.NewJSONResponse(

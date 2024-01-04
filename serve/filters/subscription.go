@@ -3,12 +3,12 @@ package filters
 import (
 	"sync"
 
-	"github.com/gnolang/tx-indexer/types"
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/google/uuid"
 )
 
 type subscription interface {
-	WriteResponse(id string, block types.Block) error
+	WriteResponse(id string, block *types.Block) error
 }
 
 // subscriptionMap keeps track of ongoing data subscriptions
@@ -41,7 +41,7 @@ func (sm *subscriptionMap) addSubscription(sub subscription) string {
 
 // sendBlockEvent alerts all active subscriptions of a block event.
 // In case there was an error during writing, the subscription is removed
-func (sm *subscriptionMap) sendBlockEvent(block types.Block) {
+func (sm *subscriptionMap) sendBlockEvent(block *types.Block) {
 	sm.Lock()
 	defer sm.Unlock()
 

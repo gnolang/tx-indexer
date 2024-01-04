@@ -2,26 +2,21 @@ package filters
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/conns"
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/filter"
-	filterSubscription "github.com/gnolang/tx-indexer/serve/handlers/subs/filters/subscription"
-	"github.com/gnolang/tx-indexer/types"
-	"go.uber.org/zap"
+	"github.com/gnolang/tx-indexer/serve/filters/filter"
+	filterSubscription "github.com/gnolang/tx-indexer/serve/filters/subscription"
+	commonTypes "github.com/gnolang/tx-indexer/types"
 )
-
-var ErrFilterNotFound = errors.New("filter not found")
 
 // Manager manages all running filters
 type Manager struct {
-	logger *zap.Logger
-
 	ctx             context.Context
-	state           Storage
+	storage         Storage
 	events          Events
 	filters         *filterMap
 	subscriptions   *subscriptionMap
@@ -31,14 +26,13 @@ type Manager struct {
 // NewFilterManager creates new filter manager object
 func NewFilterManager(
 	ctx context.Context,
-	state Storage,
+	storage Storage,
 	events Events,
 	opts ...Option,
 ) *Manager {
 	filterManager := &Manager{
 		ctx:             ctx,
-		logger:          zap.NewNop(),
-		state:           state,
+		storage:         storage,
 		events:          events,
 		filters:         newFilterMap(),
 		subscriptions:   newSubMap(),
@@ -90,7 +84,7 @@ func (f *Manager) UninstallSubscription(id string) bool {
 
 // subscribeToNewBlockEvent subscribes to new block events
 func (f *Manager) subscribeToNewBlockEvent() {
-	blockSub := f.events.Subscribe([]events.Type{types.NewBlockEvent})
+	blockSub := f.events.Subscribe([]events.Type{commonTypes.NewBlockEvent})
 	defer f.events.CancelSubscription(blockSub.ID)
 
 	for {
@@ -106,7 +100,7 @@ func (f *Manager) subscribeToNewBlockEvent() {
 			// cannot be executed in parallel (go routines)
 			// because data sequencing should be persisted
 			// (info about block X comes before info on block X + 1)
-			newBlock := blockRaw.(*types.NewBlock)
+			newBlock := blockRaw.(*commonTypes.NewBlock)
 
 			// Apply block to filters
 			f.updateFiltersWithBlock(newBlock.Block)
@@ -118,7 +112,7 @@ func (f *Manager) subscribeToNewBlockEvent() {
 }
 
 // updateFiltersWithBlock updates all filters with the incoming block
-func (f *Manager) updateFiltersWithBlock(block types.Block) {
+func (f *Manager) updateFiltersWithBlock(block *types.Block) {
 	f.filters.rangeItems(func(filter Filter) {
 		filter.UpdateWithBlock(block)
 	})

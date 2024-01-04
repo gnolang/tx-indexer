@@ -6,10 +6,9 @@ import (
 	"fmt"
 
 	"github.com/gnolang/tx-indexer/client"
+	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
-	"github.com/gnolang/tx-indexer/serve/handlers/block"
-	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
@@ -107,37 +106,25 @@ func (c *startCfg) exec(ctx context.Context) error {
 		}
 	}()
 
-	// Create the fetcher instance
+	// Create an Event Manager instance
+	em := events.NewManager()
+
+	// Create the fetcher service
 	f := fetch.New(
 		db,
 		client.NewClient(c.remote),
+		em,
 		fetch.WithLogger(
 			logger.Named("fetcher"),
 		),
 	)
 
 	// Create the JSON-RPC service
-	j := serve.NewJSONRPC(
-		serve.WithLogger(
-			logger.Named("json-rpc"),
-		),
-		serve.WithListenAddress(
-			c.listenAddress,
-		),
-	)
-
-	txHandler := tx.NewHandler(db)
-	blockHandler := block.NewHandler(db)
-
-	// Register handlers
-	j.RegisterHandler(
-		"getTx",
-		txHandler.GetTxHandler,
-	)
-
-	j.RegisterHandler(
-		"getBlock",
-		blockHandler.GetBlockHandler,
+	j := setupJSONRPC(
+		c.listenAddress,
+		db,
+		em,
+		logger,
 	)
 
 	// Create a new waiter
@@ -151,4 +138,33 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	// Wait for the services to stop
 	return w.wait()
+}
+
+// setupJSONRPC sets up the JSONRPC instance
+func setupJSONRPC(
+	listenAddress string,
+	db *storage.Storage,
+	em *events.Manager,
+	logger *zap.Logger,
+) *serve.JSONRPC {
+	j := serve.NewJSONRPC(
+		em,
+		serve.WithLogger(
+			logger.Named("json-rpc"),
+		),
+		serve.WithListenAddress(
+			listenAddress,
+		),
+	)
+
+	// Transaction handlers
+	j.RegisterTxEndpoints(db)
+
+	// Block handlers
+	j.RegisterBlockEndpoints(db)
+
+	// Sub handlers
+	j.RegisterSubEndpoints(db)
+
+	return j
 }

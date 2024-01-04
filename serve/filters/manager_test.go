@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/gnolang/tx-indexer/events"
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/filter"
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/mocks"
+	"github.com/gnolang/tx-indexer/serve/filters/filter"
+	"github.com/gnolang/tx-indexer/serve/filters/mocks"
 	"github.com/gnolang/tx-indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 // generateTestHashes generates dummy test hashes
@@ -37,7 +36,6 @@ func Test_BlockFilters(t *testing.T) {
 		context.Background(),
 		&mocks.MockStorage{},
 		events.NewManager(),
-		WithLogger(zap.NewNop()),
 	)
 
 	// Create block filter

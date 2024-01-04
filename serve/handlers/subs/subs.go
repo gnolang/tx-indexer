@@ -3,26 +3,24 @@ package subs
 import (
 	"fmt"
 
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters"
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/subscription"
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/serve/filters"
+	"github.com/gnolang/tx-indexer/serve/filters/subscription"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
 )
 
 type Handler struct {
-	storage     filters.Storage
 	connFetcher ConnectionFetcher
 
 	filterManager *filters.Manager
 }
 
 func NewHandler(
-	storage filters.Storage,
-	conns ConnectionFetcher,
 	filterManager *filters.Manager,
+	conns ConnectionFetcher,
 ) *Handler {
 	return &Handler{
-		storage:       storage,
 		connFetcher:   conns,
 		filterManager: filterManager,
 	}
@@ -117,9 +115,17 @@ func (h *Handler) subscribe(connID, eventType string) (string, error) {
 }
 
 func (h *Handler) UnsubscribeHandler(
-	_ *metadata.Metadata,
+	metadata *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
+	// This method can only be called through a WS connection
+	if !metadata.IsWS() {
+		return nil, spec.NewJSONError(
+			"Method only supported over WS",
+			spec.ServerErrorCode,
+		)
+	}
+
 	// Check the params
 	if len(params) != 1 {
 		return nil, spec.GenerateInvalidParamCountError()
@@ -137,3 +143,35 @@ func (h *Handler) UnsubscribeHandler(
 func (h *Handler) unsubscribe(subscriptionID string) bool {
 	return h.filterManager.UninstallSubscription(subscriptionID)
 }
+
+// GetFilterChangesHandler returns recent changes for a specified filter
+func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (any, *spec.BaseJSONError) {
+	// Check the params
+	if len(params) != 1 {
+		return nil, spec.GenerateInvalidParamCountError()
+	}
+
+	// Extract the params
+	id, ok := params[0].(string)
+	if !ok {
+		return nil, spec.GenerateInvalidParamError(1)
+	}
+
+	// Get filter by id
+	f, err := h.filterManager.GetFilter(id)
+	if err != nil {
+		return nil, spec.GenerateResponseError(err)
+	}
+
+	// Handle block filter changes
+	return h.getBlockChanges(f), nil
+}
+
+func (h *Handler) getBlockChanges(filter filters.Filter) []types.Header {
+	// Get updates
+	blockHeaders, _ := filter.GetChanges().([]types.Header)
+
+	return blockHeaders
+}
+
+// TODO add newFilter

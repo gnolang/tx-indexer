@@ -4,6 +4,7 @@ import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
+	"github.com/gnolang/tx-indexer/events"
 )
 
 // Storage defines the transaction storage interface
@@ -35,4 +36,10 @@ type Client interface {
 
 	// CreateBatch creates a new client batch
 	CreateBatch() clientTypes.Batch
+}
+
+// Events is the events API
+type Events interface {
+	// SignalEvent signals a new event to the event manager
+	SignalEvent(events.Event)
 }

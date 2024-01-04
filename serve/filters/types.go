@@ -1,16 +1,22 @@
 package filters
 
 import (
+	"errors"
 	"time"
 
-	tm2Types "github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/events"
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/filter"
-	"github.com/gnolang/tx-indexer/types"
+	"github.com/gnolang/tx-indexer/serve/filters/filter"
 )
 
+var ErrFilterNotFound = errors.New("filter not found")
+
+// Events is the interface for event passing
 type Events interface {
+	// Subscribe subscribes to specific events
 	Subscribe([]events.Type) *events.Subscription
+
+	// CancelSubscription cancels the given subscription
 	CancelSubscription(events.SubscriptionID)
 }
 
@@ -18,10 +24,10 @@ type Events interface {
 // required by the filter manager
 type Storage interface {
 	// GetBlock fetches the block by its number
-	GetBlock(int64) (*tm2Types.Block, error)
+	GetBlock(int64) (*types.Block, error)
 
 	// GetTx fetches the tx using its hash
-	GetTx([]byte) (*tm2Types.TxResult, error)
+	GetTx([]byte) (*types.TxResult, error)
 }
 
 // Filter interface is used for different filter types
@@ -39,5 +45,5 @@ type Filter interface {
 	GetChanges() any
 
 	// UpdateWithBlock updates the specific filter type with a new block
-	UpdateWithBlock(block types.Block)
+	UpdateWithBlock(block *types.Block)
 }

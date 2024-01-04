@@ -1,9 +1,10 @@
 package subscription
 
 import (
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/serve/conns"
+	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/spec"
-	"github.com/gnolang/tx-indexer/types"
 )
 
 const (
@@ -22,6 +23,11 @@ func NewBlockSubscription(conn conns.WSConnection) *BlockSubscription {
 	}
 }
 
-func (b *BlockSubscription) WriteResponse(id string, block types.Block) error {
-	return b.conn.WriteData(spec.NewJSONSubscribeResponse(id, block))
+func (b *BlockSubscription) WriteResponse(id string, block *types.Block) error {
+	encodedBlock, err := encode.EncodeValue(block)
+	if err != nil {
+		return err
+	}
+
+	return b.conn.WriteData(spec.NewJSONSubscribeResponse(id, encodedBlock))
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
+	"github.com/gnolang/tx-indexer/types"
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 )
@@ -21,6 +22,7 @@ const (
 type Fetcher struct {
 	storage Storage
 	client  Client
+	events  Events
 
 	logger        *zap.Logger
 	chunkBuffer   *slots
@@ -32,11 +34,13 @@ type Fetcher struct {
 func New(
 	storage Storage,
 	client Client,
+	events Events,
 	opts ...Option,
 ) *Fetcher {
 	f := &Fetcher{
 		storage:       storage,
 		client:        client,
+		events:        events,
 		queryInterval: 1 * time.Second,
 		logger:        zap.NewNop(),
 		chunkBuffer:   &slots{Queue: make([]queue.Item, 0), maxSlots: maxSlots},
@@ -50,10 +54,6 @@ func New(
 }
 
 func (f *Fetcher) FetchTransactions(ctx context.Context) error {
-	defer func() {
-		f.logger.Info("Fetcher service shut down")
-	}()
-
 	collectorCh := make(chan *workerResponse, maxSlots)
 
 	startRangeFetch := func() error {
@@ -120,6 +120,9 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			f.logger.Info("Fetcher service shut down")
+			close(collectorCh)
+
 			return nil
 		case <-ticker.C:
 			if err := startRangeFetch(); err != nil {
@@ -167,6 +170,10 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 					}
 
 					f.logger.Debug("Saved block data", zap.Int64("number", block.Height))
+
+					f.events.SignalEvent(&types.NewBlock{
+						Block: block,
+					})
 				}
 
 				for _, txResult := range item.chunk.results {

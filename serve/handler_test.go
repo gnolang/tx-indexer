@@ -154,7 +154,7 @@ func newWebServer(t *testing.T, callbacks ...func(s *JSONRPC)) *testWebServer {
 		listener: listener,
 	}
 
-	s := NewJSONRPC(WithLogger(zap.NewNop()))
+	s := NewJSONRPC(nil, WithLogger(zap.NewNop()))
 
 	for _, callback := range callbacks {
 		callback(s)

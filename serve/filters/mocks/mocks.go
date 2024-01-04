@@ -7,15 +7,27 @@ import (
 	"github.com/gnolang/tx-indexer/events"
 )
 
-type hashDelegate func() []byte
+type (
+	hashDelegate   func() []byte
+	headerDelegate func() *tm2Types.Header
+)
 
 type MockBlock struct {
-	HashFn hashDelegate
+	HashFn   hashDelegate
+	HeaderFn headerDelegate
 }
 
 func (m *MockBlock) Hash() []byte {
 	if m.HashFn != nil {
 		return m.HashFn()
+	}
+
+	return nil
+}
+
+func (m *MockBlock) Header() *tm2Types.Header {
+	if m.HeaderFn != nil {
+		return m.HeaderFn()
 	}
 
 	return nil

@@ -30,7 +30,7 @@ type BaseJSONResponses []*BaseJSONResponse
 
 // BaseJSONResponse defines the base JSON response format
 type BaseJSONResponse struct {
-	Result any            `json:"result,omitempty"`
+	Result any            `json:"result"`
 	Error  *BaseJSONError `json:"error,omitempty"`
 	BaseJSON
 }
