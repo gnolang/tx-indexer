@@ -6,7 +6,7 @@ type Batch interface {
 	AddBlockRequest(int64) error
 
 	// AddBlockResultsRequest adds a new block results request (block results fetch) to the batch
-	AddBlockResultsRequest(blockNum int64) error
+	AddBlockResultsRequest(int64) error
 
 	// Execute sends the batch off for processing by the node
 	Execute() ([]any, error)

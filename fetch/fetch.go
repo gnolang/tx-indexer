@@ -15,14 +15,19 @@ import (
 )
 
 const (
-	maxSlots     = 100
-	maxChunkSize = 100
+	DefaultMaxSlots     = 100
+	DefaultMaxChunkSize = 100
 )
 
+// Fetcher is an instance of the block indexer
+// fetcher
 type Fetcher struct {
 	storage Storage
 	client  Client
 	events  Events
+
+	maxSlots     int
+	maxChunkSize int64
 
 	logger        *zap.Logger
 	chunkBuffer   *slots
@@ -43,22 +48,32 @@ func New(
 		events:        events,
 		queryInterval: 1 * time.Second,
 		logger:        zap.NewNop(),
-		chunkBuffer:   &slots{Queue: make([]queue.Item, 0), maxSlots: maxSlots},
+		maxSlots:      DefaultMaxSlots,
+		maxChunkSize:  DefaultMaxChunkSize,
 	}
 
 	for _, opt := range opts {
 		opt(f)
 	}
 
+	f.chunkBuffer = &slots{
+		Queue:    make([]queue.Item, 0),
+		maxSlots: f.maxSlots,
+	}
+
 	return f
 }
 
-func (f *Fetcher) FetchTransactions(ctx context.Context) error {
-	collectorCh := make(chan *workerResponse, maxSlots)
+// FetchChainData starts the fetching process that indexes
+// blockchain data
+func (f *Fetcher) FetchChainData(ctx context.Context) error {
+	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
-	startRangeFetch := func() error {
+	// attemptRangeFetch compares local and remote state
+	// and spawns workers to fetch chunks of the chain
+	attemptRangeFetch := func() error {
 		// Check if there are any free slots
-		if f.chunkBuffer.Len() == maxSlots {
+		if f.chunkBuffer.Len() == f.maxSlots {
 			// Currently no free slot exists
 			return nil
 		}
@@ -70,7 +85,7 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 		}
 
 		// Fetch the latest block from the chain
-		latest, latestErr := f.client.GetLatestBlockNumber()
+		latestRemote, latestErr := f.client.GetLatestBlockNumber()
 		if latestErr != nil {
 			f.logger.Error("unable to fetch latest block number", zap.Error(latestErr))
 
@@ -78,15 +93,15 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 		}
 
 		// Check if there is a block gap
-		if latest <= latestLocal {
+		if latestRemote <= latestLocal {
 			// No gap, nothing to sync
 			return nil
 		}
 
 		gaps := f.chunkBuffer.reserveChunkRanges(
 			latestLocal+1,
-			latest,
-			maxChunkSize,
+			latestRemote,
+			f.maxChunkSize,
 		)
 
 		for _, gap := range gaps {
@@ -113,7 +128,7 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 	defer ticker.Stop()
 
 	// Execute the initial "catch up" with the chain
-	if err := startRangeFetch(); err != nil {
+	if err := attemptRangeFetch(); err != nil {
 		return err
 	}
 
@@ -125,11 +140,15 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 
 			return nil
 		case <-ticker.C:
-			if err := startRangeFetch(); err != nil {
+			if err := attemptRangeFetch(); err != nil {
 				return err
 			}
 		case response := <-collectorCh:
-			// Find the slot index
+			// Find the slot index.
+			// The reason for this search, is because the underlying
+			// slots are shifted constantly to accommodate new ranges,
+			// so by the time a slot is fetched, its original
+			// position is not guaranteed
 			index := sort.Search(f.chunkBuffer.Len(), func(i int) bool {
 				return f.chunkBuffer.getSlot(i).chunkRange.from >= response.chunkRange.from
 			})
@@ -145,11 +164,11 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 			f.chunkBuffer.setChunk(index, response.chunk)
 
 			for f.chunkBuffer.Len() > 0 {
+				// Peek the next sequential slot
 				item := f.chunkBuffer.getSlot(0)
 
-				isFetched := item.chunk != nil
-
-				if !isFetched {
+				if item.chunk == nil {
+					// Chunk not fetched yet, nothing to do
 					break
 				}
 
@@ -157,7 +176,7 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 				f.chunkBuffer.PopFront()
 
 				// Save the fetched data
-				for _, block := range item.chunk.blocks {
+				for blockIndex, block := range item.chunk.blocks {
 					if saveErr := f.storage.SaveBlock(block); saveErr != nil {
 						// This is a design choice that really highlights the strain
 						// of keeping legacy testnets running. Current TM2 testnets
@@ -171,22 +190,30 @@ func (f *Fetcher) FetchTransactions(ctx context.Context) error {
 
 					f.logger.Debug("Saved block data", zap.Int64("number", block.Height))
 
-					f.events.SignalEvent(&types.NewBlock{
-						Block: block,
-					})
-				}
+					// Get block results
+					txResults := item.chunk.results[blockIndex]
 
-				for _, txResult := range item.chunk.results {
-					if err := f.storage.SaveTx(txResult); err != nil {
-						f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+					// Save the fetched transaction results
+					for _, txResult := range txResults {
+						if err := f.storage.SaveTx(txResult); err != nil {
+							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
 
-						continue
+							continue
+						}
+
+						f.logger.Debug(
+							"Saved tx",
+							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+						)
 					}
 
-					f.logger.Debug(
-						"Saved tx",
-						zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
-					)
+					// Alert any listeners of a new saved block
+					event := &types.NewBlock{
+						Block:   block,
+						Results: txResults,
+					}
+
+					f.events.SignalEvent(event)
 				}
 
 				f.logger.Info(

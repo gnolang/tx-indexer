@@ -58,27 +58,9 @@ func handleChunk(
 	}
 }
 
-func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block, error) {
-	var (
-		errs   = make([]error, 0)
-		blocks = make([]*types.Block, 0)
-	)
-
-	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
-		// Get block info from the chain
-		block, err := client.GetBlock(blockNum)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
-
-			continue
-		}
-
-		blocks = append(blocks, block.Block)
-	}
-
-	return blocks, errors.Join(errs...)
-}
-
+// getBlocksFromBatch gets the blocks using batch requests.
+// In case of encountering an error during fetching (remote temporarily closed, batch error...),
+// the fetch is attempted again using sequential block fetches
 func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, error) {
 	var (
 		batch         = client.CreateBatch()
@@ -117,52 +99,35 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 	return fetchedBlocks, nil
 }
 
-func getTxResultsSequentially(blocks []*types.Block, client Client) ([]*types.TxResult, error) {
+// getBlocksSequentially attempts to fetch blocks from the client, using sequential requests
+func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block, error) {
 	var (
-		errs    = make([]error, 0)
-		results = make([]*types.TxResult, 0)
+		errs   = make([]error, 0)
+		blocks = make([]*types.Block, 0)
 	)
 
-	for _, block := range blocks {
-		if block.NumTxs == 0 {
-			continue
-		}
-
-		// Get the transaction execution results
-		txResults, err := client.GetBlockResults(block.Height)
+	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
+		// Get block info from the chain
+		block, err := client.GetBlock(blockNum)
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf(
-					"unable to get block results for block %d, %w",
-					block.Height,
-					err,
-				),
-			)
+			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
 
 			continue
 		}
 
-		// Save the transaction result to the storage
-		for index, tx := range block.Txs {
-			result := &types.TxResult{
-				Height:   block.Height,
-				Index:    uint32(index),
-				Tx:       tx,
-				Response: txResults.Results.DeliverTxs[index],
-			}
-
-			results = append(results, result)
-		}
+		blocks = append(blocks, block.Block)
 	}
 
-	return results, errors.Join(errs...)
+	return blocks, errors.Join(errs...)
 }
 
-func getTxResultFromBatch(blocks []*types.Block, client Client) ([]*types.TxResult, error) {
+// getTxResultFromBatch gets the tx results using batch requests.
+// In case of encountering an error during fetching (remote temporarily closed, batch error...),
+// the fetch is attempted again using sequential tx result fetches
+func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
 	var (
 		batch          = client.CreateBatch()
-		fetchedResults = make([]*types.TxResult, 0)
+		fetchedResults = make([][]*types.TxResult, len(blocks))
 	)
 
 	// Create the results request batch
@@ -206,6 +171,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([]*types.TxResu
 		height := results.Height
 		deliverTxs := results.Results.DeliverTxs
 
+		txResults := make([]*types.TxResult, blocks[resultsIndex].NumTxs)
 		for txIndex, tx := range blocks[resultsIndex].Txs {
 			result := &types.TxResult{
 				Height:   height,
@@ -214,9 +180,57 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([]*types.TxResu
 				Response: deliverTxs[txIndex],
 			}
 
-			fetchedResults = append(fetchedResults, result)
+			txResults[txIndex] = result
 		}
+
+		fetchedResults[resultsIndex] = txResults
 	}
 
 	return fetchedResults, nil
+}
+
+// getTxResultsSequentially attempts to fetch tx results from the client, using sequential requests
+func getTxResultsSequentially(blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
+	var (
+		errs    = make([]error, 0)
+		results = make([][]*types.TxResult, len(blocks))
+	)
+
+	for index, block := range blocks {
+		if block.NumTxs == 0 {
+			continue
+		}
+
+		// Get the transaction execution results
+		blockResults, err := client.GetBlockResults(block.Height)
+		if err != nil {
+			errs = append(
+				errs,
+				fmt.Errorf(
+					"unable to get block results for block %d, %w",
+					block.Height,
+					err,
+				),
+			)
+
+			continue
+		}
+
+		// Save the transaction result
+		txResults := make([]*types.TxResult, block.NumTxs)
+		for index, tx := range block.Txs {
+			result := &types.TxResult{
+				Height:   block.Height,
+				Index:    uint32(index),
+				Tx:       tx,
+				Response: blockResults.Results.DeliverTxs[index],
+			}
+
+			txResults[index] = result
+		}
+
+		results[index] = txResults
+	}
+
+	return results, errors.Join(errs...)
 }

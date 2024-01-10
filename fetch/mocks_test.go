@@ -4,6 +4,7 @@ import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
+	"github.com/gnolang/tx-indexer/events"
 )
 
 type (
@@ -98,4 +99,64 @@ func (m *mockClient) CreateBatch() clientTypes.Batch {
 	}
 
 	return nil
+}
+
+type (
+	addBlockRequestDelegate        func(int64) error
+	addBlockResultsRequestDelegate func(int64) error
+	executeDelegate                func() ([]any, error)
+	countDelegate                  func() int
+)
+
+type mockBatch struct {
+	addBlockRequestFn        addBlockRequestDelegate
+	addBlockResultsRequestFn addBlockResultsRequestDelegate
+	executeFn                executeDelegate
+	countFn                  countDelegate
+}
+
+func (m *mockBatch) AddBlockRequest(num int64) error {
+	if m.addBlockRequestFn != nil {
+		return m.addBlockRequestFn(num)
+	}
+
+	return nil
+}
+
+func (m *mockBatch) AddBlockResultsRequest(num int64) error {
+	if m.addBlockResultsRequestFn != nil {
+		return m.addBlockResultsRequestFn(num)
+	}
+
+	return nil
+}
+
+func (m *mockBatch) Execute() ([]any, error) {
+	if m.executeFn != nil {
+		return m.executeFn()
+	}
+
+	return nil, nil
+}
+
+func (m *mockBatch) Count() int {
+	if m.countFn != nil {
+		return m.countFn()
+	}
+
+	return 0
+}
+
+type (
+	signalEventDelegate func(events.Event)
+)
+
+type mockEvents struct {
+	signalEventFn signalEventDelegate
+}
+
+func (m *mockEvents) SignalEvent(event events.Event) {
+	if m.signalEventFn != nil {
+		m.signalEventFn(event)
+	}
 }

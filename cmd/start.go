@@ -24,6 +24,9 @@ type startCfg struct {
 	remote        string
 	dbPath        string
 	logLevel      string
+
+	maxSlots     int
+	maxChunkSize int64
 }
 
 // newStartCmd creates the indexer start command
@@ -74,6 +77,20 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		zap.InfoLevel.String(),
 		"the log level for the CLI output",
 	)
+
+	fs.IntVar(
+		&c.maxSlots,
+		"max-slots",
+		fetch.DefaultMaxSlots,
+		"the amount of slots (workers) the fetcher employs",
+	)
+
+	fs.Int64Var(
+		&c.maxChunkSize,
+		"max-chunk-size",
+		fetch.DefaultMaxChunkSize,
+		"the range for fetching blockchain data by a single worker",
+	)
 }
 
 // exec executes the indexer start command
@@ -117,6 +134,8 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithLogger(
 			logger.Named("fetcher"),
 		),
+		fetch.WithMaxSlots(c.maxSlots),
+		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
 	// Create the JSON-RPC service
@@ -131,7 +150,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	w := newWaiter(ctx)
 
 	// Add the fetcher service
-	w.add(f.FetchTransactions)
+	w.add(f.FetchChainData)
 
 	// Add the JSON-RPC service
 	w.add(j.Serve)

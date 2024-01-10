@@ -5,9 +5,11 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 )
 
+// chunk represents a single blockchain
+// data range
 type chunk struct {
 	blocks  []*types.Block
-	results []*types.TxResult
+	results [][]*types.TxResult // summarized results
 }
 
 // slot is a single chunk slot
@@ -17,10 +19,8 @@ type slot struct {
 }
 
 func (s *slot) Less(i queue.Item) bool {
-	other, ok := i.(*slot)
-	if !ok {
-		return false
-	}
+	// No need to check the type assertion
+	other, _ := i.(*slot)
 
 	return s.chunkRange.less(other.chunkRange)
 }
@@ -80,7 +80,12 @@ func (s *slots) reserveChunkRanges(start, end, maxChunkSize int64) []chunkRange 
 	return chunkRanges
 }
 
-// findGaps finds the chunk gaps in the specified range
+// findGaps finds the chunk gaps in the specified range.
+// The method finds any chunk ranges that can be filled between
+// start and end (inclusive). This means that the calling process
+// can potentially recover unfilled gaps, since they will exist given the
+// proper start and end ranges. This situation is reflected in the testing
+// suite for the slots
 func (s *slots) findGaps(start, end, maxSize int64) []chunkRange {
 	var (
 		chunkRanges []chunkRange // contains all gaps
