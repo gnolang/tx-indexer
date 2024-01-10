@@ -3,7 +3,7 @@ package subscription
 import (
 	"testing"
 
-	"github.com/gnolang/tx-indexer/serve/handlers/subs/filters/mocks"
+	"github.com/gnolang/tx-indexer/serve/filters/mocks"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

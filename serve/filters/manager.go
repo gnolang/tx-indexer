@@ -16,7 +16,7 @@ import (
 // Manager manages all running filters
 type Manager struct {
 	ctx             context.Context
-	storage         Storage
+	storage         Storage // temporarily unused
 	events          Events
 	filters         *filterMap
 	subscriptions   *subscriptionMap
