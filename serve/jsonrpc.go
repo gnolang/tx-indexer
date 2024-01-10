@@ -173,7 +173,7 @@ func (j *JSONRPC) RegisterTxEndpoints(db tx.Storage) {
 	txHandler := tx.NewHandler(db)
 
 	j.RegisterHandler(
-		"getTx",
+		"getTxResult",
 		txHandler.GetTxHandler,
 	)
 }
