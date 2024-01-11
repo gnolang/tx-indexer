@@ -21,11 +21,12 @@ func NewBlockFilter() *BlockFilter {
 
 // GetChanges returns all new block headers from the last query
 func (b *BlockFilter) GetChanges() any {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	// Get hashes
-	hashes := b.blockHeaders
+	hashes := make([]types.Header, len(b.blockHeaders))
+	copy(hashes, b.blockHeaders)
 
 	// Empty headers
 	b.blockHeaders = b.blockHeaders[:0]
