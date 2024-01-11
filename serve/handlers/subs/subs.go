@@ -93,7 +93,7 @@ func (h *Handler) SubscribeHandler(
 	subscriptionID, err := h.subscribe(*metadata.WebSocketID, eventType)
 	if err != nil {
 		return nil, spec.NewJSONError(
-			fmt.Sprintf("Unable to subscribe, %s", err.Error()),
+			fmt.Sprintf("unable to subscribe, %s", err.Error()),
 			spec.ServerErrorCode,
 		)
 	}
