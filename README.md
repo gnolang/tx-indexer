@@ -25,13 +25,13 @@ This section guides you through setting up and running the `tx-indexer`.
 git clone github.com/gnolang/tx-indexer
 ```
 
-2. Build the binary
+2. **Build the binary**
 
 ```bash
 make build
 ```
 
-3. Run the indexer
+3. **Run the indexer**
 
 ```bash
 ./build/indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
