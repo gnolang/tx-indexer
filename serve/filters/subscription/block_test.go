@@ -24,7 +24,7 @@ func TestBlockSubscription_WriteResponse(t *testing.T) {
 		}
 	)
 
-	encodedResponse, err := encode.PrepareValue(mockBlock)
+	encodedResponse, err := encode.PrepareValue(mockBlock.Header)
 	require.Nil(t, err)
 
 	expectedBlockResponse := spec.NewJSONSubscribeResponse("", encodedResponse)

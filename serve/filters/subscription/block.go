@@ -24,7 +24,7 @@ func NewBlockSubscription(conn conns.WSConnection) *BlockSubscription {
 }
 
 func (b *BlockSubscription) WriteResponse(id string, block *types.Block) error {
-	encodedBlock, err := encode.PrepareValue(block)
+	encodedBlock, err := encode.PrepareValue(block.Header)
 	if err != nil {
 		return err
 	}

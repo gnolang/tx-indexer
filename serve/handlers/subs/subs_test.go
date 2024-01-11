@@ -478,27 +478,27 @@ func TestSubscribe_Valid(t *testing.T) {
 	}
 
 	// Decode the changes
-	subscribeBlocks := make([]*types.Block, len(subscribeResponses))
+	subscribeHeaders := make([]types.Header, len(subscribeResponses))
 
 	for index, subscribeResponse := range subscribeResponses {
-		var block types.Block
+		var header types.Header
 
 		result, ok := subscribeResponse.Params.Result.(string)
 		require.True(t, ok)
 
 		// Decode from base64
-		decodedBlock, decodeErr := base64.StdEncoding.DecodeString(result)
+		decodedHeader, decodeErr := base64.StdEncoding.DecodeString(result)
 		require.Nil(t, decodeErr)
 
 		// Decode from amino
-		require.NoError(t, amino.Unmarshal(decodedBlock, &block))
+		require.NoError(t, amino.Unmarshal(decodedHeader, &header))
 
-		subscribeBlocks[index] = &block
+		subscribeHeaders[index] = header
 	}
 
 	// Make sure the correct changes were caught
-	for index, block := range subscribeBlocks {
-		assert.Equal(t, blocks[index], block)
+	for index, header := range subscribeHeaders {
+		assert.Equal(t, blocks[index].Header, header)
 	}
 }
 
