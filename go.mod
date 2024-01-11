@@ -11,7 +11,7 @@ require (
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sync v0.6.0
 )
 
 require (
