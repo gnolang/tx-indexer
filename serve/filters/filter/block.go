@@ -1,8 +1,6 @@
 package filter
 
 import (
-	"encoding/base64"
-
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
 
@@ -10,14 +8,14 @@ import (
 type BlockFilter struct {
 	*baseFilter
 
-	blockHashes []string
+	blockHeaders []types.Header
 }
 
 // NewBlockFilter creates new block filter object
 func NewBlockFilter() *BlockFilter {
 	return &BlockFilter{
-		baseFilter:  newBaseFilter(BlockFilterType),
-		blockHashes: make([]string, 0),
+		baseFilter:   newBaseFilter(BlockFilterType),
+		blockHeaders: make([]types.Header, 0),
 	}
 }
 
@@ -27,10 +25,10 @@ func (b *BlockFilter) GetChanges() any {
 	defer b.RUnlock()
 
 	// Get hashes
-	hashes := b.blockHashes
+	hashes := b.blockHeaders
 
 	// Empty headers
-	b.blockHashes = b.blockHashes[:0]
+	b.blockHeaders = b.blockHeaders[:0]
 
 	return hashes
 }
@@ -39,9 +37,9 @@ func (b *BlockFilter) UpdateWithBlock(block *types.Block) {
 	b.Lock()
 	defer b.Unlock()
 
-	// Get the block hash
-	hash := block.Hash()
-
-	// Add hash into block hash array
-	b.blockHashes = append(b.blockHashes, base64.StdEncoding.EncodeToString(hash))
+	// Add header into block header array
+	b.blockHeaders = append(
+		b.blockHeaders,
+		block.Header,
+	)
 }

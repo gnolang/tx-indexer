@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/filters"
-	"github.com/gnolang/tx-indexer/serve/filters/filter"
 	"github.com/gnolang/tx-indexer/serve/filters/subscription"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -165,7 +165,21 @@ func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (a
 	}
 
 	// Handle block filter changes
-	return h.getBlockChanges(f), nil
+	changes := h.getBlockChanges(f)
+
+	// Encode the response
+	encodedResponses := make([]string, len(changes))
+
+	for index, change := range changes {
+		encodedResponse, encodeErr := encode.EncodeValue(change)
+		if encodeErr != nil {
+			return nil, spec.GenerateResponseError(encodeErr)
+		}
+
+		encodedResponses[index] = encodedResponse
+	}
+
+	return encodedResponses, nil
 }
 
 func (h *Handler) getBlockChanges(filter filters.Filter) []types.Header {
@@ -173,34 +187,4 @@ func (h *Handler) getBlockChanges(filter filters.Filter) []types.Header {
 	blockHeaders, _ := filter.GetChanges().([]types.Header)
 
 	return blockHeaders
-}
-
-func (h *Handler) NewFilterHandler(_ *metadata.Metadata, params []any) (any, *spec.BaseJSONError) {
-	// Check the params
-	if len(params) == 0 {
-		return nil, spec.GenerateInvalidParamCountError()
-	}
-
-	// Extract the params
-	filterType, ok := params[0].(string)
-	if !ok {
-		return nil, spec.GenerateInvalidParamError(1)
-	}
-
-	filterID, err := h.newFilter(filterType)
-	if err != nil {
-		return nil, spec.GenerateResponseError(err)
-	}
-
-	return filterID, nil
-}
-
-func (h *Handler) newFilter(filterType string) (string, error) {
-	switch filter.Type(filterType) {
-	case filter.BlockFilterType:
-		// TODO revise if this is required, in favor of NewBlockFilter
-		return h.filterManager.NewBlockFilter(), nil
-	default:
-		return "", fmt.Errorf("invalid filter type: %s", filterType)
-	}
 }
