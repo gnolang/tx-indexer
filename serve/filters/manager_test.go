@@ -2,11 +2,11 @@ package filters
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	tm2Types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/filters/filter"
 	"github.com/gnolang/tx-indexer/serve/filters/mocks"
@@ -15,17 +15,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// generateTestHashes generates dummy test hashes
-func generateTestHashes(t *testing.T, count int) [][]byte {
+// generateBlocks generates dummy blocks
+func generateBlocks(t *testing.T, count int) []*tm2Types.Block {
 	t.Helper()
 
-	result := make([][]byte, count)
+	blocks := make([]*tm2Types.Block, count)
 
 	for i := 0; i < count; i++ {
-		result[i] = []byte(fmt.Sprintf("hash %d", i))
+		blocks[i] = &tm2Types.Block{
+			Header: tm2Types.Header{
+				Height: int64(i),
+			},
+			Data: tm2Types.Data{},
+		}
 	}
 
-	return result
+	return blocks
 }
 
 // Test_BlockFilters tests block filters
@@ -69,7 +74,7 @@ func Test_NewBlockEvents(t *testing.T) {
 	t.Parallel()
 
 	var (
-		hashes  = generateTestHashes(t, 10)
+		blocks  = generateBlocks(t, 10)
 		blockCh = make(chan events.Event)
 
 		mockEvents = &mocks.MockEvents{
@@ -92,21 +97,17 @@ func Test_NewBlockEvents(t *testing.T) {
 	id := filterManager.NewBlockFilter()
 	defer filterManager.UninstallFilter(id)
 
-	for _, hash := range hashes {
-		hash := hash
+	for _, block := range blocks {
+		block := block
 
 		blockCh <- &types.NewBlock{
-			Block: &mocks.MockBlock{
-				HashFn: func() []byte {
-					return hash
-				},
-			},
+			Block: block,
 		}
 	}
 
 	var (
-		wg             sync.WaitGroup
-		capturedHashes [][]byte
+		wg              sync.WaitGroup
+		capturedHeaders []tm2Types.Header
 	)
 
 	wg.Add(1)
@@ -130,15 +131,16 @@ func Test_NewBlockEvents(t *testing.T) {
 				require.Nil(t, err)
 
 				// Get changes
-				blockHashesRaw := blockFilter.GetChanges()
+				blockHeadersRaw := blockFilter.GetChanges()
 
-				blockHashes, _ := blockHashesRaw.([][]byte)
+				blockHeaders, ok := blockHeadersRaw.([]tm2Types.Header)
+				require.True(t, ok)
 
-				if len(blockHashes) == 0 {
+				if len(blockHeaders) == 0 {
 					continue
 				}
 
-				capturedHashes = blockHashes
+				capturedHeaders = blockHeaders
 
 				return
 			}
@@ -147,8 +149,12 @@ func Test_NewBlockEvents(t *testing.T) {
 
 	wg.Wait()
 
-	// Hashes should match
-	assert.Equal(t, hashes, capturedHashes)
+	// Make sure the headers match
+	require.Len(t, capturedHeaders, len(blocks))
+
+	for index, header := range capturedHeaders {
+		assert.Equal(t, blocks[index].Header, header)
+	}
 }
 
 func Test_FilterCleanup(t *testing.T) {

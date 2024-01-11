@@ -309,58 +309,6 @@ func TestGetFilterChanges_Valid(t *testing.T) {
 func TestSubscribe_InvalidParams(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid param values", func(t *testing.T) {
-		t.Parallel()
-
-		exampleString := "example"
-
-		testTable := []struct {
-			name              string
-			params            []any
-			metadata          *metadata.Metadata
-			expectedErrorCode int
-		}{
-			{
-				"not WS connection",
-				[]any{},
-				&metadata.Metadata{WebSocketID: nil},
-				spec.ServerErrorCode,
-			},
-			{
-				"invalid param length",
-				[]any{1, 2, 3},
-				&metadata.Metadata{WebSocketID: &exampleString},
-				spec.InvalidParamsErrorCode,
-			},
-			{
-				"invalid param type",
-				[]any{1},
-				&metadata.Metadata{WebSocketID: &exampleString},
-				spec.InvalidParamsErrorCode,
-			},
-		}
-
-		for _, testCase := range testTable {
-			testCase := testCase
-
-			t.Run(testCase.name, func(t *testing.T) {
-				t.Parallel()
-
-				h := NewHandler(nil, nil)
-
-				response, err := h.SubscribeHandler(
-					testCase.metadata,
-					testCase.params,
-				)
-				assert.Nil(t, response)
-
-				require.NotNil(t, err)
-
-				assert.Equal(t, testCase.expectedErrorCode, err.Code)
-			})
-		}
-	})
-
 	t.Run("invalid connection ID", func(t *testing.T) {
 		t.Parallel()
 
@@ -554,33 +502,44 @@ func TestSubscribe_Valid(t *testing.T) {
 	}
 }
 
-func TestUnsubscribe_InvalidParams(t *testing.T) {
+func TestSubscribeUnsubscribe_InvalidParams(t *testing.T) {
 	t.Parallel()
 
 	exampleString := "example"
 
+	commonVerification := func(
+		response any,
+		err *spec.BaseJSONError,
+		expectedErrorCode int,
+	) {
+		assert.Nil(t, response)
+
+		require.NotNil(t, err)
+		assert.Equal(t, expectedErrorCode, err.Code)
+	}
+
 	testTable := []struct {
 		name              string
-		params            []any
 		metadata          *metadata.Metadata
+		params            []any
 		expectedErrorCode int
 	}{
 		{
 			"not WS connection",
-			[]any{},
 			&metadata.Metadata{WebSocketID: nil},
+			[]any{},
 			spec.ServerErrorCode,
 		},
 		{
 			"invalid param length",
-			[]any{1, 2, 3},
 			&metadata.Metadata{WebSocketID: &exampleString},
+			[]any{1, 2, 3},
 			spec.InvalidParamsErrorCode,
 		},
 		{
 			"invalid param type",
-			[]any{1},
 			&metadata.Metadata{WebSocketID: &exampleString},
+			[]any{1},
 			spec.InvalidParamsErrorCode,
 		},
 	}
@@ -597,11 +556,15 @@ func TestUnsubscribe_InvalidParams(t *testing.T) {
 				testCase.metadata,
 				testCase.params,
 			)
-			assert.Nil(t, response)
 
-			require.NotNil(t, err)
+			commonVerification(response, err, testCase.expectedErrorCode)
 
-			assert.Equal(t, testCase.expectedErrorCode, err.Code)
+			response, err = h.SubscribeHandler(
+				testCase.metadata,
+				testCase.params,
+			)
+
+			commonVerification(response, err, testCase.expectedErrorCode)
 		})
 	}
 }

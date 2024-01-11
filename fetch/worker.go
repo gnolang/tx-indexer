@@ -172,6 +172,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 		deliverTxs := results.Results.DeliverTxs
 
 		txResults := make([]*types.TxResult, blocks[resultsIndex].NumTxs)
+
 		for txIndex, tx := range blocks[resultsIndex].Txs {
 			result := &types.TxResult{
 				Height:   height,
@@ -218,6 +219,7 @@ func getTxResultsSequentially(blocks []*types.Block, client Client) ([][]*types.
 
 		// Save the transaction result
 		txResults := make([]*types.TxResult, block.NumTxs)
+
 		for index, tx := range block.Txs {
 			result := &types.TxResult{
 				Height:   block.Height,

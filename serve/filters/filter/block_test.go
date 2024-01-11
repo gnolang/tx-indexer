@@ -3,7 +3,7 @@ package filter
 import (
 	"testing"
 
-	"github.com/gnolang/tx-indexer/serve/filters/mocks"
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,11 +11,23 @@ import (
 func TestBlockFilter_GetChanges(t *testing.T) {
 	t.Parallel()
 
-	// Generate dummy hashes
-	hashes := [][]byte{
-		[]byte("hash 1"),
-		[]byte("hash 2"),
-		[]byte("hash 3"),
+	// Generate dummy blocks
+	blocks := []*types.Block{
+		{
+			Header: types.Header{
+				Height: 1,
+			},
+		},
+		{
+			Header: types.Header{
+				Height: 2,
+			},
+		},
+		{
+			Header: types.Header{
+				Height: 3,
+			},
+		},
 	}
 
 	// Create a new block filter
@@ -25,22 +37,22 @@ func TestBlockFilter_GetChanges(t *testing.T) {
 	assert.Equal(t, BlockFilterType, f.GetType())
 
 	// Update the block filter with dummy blocks
-	for _, hash := range hashes {
-		hash := hash
+	for _, block := range blocks {
+		block := block
 
-		f.UpdateWithBlock(&mocks.MockBlock{
-			HashFn: func() []byte {
-				return hash
-			},
-		})
+		f.UpdateWithBlock(block)
 	}
 
 	// Get changes
 	changesRaw := f.GetChanges()
 
-	changes, ok := changesRaw.([][]byte)
+	changes, ok := changesRaw.([]types.Header)
 	require.True(t, ok)
 
-	// Make sure the hashes match
-	assert.Equal(t, hashes, changes)
+	// Make sure the headers match
+	require.Len(t, changes, len(blocks))
+
+	for index, header := range changes {
+		assert.Equal(t, blocks[index].Header, header)
+	}
 }

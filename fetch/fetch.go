@@ -26,11 +26,12 @@ type Fetcher struct {
 	client  Client
 	events  Events
 
+	logger      *zap.Logger
+	chunkBuffer *slots
+
 	maxSlots     int
 	maxChunkSize int64
 
-	logger        *zap.Logger
-	chunkBuffer   *slots
 	queryInterval time.Duration // block query interval
 }
 

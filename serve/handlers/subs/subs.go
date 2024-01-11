@@ -171,7 +171,7 @@ func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (a
 	encodedResponses := make([]string, len(changes))
 
 	for index, change := range changes {
-		encodedResponse, encodeErr := encode.EncodeValue(change)
+		encodedResponse, encodeErr := encode.PrepareValue(change)
 		if encodeErr != nil {
 			return nil, spec.GenerateResponseError(encodeErr)
 		}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 
@@ -109,7 +110,6 @@ func (c *startCfg) exec(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
-	defer logger.Sync()
 
 	// Create a DB instance
 	db, err := storage.New(c.dbPath)
@@ -156,7 +156,10 @@ func (c *startCfg) exec(ctx context.Context) error {
 	w.add(j.Serve)
 
 	// Wait for the services to stop
-	return w.wait()
+	return errors.Join(
+		w.wait(),
+		logger.Sync(),
+	)
 }
 
 // setupJSONRPC sets up the JSONRPC instance

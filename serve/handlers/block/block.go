@@ -51,7 +51,7 @@ func (h *Handler) GetBlockHandler(
 		return nil, nil
 	}
 
-	encodedResponse, err := encode.EncodeValue(response)
+	encodedResponse, err := encode.PrepareValue(response)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -64,6 +64,7 @@ func (h *Handler) getBlock(blockNum int64) (*types.Block, error) {
 	block, err := h.storage.GetBlock(blockNum)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
+		//nolint:nilnil // This is a special case
 		return nil, nil
 	}
 

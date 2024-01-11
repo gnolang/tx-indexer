@@ -10,7 +10,7 @@ run:
   build-tags:
     - testmocks
   skip-dirs:
-    - serve/handlers/subs/filters/mocks
+    - serve/filters/mocks
 
 output:
   uniq-by-line: false

@@ -3,6 +3,8 @@ package subscription
 import (
 	"testing"
 
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/filters/mocks"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/stretchr/testify/assert"
@@ -15,14 +17,17 @@ func TestBlockSubscription_WriteResponse(t *testing.T) {
 	var (
 		capturedWrite any
 
-		mockBlock = &mocks.MockBlock{
-			HashFn: func() []byte {
-				return []byte("hash")
+		mockBlock = &types.Block{
+			Header: types.Header{
+				Height: 10,
 			},
 		}
 	)
 
-	expectedBlockResponse := spec.NewJSONSubscribeResponse("", mockBlock)
+	encodedResponse, err := encode.PrepareValue(mockBlock)
+	require.Nil(t, err)
+
+	expectedBlockResponse := spec.NewJSONSubscribeResponse("", encodedResponse)
 
 	mockConn := &mocks.MockConn{
 		WriteDataFn: func(data any) error {

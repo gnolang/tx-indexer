@@ -52,7 +52,7 @@ func (h *Handler) GetTxHandler(
 		return nil, nil
 	}
 
-	encodedResponse, err := encode.EncodeValue(response)
+	encodedResponse, err := encode.PrepareValue(response)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -65,6 +65,7 @@ func (h *Handler) getTx(txHash []byte) (*types.TxResult, error) {
 	tx, err := h.storage.GetTx(txHash)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
+		//nolint:nilnil // This is a special case
 		return nil, nil
 	}
 
