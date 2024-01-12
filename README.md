@@ -227,6 +227,27 @@ Uninstalls a filter with the given filter ID.
 - **Params**: the filter ID (`string`)
 - **Response**: `true` if the filter was successfully uninstalled, otherwise `false` (`boolean`)
 
+Example request:
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "uninstallFilter",
+  "params": [
+    "c77000bb-700c-41b9-830c-e8b35bdef246"
+  ]
+}
+```
+
+Example response:
+```json
+{
+  "result": true,
+  "jsonrpc": "2.0",
+  "id": 1
+}
+```
+
 #### `subscribe`
 
 Starts a subscription to a specific event. **Only available over WS connections**.
