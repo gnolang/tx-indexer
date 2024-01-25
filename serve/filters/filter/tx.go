@@ -8,14 +8,18 @@ import (
 // It provides methods to manipulate and query the transactions.
 type TxFilter struct {
 	*baseFilter
-	txrs		[]*types.TxResult
+	// txrs represents the transactions in the filter.
+	txrs []*types.TxResult
+	// conditions holds the filtering conditions.
+	conditions []func(*types.TxResult) bool
 }
 
 // NewTxFilter creates a new TxFilter object.
 func NewTxFilter() *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
-		txrs: make([]*types.TxResult, 0),
+		txrs:       make([]*types.TxResult, 0),
+		conditions: make([]func(*types.TxResult) bool, 0),
 	}
 }
 
@@ -49,7 +53,7 @@ func (tf *TxFilter) GetChanges() any {
 	changes := make([]*types.TxResult, len(tf.txrs))
 	copy(changes, tf.txrs)
 
-	tf.txrs = tf.txrs[:0]	// reset for new transactions
+	tf.txrs = tf.txrs[:0] // reset for new transactions
 
 	return changes
 }
@@ -60,4 +64,67 @@ func (tf *TxFilter) UpdateWithTx(txr *types.TxResult) {
 	defer tf.Unlock()
 
 	tf.txrs = append(tf.txrs, txr)
+}
+
+// ClearConditions resets the previously set conditions from the filter.
+func (tf *TxFilter) ClearConditions() *TxFilter {
+	tf.conditions = nil
+	return tf
+}
+
+// Height sets a filter for the height of the transactions.
+//
+// It appends a height-based condition to the conditions slice.
+func (tf *TxFilter) Height(height int64) *TxFilter {
+	cond := func(txr *types.TxResult) bool {
+		return txr.Height == height
+	}
+	tf.conditions = append(tf.conditions, cond)
+	return tf
+}
+
+// Index sets a filter for the index of the transactions.
+func (tf *TxFilter) Index(index uint32) *TxFilter {
+	cond := func(txr *types.TxResult) bool {
+		return txr.Index == index
+	}
+	tf.conditions = append(tf.conditions, cond)
+	return tf
+}
+
+// GasUsed sets a filter for the gas used by transactions.
+func (tf *TxFilter) GasUsed(min, max int64) *TxFilter {
+	cond := func(txr *types.TxResult) bool {
+		return txr.Response.GasUsed >= min && txr.Response.GasUsed <= max
+	}
+	tf.conditions = append(tf.conditions, cond)
+	return tf
+}
+
+// GasWanted sets a filter for the gas wanted by transactions.
+func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
+	cond := func(txr *types.TxResult) bool {
+		return txr.Response.GasWanted >= min && txr.Response.GasWanted <= max
+	}
+	tf.conditions = append(tf.conditions, cond)
+	return tf
+}
+
+// Apply applies all added conditions to the transactions in the filter.
+//
+// It returns a slice of `TxResult` that satisfy all the conditions.
+func (tf *TxFilter) Apply() (filtered []*types.TxResult) {
+	for _, txr := range tf.txrs {
+		pass := true
+		for _, condition := range tf.conditions {
+			if !condition(txr) {
+				pass = false
+				break
+			}
+		}
+		if pass {
+			filtered = append(filtered, txr)
+		}
+	}
+	return filtered
 }
