@@ -3,8 +3,9 @@ package filter
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetHash(t *testing.T) {
@@ -23,24 +24,24 @@ func TestGetHash(t *testing.T) {
 
 	// create a new tx filter
 	f := NewTxFilter()
-
-	// make sure the filter is of a correct type
 	assert.Equal(t, TxFilterType, f.GetType())
 
-	// update the tx filter with dummy txs
 	for _, tx := range txs {
-		tx := tx
-
 		f.UpdateWithTx(tx)
-
-		// get hash
-		hash := f.GetHash()
-		assert.Equal(t, tx.Tx.Hash(), hash)
 	}
 
-	// change last tx to nil
-	f.UpdateWithTx(nil)
+	// get the hashes of the txs
+	hashes := f.GetHashes()
+	for i, tx := range txs {
+		assert.Equal(t, tx.Tx.Hash(), hashes[i])
+	}
 
-	hash := f.GetHash()
-	assert.Nil(t, hash)
+	// get the chages from the filter
+	changes := f.GetChanges().([]*types.TxResult)
+	require.Len(t, changes, len(txs))
+	for i, tx := range txs {
+		assert.Equal(t, tx, changes[i])
+	}
+
+	assert.Empty(t, f.txrs)
 }
