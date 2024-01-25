@@ -71,6 +71,9 @@ func (tf *TxFilter) UpdateWithTx(txr *types.TxResult) {
 
 // ClearConditions resets the previously set conditions from the filter.
 func (tf *TxFilter) ClearConditions() *TxFilter {
+	tf.Lock()
+	defer tf.Unlock()
+
 	tf.conditions = nil
 
 	return tf
@@ -122,6 +125,13 @@ func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
 //
 // It returns a slice of `TxResult` that satisfy all the conditions.
 func (tf *TxFilter) Apply() []*types.TxResult {
+	tf.Lock()
+	defer tf.Unlock()
+
+	if tf.conditions == nil {
+		return tf.txrs
+	}
+
 	var filtered []*types.TxResult
 
 	for _, txr := range tf.txrs {

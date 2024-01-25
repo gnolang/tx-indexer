@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"sync"
 	"testing"
 
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
@@ -48,69 +49,71 @@ func TestGetHashAndChanges(t *testing.T) {
 	assert.Empty(t, f.txrs)
 }
 
+var txs = []*types.TxResult{
+	{
+		Height: 100,
+		Index:  0,
+		Tx:     []byte(`sampleTx0`),
+		Response: abci.ResponseDeliverTx{
+			GasWanted: 1000,
+			GasUsed:   900,
+			ResponseBase: abci.ResponseBase{
+				Data: []byte(`data0`),
+			},
+		},
+	},
+	{
+		Height: 101,
+		Index:  1,
+		Tx:     []byte(`sampleTx1`),
+		Response: abci.ResponseDeliverTx{
+			GasWanted: 1200,
+			GasUsed:   1100,
+			ResponseBase: abci.ResponseBase{
+				Data: []byte(`data1`),
+			},
+		},
+	},
+	{
+		Height: 102,
+		Index:  2,
+		Tx:     []byte(`sampleTx2`),
+		Response: abci.ResponseDeliverTx{
+			GasWanted: 900,
+			GasUsed:   800,
+			ResponseBase: abci.ResponseBase{
+				Data: []byte(`data2`),
+			},
+		},
+	},
+	{
+		Height: 103,
+		Index:  3,
+		Tx:     []byte(`sampleTx3`),
+		Response: abci.ResponseDeliverTx{
+			GasWanted: 1300,
+			GasUsed:   1250,
+			ResponseBase: abci.ResponseBase{
+				Data: []byte(`data3`),
+			},
+		},
+	},
+	{
+		Height: 104,
+		Index:  4,
+		Tx:     []byte(`sampleTx4`),
+		Response: abci.ResponseDeliverTx{
+			GasWanted: 800,
+			GasUsed:   700,
+			ResponseBase: abci.ResponseBase{
+				Data: []byte(`data4`),
+			},
+		},
+	},
+}
+
 func TestTxFilters(t *testing.T) {
-	txs := []*types.TxResult{
-		{
-			Height: 100,
-			Index:  0,
-			Tx:     []byte(`sampleTx0`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1000,
-				GasUsed:   900,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data0`),
-				},
-			},
-		},
-		{
-			Height: 101,
-			Index:  1,
-			Tx:     []byte(`sampleTx1`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1200,
-				GasUsed:   1100,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data1`),
-				},
-			},
-		},
-		{
-			Height: 102,
-			Index:  2,
-			Tx:     []byte(`sampleTx2`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 900,
-				GasUsed:   800,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data2`),
-				},
-			},
-		},
-		{
-			Height: 103,
-			Index:  3,
-			Tx:     []byte(`sampleTx3`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1300,
-				GasUsed:   1250,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data3`),
-				},
-			},
-		},
-		{
-			Height: 104,
-			Index:  4,
-			Tx:     []byte(`sampleTx4`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 800,
-				GasUsed:   700,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data4`),
-				},
-			},
-		},
-	}
+	t.Parallel()
 
 	f := NewTxFilter()
 	for _, tx := range txs {
@@ -143,10 +146,53 @@ func TestTxFilters(t *testing.T) {
 
 	f.ClearConditions()
 
-	// query-like method chaining
+	// query-like method chaining. order of methods doesn't really matter (except `Apply`)
 	query := f.Height(101).Index(1).GasUsed(1000, 1200).Apply()
 	require.Len(t, query, 1)
 	assert.Equal(t, txs[1], query[0])
 
 	f.ClearConditions()
+}
+
+func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
+	t.Parallel()
+
+	f := NewTxFilter()
+	for _, tx := range txs {
+		f.UpdateWithTx(tx)
+	}
+
+	all := f.Apply()
+	require.Len(t, all, len(txs))
+}
+
+func TestApplyWithMultipleGoroutines(t *testing.T) {
+	t.Parallel()
+
+	f := NewTxFilter()
+
+	for _, tx := range txs {
+		f.UpdateWithTx(tx)
+	}
+	expected := f.Height(100).Apply()
+
+	var wg sync.WaitGroup
+
+	results := make([][]*types.TxResult, 10)
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			results[i] = f.Height(100).Apply()
+		}(i)
+	}
+
+	wg.Wait()
+
+	for i := 0; i < 10; i++ {
+		assert.Equal(t, expected, results[i])
+	}
 }
