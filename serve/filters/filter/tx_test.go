@@ -40,6 +40,7 @@ func TestGetHashAndChanges(t *testing.T) {
 	// get the chages from the filter
 	changes := f.GetChanges().([]*types.TxResult)
 	require.Len(t, changes, len(txs))
+
 	for i, tx := range txs {
 		assert.Equal(t, tx, changes[i])
 	}

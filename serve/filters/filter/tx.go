@@ -121,12 +121,16 @@ func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
 // Apply applies all added conditions to the transactions in the filter.
 //
 // It returns a slice of `TxResult` that satisfy all the conditions.
-func (tf *TxFilter) Apply() (filtered []*types.TxResult) {
+func (tf *TxFilter) Apply() []*types.TxResult {
+	var filtered []*types.TxResult
+
 	for _, txr := range tf.txrs {
 		pass := true
+
 		for _, condition := range tf.conditions {
 			if !condition(txr) {
 				pass = false
+
 				break
 			}
 		}
