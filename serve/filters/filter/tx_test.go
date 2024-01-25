@@ -174,11 +174,11 @@ func TestApplyWithMultipleGoroutines(t *testing.T) {
 	for _, tx := range txs {
 		f.UpdateWithTx(tx)
 	}
+
+	results := make([][]*types.TxResult, 10)
 	expected := f.Height(100).Apply()
 
 	var wg sync.WaitGroup
-
-	results := make([][]*types.TxResult, 10)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
