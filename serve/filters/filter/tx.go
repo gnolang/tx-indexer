@@ -32,11 +32,14 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	defer tf.Unlock()
 
 	hashes := make([][]byte, 0, len(tf.txrs))
+
 	for _, txr := range tf.txrs {
 		if txr == nil || txr.Tx == nil {
 			hashes = append(hashes, nil)
+
 			continue
 		}
+
 		hashes = append(hashes, txr.Tx.Hash())
 	}
 
@@ -69,6 +72,7 @@ func (tf *TxFilter) UpdateWithTx(txr *types.TxResult) {
 // ClearConditions resets the previously set conditions from the filter.
 func (tf *TxFilter) ClearConditions() *TxFilter {
 	tf.conditions = nil
+
 	return tf
 }
 
@@ -80,6 +84,7 @@ func (tf *TxFilter) Height(height int64) *TxFilter {
 		return txr.Height == height
 	}
 	tf.conditions = append(tf.conditions, cond)
+
 	return tf
 }
 
@@ -89,6 +94,7 @@ func (tf *TxFilter) Index(index uint32) *TxFilter {
 		return txr.Index == index
 	}
 	tf.conditions = append(tf.conditions, cond)
+
 	return tf
 }
 
@@ -98,6 +104,7 @@ func (tf *TxFilter) GasUsed(min, max int64) *TxFilter {
 		return txr.Response.GasUsed >= min && txr.Response.GasUsed <= max
 	}
 	tf.conditions = append(tf.conditions, cond)
+
 	return tf
 }
 
@@ -107,6 +114,7 @@ func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
 		return txr.Response.GasWanted >= min && txr.Response.GasWanted <= max
 	}
 	tf.conditions = append(tf.conditions, cond)
+
 	return tf
 }
 
@@ -122,9 +130,11 @@ func (tf *TxFilter) Apply() (filtered []*types.TxResult) {
 				break
 			}
 		}
+
 		if pass {
 			filtered = append(filtered, txr)
 		}
 	}
+
 	return filtered
 }
