@@ -196,3 +196,23 @@ func TestApplyWithMultipleGoroutines(t *testing.T) {
 		assert.Equal(t, expected, results[i])
 	}
 }
+
+func TestTxFilterReOrderedByPriority(t *testing.T) {
+	t.Parallel()
+
+	f := NewTxFilter()
+
+	f.Index(1).GasUsed(800, 1200).Height(101)
+
+	// checks the state of the conditions before prioritizing them correctly
+	require.Len(t, f.conditions, 3)
+
+	// after `Apply`, check to see if the conditions (filters) are ordered by priority correctly
+	expectedOrder := []filterPriority{HeightPriority, IndexPriority, GasUsedPriority}
+
+	for i, cond := range f.conditions {
+		if cond.priority != expectedOrder[i] {
+			t.Errorf("Condition at position %d has wrong priority before Apply. Got %v, want %v", i, cond.priority, expectedOrder[i])
+		}
+	}
+}

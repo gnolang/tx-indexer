@@ -1,8 +1,28 @@
 package filter
 
 import (
+	"sort"
+
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
+
+// filterPriority defines the priority of a filter condition.
+// The higher the priority, the earlier the condition is applied.
+//
+// This concept is borrowed from operator precedence.
+type filterPriority int
+
+const (
+	HeightPriority filterPriority = iota     // highest priority
+	IndexPriority
+	GasUsedPriority
+	GasWantedPriority						 // lowest priority
+)
+
+type condition struct {
+	filter    	func(*types.TxResult) bool
+	priority  	filterPriority
+}
 
 // TxFilter holds a slice of transaction results.
 // It provides methods to manipulate and query the transactions.
@@ -11,7 +31,7 @@ type TxFilter struct {
 	// txrs represents the transactions in the filter.
 	txrs []*types.TxResult
 	// conditions holds the filtering conditions.
-	conditions []func(*types.TxResult) bool
+	conditions []condition
 }
 
 // NewTxFilter creates a new TxFilter object.
@@ -19,7 +39,7 @@ func NewTxFilter() *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
 		txrs:       make([]*types.TxResult, 0),
-		conditions: make([]func(*types.TxResult) bool, 0),
+		conditions: make([]condition, 0),
 	}
 }
 
@@ -83,52 +103,52 @@ func (tf *TxFilter) ClearConditions() *TxFilter {
 //
 // It appends a height-based condition to the conditions slice.
 func (tf *TxFilter) Height(height int64) *TxFilter {
-	tf.Lock()
-	defer tf.Unlock()
-
-	cond := func(txr *types.TxResult) bool {
-		return txr.Height == height
+	cond := condition {
+		func(txr *types.TxResult) bool {
+			return txr.Height == height
+		},
+		HeightPriority,
 	}
-	tf.conditions = append(tf.conditions, cond)
+	tf.insertConditionInOrder(cond)
 
 	return tf
 }
 
 // Index sets a filter for the index of the transactions.
 func (tf *TxFilter) Index(index uint32) *TxFilter {
-	tf.Lock()
-	defer tf.Unlock()
-
-	cond := func(txr *types.TxResult) bool {
-		return txr.Index == index
+	cond := condition {
+		func(txr *types.TxResult) bool {
+			return txr.Index == index
+		},
+		IndexPriority,
 	}
-	tf.conditions = append(tf.conditions, cond)
+	tf.insertConditionInOrder(cond)
 
 	return tf
 }
 
 // GasUsed sets a filter for the gas used by transactions.
 func (tf *TxFilter) GasUsed(min, max int64) *TxFilter {
-	tf.Lock()
-	defer tf.Unlock()
-
-	cond := func(txr *types.TxResult) bool {
-		return txr.Response.GasUsed >= min && txr.Response.GasUsed <= max
+	cond := condition {
+		func(txr *types.TxResult) bool {
+			return txr.Response.GasUsed >= min && txr.Response.GasUsed <= max
+		},
+		GasUsedPriority,
 	}
-	tf.conditions = append(tf.conditions, cond)
+	tf.insertConditionInOrder(cond)
 
 	return tf
 }
 
 // GasWanted sets a filter for the gas wanted by transactions.
 func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
-	tf.Lock()
-	defer tf.Unlock()
-
-	cond := func(txr *types.TxResult) bool {
-		return txr.Response.GasWanted >= min && txr.Response.GasWanted <= max
+	cond := condition {
+		func(txr *types.TxResult) bool {
+			return txr.Response.GasWanted >= min && txr.Response.GasWanted <= max
+		},
+		GasWantedPriority,
 	}
-	tf.conditions = append(tf.conditions, cond)
+	tf.insertConditionInOrder(cond)
 
 	return tf
 }
@@ -140,7 +160,7 @@ func (tf *TxFilter) Apply() []*types.TxResult {
 	tf.Lock()
 	defer tf.Unlock()
 
-	if tf.conditions == nil {
+	if len(tf.conditions) == 0 {
 		return tf.txrs
 	}
 
@@ -150,7 +170,7 @@ func (tf *TxFilter) Apply() []*types.TxResult {
 		pass := true
 
 		for _, condition := range tf.conditions {
-			if !condition(txr) {
+			if !condition.filter(txr) {
 				pass = false
 
 				break
@@ -163,4 +183,21 @@ func (tf *TxFilter) Apply() []*types.TxResult {
 	}
 
 	return filtered
+}
+
+// insertConditionInOrder adds a new condition to the conditions slice.
+//
+// It places the condition at the right position based on its priority,
+// ensuring the slice is always ordered without needing to sort it entirely each time.
+//
+// complexity: O(log n) + O(n)
+func (tf *TxFilter) insertConditionInOrder(cond condition) {
+	tf.Lock()
+	defer tf.Unlock()
+
+	i := sort.Search(len(tf.conditions), func(i int) bool {
+		return tf.conditions[i].priority >= cond.priority
+	})
+
+	tf.conditions = append(tf.conditions[:i], append([]condition{cond}, tf.conditions[i:]...)...)
 }
