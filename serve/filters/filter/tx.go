@@ -13,15 +13,15 @@ import (
 type filterPriority int
 
 const (
-	HeightPriority filterPriority = iota     // highest priority
+	HeightPriority filterPriority = iota // highest priority
 	IndexPriority
 	GasUsedPriority
-	GasWantedPriority						 // lowest priority
+	GasWantedPriority // lowest priority
 )
 
 type condition struct {
-	filter    	func(*types.TxResult) bool
-	priority  	filterPriority
+	filter   func(*types.TxResult) bool
+	priority filterPriority
 }
 
 // TxFilter holds a slice of transaction results.
@@ -103,7 +103,7 @@ func (tf *TxFilter) ClearConditions() *TxFilter {
 //
 // It appends a height-based condition to the conditions slice.
 func (tf *TxFilter) Height(height int64) *TxFilter {
-	cond := condition {
+	cond := condition{
 		func(txr *types.TxResult) bool {
 			return txr.Height == height
 		},
@@ -116,7 +116,7 @@ func (tf *TxFilter) Height(height int64) *TxFilter {
 
 // Index sets a filter for the index of the transactions.
 func (tf *TxFilter) Index(index uint32) *TxFilter {
-	cond := condition {
+	cond := condition{
 		func(txr *types.TxResult) bool {
 			return txr.Index == index
 		},
@@ -129,7 +129,7 @@ func (tf *TxFilter) Index(index uint32) *TxFilter {
 
 // GasUsed sets a filter for the gas used by transactions.
 func (tf *TxFilter) GasUsed(min, max int64) *TxFilter {
-	cond := condition {
+	cond := condition{
 		func(txr *types.TxResult) bool {
 			return txr.Response.GasUsed >= min && txr.Response.GasUsed <= max
 		},
@@ -142,7 +142,7 @@ func (tf *TxFilter) GasUsed(min, max int64) *TxFilter {
 
 // GasWanted sets a filter for the gas wanted by transactions.
 func (tf *TxFilter) GasWanted(min, max int64) *TxFilter {
-	cond := condition {
+	cond := condition{
 		func(txr *types.TxResult) bool {
 			return txr.Response.GasWanted >= min && txr.Response.GasWanted <= max
 		},

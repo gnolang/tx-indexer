@@ -212,7 +212,12 @@ func TestTxFilterReOrderedByPriority(t *testing.T) {
 
 	for i, cond := range f.conditions {
 		if cond.priority != expectedOrder[i] {
-			t.Errorf("Condition at position %d has wrong priority before Apply. Got %v, want %v", i, cond.priority, expectedOrder[i])
+			t.Errorf(
+				"Condition at position %d has wrong priority before Apply. Got %v, want %v", 
+				i,
+				cond.priority,
+				expectedOrder[i],
+			)
 		}
 	}
 }
