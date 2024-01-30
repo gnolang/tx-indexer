@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/cockroachdb/pebble v1.0.0
 	github.com/go-chi/chi/v5 v5.0.11
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/madz-lab/insertion-queue v0.0.0-20230520191346-295d3348f63a
 	github.com/olahol/melody v1.1.4
 	github.com/peterbourgon/ff/v3 v3.4.0
