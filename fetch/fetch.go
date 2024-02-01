@@ -229,7 +229,10 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 
 				// Save the latest height data
 				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
-					defer wb.Rollback()
+					if rErr := wb.Rollback(); rErr != nil {
+						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+					}
+
 					return fmt.Errorf("unable to save latest height info, %w", err)
 				}
 

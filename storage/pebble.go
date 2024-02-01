@@ -38,6 +38,7 @@ func (s *Pebble) GetLatestHeight() (int64, error) {
 	if errors.Is(err, pebble.ErrNotFound) {
 		return 0, storageErrors.ErrNotFound
 	}
+
 	if err != nil {
 		return 0, err
 	}
@@ -53,6 +54,7 @@ func (s *Pebble) GetBlock(blockNum int64) (*types.Block, error) {
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +70,7 @@ func (s *Pebble) GetTx(txHash []byte) (*types.TxResult, error) {
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +118,14 @@ func (b *PebbleBatch) SetTx(tx *types.TxResult) error {
 	if err != nil {
 		return err
 	}
+
 	return b.b.Set(
 		append(txResultKey, tx.Tx.Hash()...),
 		encodedTx,
 		pebble.NoSync,
 	)
 }
+
 func (b *PebbleBatch) Commit() error {
 	return b.b.Commit(pebble.Sync)
 }

@@ -42,7 +42,7 @@ func (m *Storage) GetTx(tx []byte) (*types.TxResult, error) {
 }
 
 // WriteBatch provides a batch intended to do a write action that
-// can be cancelled or commited all at the same time
+// can be cancelled or committed all at the same time
 func (m *Storage) WriteBatch() storage.Batch {
 	if m.GetWriteBatchFn != nil {
 		return m.GetWriteBatchFn()
