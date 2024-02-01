@@ -20,16 +20,6 @@ type Events interface {
 	CancelSubscription(events.SubscriptionID)
 }
 
-// Storage represents the permanent storage abstraction
-// required by the filter manager
-type Storage interface {
-	// GetBlock fetches the block by its number
-	GetBlock(int64) (*types.Block, error)
-
-	// GetTx fetches the tx using its hash
-	GetTx([]byte) (*types.TxResult, error)
-}
-
 // Filter interface is used for different filter types
 type Filter interface {
 	// GetType returns the filter type

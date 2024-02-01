@@ -6,17 +6,19 @@ import (
 	"time"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/filters/filter"
 	filterSubscription "github.com/gnolang/tx-indexer/serve/filters/subscription"
+	"github.com/gnolang/tx-indexer/storage"
 	commonTypes "github.com/gnolang/tx-indexer/types"
 )
 
 // Manager manages all running filters
 type Manager struct {
 	ctx             context.Context
-	storage         Storage // temporarily unused
+	storage         storage.Storage // temporarily unused
 	events          Events
 	filters         *filterMap
 	subscriptions   *subscriptionMap
@@ -26,7 +28,7 @@ type Manager struct {
 // NewFilterManager creates new filter manager object
 func NewFilterManager(
 	ctx context.Context,
-	storage Storage,
+	storage storage.Storage,
 	events Events,
 	opts ...Option,
 ) *Manager {

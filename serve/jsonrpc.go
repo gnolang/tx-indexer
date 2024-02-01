@@ -9,6 +9,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"github.com/olahol/melody"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
 	"github.com/gnolang/tx-indexer/serve/filters"
@@ -20,12 +27,7 @@ import (
 	"github.com/gnolang/tx-indexer/serve/writer"
 	httpWriter "github.com/gnolang/tx-indexer/serve/writer/http"
 	wsWriter "github.com/gnolang/tx-indexer/serve/writer/ws"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
-	"github.com/olahol/melody"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+	"github.com/gnolang/tx-indexer/storage"
 )
 
 const (
@@ -188,7 +190,7 @@ func (j *JSONRPC) RegisterBlockEndpoints(db block.Storage) {
 	)
 }
 
-func (j *JSONRPC) RegisterSubEndpoints(db filters.Storage) {
+func (j *JSONRPC) RegisterSubEndpoints(db storage.Storage) {
 	fm := filters.NewFilterManager(context.Background(), db, j.events)
 
 	subsHandler := subs.NewHandler(
