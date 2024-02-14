@@ -2,56 +2,10 @@ package fetch
 
 import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
-	"github.com/gnolang/gno/tm2/pkg/bft/types"
+
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 	"github.com/gnolang/tx-indexer/events"
 )
-
-type (
-	getLatestHeightDelegate  func() (int64, error)
-	saveLatestHeightDelegate func(int64) error
-	saveBlockDelegate        func(*types.Block) error
-	saveTxDelegate           func(*types.TxResult) error
-)
-
-type mockStorage struct {
-	getLatestSavedHeightFn getLatestHeightDelegate
-	saveLatestHeightFn     saveLatestHeightDelegate
-	saveBlockFn            saveBlockDelegate
-	saveTxFn               saveTxDelegate
-}
-
-func (m *mockStorage) GetLatestHeight() (int64, error) {
-	if m.getLatestSavedHeightFn != nil {
-		return m.getLatestSavedHeightFn()
-	}
-
-	return 0, nil
-}
-
-func (m *mockStorage) SaveLatestHeight(blockNum int64) error {
-	if m.saveLatestHeightFn != nil {
-		return m.saveLatestHeightFn(blockNum)
-	}
-
-	return nil
-}
-
-func (m *mockStorage) SaveTx(tx *types.TxResult) error {
-	if m.saveTxFn != nil {
-		return m.saveTxFn(tx)
-	}
-
-	return nil
-}
-
-func (m *mockStorage) SaveBlock(block *types.Block) error {
-	if m.saveBlockFn != nil {
-		return m.saveBlockFn(block)
-	}
-
-	return nil
-}
 
 type (
 	getLatestBlockNumberDelegate func() (int64, error)

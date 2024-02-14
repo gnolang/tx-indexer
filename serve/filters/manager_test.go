@@ -7,12 +7,13 @@ import (
 	"time"
 
 	tm2Types "github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/gnolang/tx-indexer/events"
-	"github.com/gnolang/tx-indexer/serve/filters/filter"
-	"github.com/gnolang/tx-indexer/serve/filters/mocks"
-	"github.com/gnolang/tx-indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/internal/mock"
+	"github.com/gnolang/tx-indexer/serve/filters/filter"
+	"github.com/gnolang/tx-indexer/types"
 )
 
 // generateBlocks generates dummy blocks
@@ -39,7 +40,7 @@ func Test_BlockFilters(t *testing.T) {
 
 	filterManager := NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		events.NewManager(),
 	)
 
@@ -77,7 +78,7 @@ func Test_NewBlockEvents(t *testing.T) {
 		blocks  = generateBlocks(t, 10)
 		blockCh = make(chan events.Event)
 
-		mockEvents = &mocks.MockEvents{
+		mockEvents = &mock.Events{
 			SubscribeFn: func(_ []events.Type) *events.Subscription {
 				return &events.Subscription{
 					SubCh: blockCh,
@@ -89,7 +90,7 @@ func Test_NewBlockEvents(t *testing.T) {
 	// Init filter manager
 	filterManager := NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		mockEvents,
 	)
 
@@ -163,7 +164,7 @@ func Test_FilterCleanup(t *testing.T) {
 	// Create filter manager
 	filterManager := NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		events.NewManager(),
 		WithCleanupInterval(10*time.Millisecond),
 	)

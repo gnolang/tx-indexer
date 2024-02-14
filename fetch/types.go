@@ -2,25 +2,10 @@ package fetch
 
 import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
-	"github.com/gnolang/gno/tm2/pkg/bft/types"
+
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 	"github.com/gnolang/tx-indexer/events"
 )
-
-// Storage defines the transaction storage interface
-type Storage interface {
-	// GetLatestHeight returns the latest block height from the storage
-	GetLatestHeight() (int64, error)
-
-	// SaveLatestHeight saves the latest block height to the storage
-	SaveLatestHeight(int64) error
-
-	// SaveBlock saves the block to the permanent storage
-	SaveBlock(block *types.Block) error
-
-	// SaveTx saves the transaction to the permanent storage
-	SaveTx(tx *types.TxResult) error
-}
 
 // Client defines the interface for the node (client) communication
 type Client interface {

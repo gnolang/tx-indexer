@@ -6,13 +6,14 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/peterbourgon/ff/v3/ffcli"
+	"go.uber.org/zap"
+
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/storage"
-	"github.com/peterbourgon/ff/v3/ffcli"
-	"go.uber.org/zap"
 )
 
 const (
@@ -112,7 +113,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	// Create a DB instance
-	db, err := storage.New(c.dbPath)
+	db, err := storage.NewPebble(c.dbPath)
 	if err != nil {
 		return fmt.Errorf("unable to open storage DB, %w", err)
 	}
@@ -165,7 +166,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 // setupJSONRPC sets up the JSONRPC instance
 func setupJSONRPC(
 	listenAddress string,
-	db *storage.Storage,
+	db *storage.Pebble,
 	em *events.Manager,
 	logger *zap.Logger,
 ) *serve.JSONRPC {

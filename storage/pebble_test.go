@@ -7,15 +7,16 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
-	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
 func TestStorage_New(t *testing.T) {
 	t.Parallel()
 
-	s, err := New(t.TempDir())
+	s, err := NewPebble(t.TempDir())
 	require.NotNil(t, s)
 
 	assert.NoError(t, err)
@@ -25,7 +26,7 @@ func TestStorage_New(t *testing.T) {
 func TestStorage_LatestHeight(t *testing.T) {
 	t.Parallel()
 
-	s, err := New(t.TempDir())
+	s, err := NewPebble(t.TempDir())
 	require.NoError(t, err)
 
 	defer func() {
@@ -39,7 +40,10 @@ func TestStorage_LatestHeight(t *testing.T) {
 
 	// Save the latest height and grab it
 	for i := int64(0); i < 100; i++ {
-		require.NoError(t, s.SaveLatestHeight(i))
+		b := s.WriteBatch()
+
+		require.NoError(t, b.SetLatestHeight(i))
+		require.NoError(t, b.Commit())
 
 		latest, err = s.GetLatestHeight()
 
@@ -51,7 +55,7 @@ func TestStorage_LatestHeight(t *testing.T) {
 func TestStorage_Block(t *testing.T) {
 	t.Parallel()
 
-	s, err := New(t.TempDir())
+	s, err := NewPebble(t.TempDir())
 	require.NoError(t, err)
 
 	defer func() {
@@ -61,12 +65,16 @@ func TestStorage_Block(t *testing.T) {
 	blocks := generateRandomBlocks(t, 100)
 
 	// Save the blocks and fetch them
+	b := s.WriteBatch()
 	for _, block := range blocks {
-		assert.NoError(t, s.SaveBlock(block))
+		assert.NoError(t, b.SetBlock(block))
+	}
 
+	require.NoError(t, b.Commit())
+
+	for _, block := range blocks {
 		savedBlock, err := s.GetBlock(block.Height)
 		require.NoError(t, err)
-
 		assert.Equal(t, block, savedBlock)
 	}
 }
@@ -74,7 +82,7 @@ func TestStorage_Block(t *testing.T) {
 func TestStorage_Tx(t *testing.T) {
 	t.Parallel()
 
-	s, err := New(t.TempDir())
+	s, err := NewPebble(t.TempDir())
 	require.NoError(t, err)
 
 	defer func() {
@@ -83,13 +91,18 @@ func TestStorage_Tx(t *testing.T) {
 
 	txs := generateRandomTxs(t, 100)
 
+	wb := s.WriteBatch()
+
 	// Save the txs and fetch them
 	for _, tx := range txs {
-		assert.NoError(t, s.SaveTx(tx))
+		assert.NoError(t, wb.SetTx(tx))
+	}
 
+	require.NoError(t, wb.Commit())
+
+	for _, tx := range txs {
 		savedTx, err := s.GetTx(tx.Tx.Hash())
 		require.NoError(t, err)
-
 		assert.Equal(t, tx, savedTx)
 	}
 }
