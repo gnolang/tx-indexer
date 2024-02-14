@@ -101,10 +101,91 @@ func TestStorage_Tx(t *testing.T) {
 	require.NoError(t, wb.Commit())
 
 	for _, tx := range txs {
-		savedTx, err := s.GetTx(tx.Tx.Hash())
+		savedTx, err := s.GetTx(tx.Height, tx.Index)
 		require.NoError(t, err)
 		assert.Equal(t, tx, savedTx)
 	}
+}
+
+func TestStorageIters(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	txs := generateRandomTxs(t, 100)
+	blocks := generateRandomBlocks(t, 100)
+
+	wb := s.WriteBatch()
+
+	// Save the txs and fetch them
+	for i, tx := range txs {
+		assert.NoError(t, wb.SetTx(tx))
+		assert.NoError(t, wb.SetBlock(blocks[i]))
+	}
+
+	require.NoError(t, wb.Commit())
+
+	it, err := s.TxIterator(0, 0, 0, 3)
+	require.NoError(t, err)
+
+	txCount := 0
+	for {
+		if !it.Next() {
+			require.NoError(t, it.Error())
+			break
+		}
+
+		_, err := it.Value()
+		require.NoError(t, err)
+		require.NoError(t, it.Error())
+
+		txCount++
+	}
+
+	require.Equal(t, 2, txCount)
+
+	defer require.NoError(t, it.Close())
+
+	it2, err := s.BlockIterator(0, 2)
+	require.NoError(t, err)
+
+	blockCount := 0
+	for {
+		if !it2.Next() {
+			require.NoError(t, it2.Error())
+			break
+		}
+
+		_, err := it2.Value()
+		require.NoError(t, err)
+
+		blockCount++
+	}
+
+	require.Equal(t, 2, blockCount)
+
+	defer require.NoError(t, it2.Close())
+
+	it, err = s.TxIterator(0, 0, 20000, 30000)
+	require.NoError(t, err)
+
+	txCount = 0
+	for {
+		if !it.Next() {
+			require.NoError(t, it.Error())
+			break
+		}
+
+		_, err := it.Value()
+		require.NoError(t, err)
+		require.NoError(t, it.Error())
+
+		txCount++
+	}
+
+	require.Equal(t, 0, txCount)
+
 }
 
 // generateRandomBlocks generates dummy blocks

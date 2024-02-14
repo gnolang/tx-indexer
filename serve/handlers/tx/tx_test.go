@@ -7,10 +7,11 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/gnolang/tx-indexer/serve/spec"
-	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/serve/spec"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
 func TestGetTx_InvalidParams(t *testing.T) {
@@ -26,11 +27,7 @@ func TestGetTx_InvalidParams(t *testing.T) {
 		},
 		{
 			"invalid param type",
-			[]any{1},
-		},
-		{
-			"invalid base64 type",
-			[]any{"totally base64"},
+			[]any{"totally invalid param type"},
 		},
 	}
 
@@ -59,12 +56,13 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			txHash   = []byte("random")
-			txHash64 = base64.StdEncoding.EncodeToString(txHash)
+			blockNum = int64(42)
+			txIndex  = uint32(42)
 
 			mockStorage = &mockStorage{
-				getTxFn: func(hash []byte) (*types.TxResult, error) {
-					require.Equal(t, txHash, hash)
+				getTxFn: func(bn int64, ti uint32) (*types.TxResult, error) {
+					require.Equal(t, blockNum, bn)
+					require.Equal(t, txIndex, ti)
 
 					return nil, storageErrors.ErrNotFound
 				},
@@ -73,7 +71,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		response, err := h.GetTxHandler(nil, []any{txHash64})
+		response, err := h.GetTxHandler(nil, []any{blockNum, txIndex})
 
 		// This is a special case
 		assert.Nil(t, response)
@@ -84,13 +82,13 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			txHash   = []byte("random")
-			txHash64 = base64.StdEncoding.EncodeToString(txHash)
+			blockNum = int64(42)
+			txIndex  = uint32(42)
 
 			fetchErr = errors.New("random error")
 
 			mockStorage = &mockStorage{
-				getTxFn: func(_ []byte) (*types.TxResult, error) {
+				getTxFn: func(_ int64, _ uint32) (*types.TxResult, error) {
 					return nil, fetchErr
 				},
 			}
@@ -98,7 +96,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		response, err := h.GetTxHandler(nil, []any{txHash64})
+		response, err := h.GetTxHandler(nil, []any{blockNum, txIndex})
 		assert.Nil(t, response)
 
 		// Make sure the error is populated
@@ -112,17 +110,17 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			txHash   = []byte("random")
-			txHash64 = base64.StdEncoding.EncodeToString(txHash)
+			blockNum = int64(42)
+			txIndex  = uint32(42)
 
 			txResult = &types.TxResult{
 				Height: 10,
 			}
 
 			mockStorage = &mockStorage{
-				getTxFn: func(hash []byte) (*types.TxResult, error) {
-					require.Equal(t, txHash, hash)
-
+				getTxFn: func(bn int64, ti uint32) (*types.TxResult, error) {
+					require.Equal(t, blockNum, bn)
+					require.Equal(t, txIndex, ti)
 					return txResult, nil
 				},
 			}
@@ -130,7 +128,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		responseRaw, err := h.GetTxHandler(nil, []any{txHash64})
+		responseRaw, err := h.GetTxHandler(nil, []any{blockNum, txIndex})
 		require.Nil(t, err)
 
 		require.NotNil(t, responseRaw)

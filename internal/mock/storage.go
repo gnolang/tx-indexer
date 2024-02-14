@@ -12,7 +12,7 @@ type Storage struct {
 	GetLatestSavedHeightFn func() (int64, error)
 	GetWriteBatchFn        func() storage.Batch
 	GetBlockFn             func(int64) (*types.Block, error)
-	GetTxFn                func([]byte) (*types.TxResult, error)
+	GetTxFn                func(int64, uint32) (*types.TxResult, error)
 }
 
 func (m *Storage) GetLatestHeight() (int64, error) {
@@ -32,13 +32,23 @@ func (m *Storage) GetBlock(blockNum int64) (*types.Block, error) {
 	panic("not implemented")
 }
 
-// GetTx fetches the tx using its hash
-func (m *Storage) GetTx(tx []byte) (*types.TxResult, error) {
+// GetTx fetches the tx using block height and transaction index
+func (m *Storage) GetTx(blockNum int64, index uint32) (*types.TxResult, error) {
 	if m.GetTxFn != nil {
-		return m.GetTxFn(tx)
+		return m.GetTxFn(blockNum, index)
 	}
 
 	panic("not implemented")
+}
+
+// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
+func (m *Storage) BlockIterator(fromBlockNum int64, toBlockNum int64) (storage.Iterator[*types.Block], error) {
+	panic("not implemented") // TODO: Implement
+}
+
+// TxIterator iterates over transactions, limiting the results to be between the provided block numbers and transaction indexes
+func (m *Storage) TxIterator(fromBlockNum int64, toBlockNum int64, fromTxIndex uint32, toTxIndex uint32) (storage.Iterator[*types.TxResult], error) {
+	panic("not implemented") // TODO: Implement
 }
 
 // WriteBatch provides a batch intended to do a write action that

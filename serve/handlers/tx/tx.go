@@ -1,10 +1,10 @@
 package tx
 
 import (
-	"encoding/base64"
 	"errors"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -26,24 +26,23 @@ func (h *Handler) GetTxHandler(
 	params []any,
 ) (any, *spec.BaseJSONError) {
 	// Check the params
-	if len(params) < 1 {
+	if len(params) < 2 {
 		return nil, spec.GenerateInvalidParamCountError()
 	}
 
 	// Extract the params
-	requestedTx, ok := params[0].(string)
+	blockNum, ok := params[0].(int64)
 	if !ok {
 		return nil, spec.GenerateInvalidParamError(1)
 	}
 
-	// Decode the hash from base64
-	decodedHash, err := base64.StdEncoding.DecodeString(requestedTx)
-	if err != nil {
+	txIndex, ok := params[1].(uint32)
+	if !ok {
 		return nil, spec.GenerateInvalidParamError(1)
 	}
 
 	// Run the handler
-	response, err := h.getTx(decodedHash)
+	response, err := h.getTx(blockNum, txIndex)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -61,8 +60,8 @@ func (h *Handler) GetTxHandler(
 }
 
 // getTx fetches the tx from storage, if any
-func (h *Handler) getTx(txHash []byte) (*types.TxResult, error) {
-	tx, err := h.storage.GetTx(txHash)
+func (h *Handler) getTx(blockNum int64, txIndex uint32) (*types.TxResult, error) {
+	tx, err := h.storage.GetTx(blockNum, txIndex)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case

@@ -22,8 +22,21 @@ type Reader interface {
 	// GetBlock fetches the block by its number
 	GetBlock(int64) (*types.Block, error)
 
-	// GetTx fetches the tx using its hash
-	GetTx([]byte) (*types.TxResult, error)
+	// GetTx fetches the tx using the block height and the transaction index
+	GetTx(blockNum int64, index uint32) (*types.TxResult, error)
+
+	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
+	BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.Block], error)
+
+	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers and transaction indexes
+	TxIterator(fromBlockNum, toBlockNum int64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
+}
+
+type Iterator[T any] interface {
+	io.Closer
+	Next() bool
+	Error() error
+	Value() (T, error)
 }
 
 // Writer defines the transaction storage interface for write methods
