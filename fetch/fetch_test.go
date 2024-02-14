@@ -467,7 +467,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(_ int64) (*core_types.ResultBlockResults, error) {
 					t.Fatalf("should not request results")
 
 					return nil, nil
