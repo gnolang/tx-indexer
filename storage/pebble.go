@@ -12,12 +12,12 @@ import (
 
 var _ Storage = &Pebble{}
 
-// Storage is the instance of an embedded storage
+// Pebble is the instance of an embedded storage
 type Pebble struct {
 	db *pebble.DB
 }
 
-// New creates a new storage instance at the given path
+// NewPebble creates a new storage instance at the given path
 func NewPebble(path string) (*Pebble, error) {
 	db, err := pebble.Open(path, &pebble.Options{
 		// TODO: EventListener

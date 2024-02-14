@@ -9,12 +9,11 @@ import (
 // Storage represents the permanent storage abstraction
 // for reading and writing operations
 type Storage interface {
-	io.Closer
 	Reader
 	Writer
 }
 
-// StorageRead defines the transaction storage interface for read methods
+// Reader defines the transaction storage interface for read methods
 type Reader interface {
 	io.Closer
 	// GetLatestHeight returns the latest block height from the storage
@@ -27,7 +26,7 @@ type Reader interface {
 	GetTx([]byte) (*types.TxResult, error)
 }
 
-// StorageWrite defines the transaction storage interface for write methods
+// Writer defines the transaction storage interface for write methods
 type Writer interface {
 	io.Closer
 	// WriteBatch provides a batch intended to do a write action that
