@@ -130,14 +130,16 @@ func TestStorageIters(t *testing.T) {
 	require.NoError(t, err)
 
 	txCount := 0
+
 	for {
 		if !it.Next() {
 			require.NoError(t, it.Error())
+
 			break
 		}
 
-		_, err := it.Value()
-		require.NoError(t, err)
+		_, err2 := it.Value()
+		require.NoError(t, err2)
 		require.NoError(t, it.Error())
 
 		txCount++
@@ -151,14 +153,16 @@ func TestStorageIters(t *testing.T) {
 	require.NoError(t, err)
 
 	blockCount := 0
+
 	for {
 		if !it2.Next() {
 			require.NoError(t, it2.Error())
+
 			break
 		}
 
-		_, err := it2.Value()
-		require.NoError(t, err)
+		_, err2 := it2.Value()
+		require.NoError(t, err2)
 
 		blockCount++
 	}
@@ -171,9 +175,11 @@ func TestStorageIters(t *testing.T) {
 	require.NoError(t, err)
 
 	txCount = 0
+
 	for {
 		if !it.Next() {
 			require.NoError(t, it.Error())
+
 			break
 		}
 
@@ -185,7 +191,6 @@ func TestStorageIters(t *testing.T) {
 	}
 
 	require.Equal(t, 0, txCount)
-
 }
 
 // generateRandomBlocks generates dummy blocks

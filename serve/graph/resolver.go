@@ -17,18 +17,19 @@ const maxElementsPerQuery = 10000
 func dereferenceInt(i *int) int {
 	if i == nil {
 		return 0
-	} else {
-		return *i
 	}
+
+	return *i
 }
 
 func dereferenceTime(i *time.Time) time.Time {
 	if i == nil {
 		var t time.Time
+
 		return t
-	} else {
-		return *i
 	}
+
+	return *i
 }
 
 type Resolver struct {

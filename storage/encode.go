@@ -42,10 +42,7 @@ type escapes struct {
 	marker      byte
 }
 
-var (
-	ascendingBytesEscapes  = escapes{escape, escapedTerm, escaped00, escapedFF, bytesMarker}
-	descendingBytesEscapes = escapes{^escape, ^escapedTerm, ^escaped00, ^escapedFF, bytesDescMarker}
-)
+var ascendingBytesEscapes = escapes{escape, escapedTerm, escaped00, escapedFF, bytesMarker}
 
 // EncodeUint32Ascending encodes the uint32 value using a big-endian 4 byte
 // representation. The bytes are appended to the supplied buffer and
@@ -67,7 +64,9 @@ func DecodeUint32Ascending(b []byte) ([]byte, uint32, error) {
 	if len(b) < 4 {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode uint32 int value")
 	}
+
 	v := binary.BigEndian.Uint32(b)
+
 	return b[4:], v, nil
 }
 
@@ -75,6 +74,7 @@ func DecodeUint32Ascending(b []byte) ([]byte, uint32, error) {
 // using EncodeUint32Descending.
 func DecodeUint32Descending(b []byte) ([]byte, uint32, error) {
 	leftover, v, err := DecodeUint32Ascending(b)
+
 	return leftover, ^v, err
 }
 
@@ -109,6 +109,7 @@ func EncodeVarintAscending(b []byte, v int64) []byte {
 				byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 		}
 	}
+
 	return EncodeUvarintAscending(b, uint64(v))
 }
 
@@ -155,13 +156,16 @@ func DecodeVarintAscending(b []byte) ([]byte, int64, error) {
 	if len(b) == 0 {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode varint value")
 	}
+
 	length := int(b[0]) - intZero
 	if length < 0 {
 		length = -length
+
 		remB := b[1:]
 		if len(remB) < length {
 			return nil, 0, fmt.Errorf("insufficient bytes to decode varint value: %q", remB)
 		}
+
 		var v int64
 		// Use the ones-complement of each encoded byte in order to build
 		// up a positive number, then take the ones-complement again to
@@ -169,6 +173,7 @@ func DecodeVarintAscending(b []byte) ([]byte, int64, error) {
 		for _, t := range remB[:length] {
 			v = (v << 8) | int64(^t)
 		}
+
 		return remB[length:], ^v, nil
 	}
 
@@ -176,9 +181,11 @@ func DecodeVarintAscending(b []byte) ([]byte, int64, error) {
 	if err != nil {
 		return remB, 0, err
 	}
+
 	if v > math.MaxInt64 {
 		return nil, 0, fmt.Errorf("varint %d overflows int64", v)
 	}
+
 	return remB, int64(v), nil
 }
 
@@ -189,23 +196,28 @@ func DecodeUvarintAscending(b []byte) ([]byte, uint64, error) {
 	if len(b) == 0 {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode uvarint value")
 	}
+
 	length := int(b[0]) - intZero
+
 	b = b[1:] // skip length byte
 	if length <= intSmall {
 		return b, uint64(length), nil
 	}
+
 	length -= intSmall
 	if length < 0 || length > 8 {
 		return nil, 0, fmt.Errorf("invalid uvarint length of %d", length)
 	} else if len(b) < length {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode uvarint value: %q", b)
 	}
+
 	var v uint64
 	// It is faster to range over the elements in a slice than to index
 	// into the slice on each loop iteration.
 	for _, t := range b[:length] {
 		v = (v << 8) | uint64(t)
 	}
+
 	return b[length:], v, nil
 }
 
@@ -213,6 +225,7 @@ func DecodeUvarintAscending(b []byte) ([]byte, uint64, error) {
 // using EncodeVarintDescending.
 func DecodeVarintDescending(b []byte) ([]byte, int64, error) {
 	leftover, v, err := DecodeVarintAscending(b)
+
 	return leftover, ^v, err
 }
 
@@ -231,6 +244,7 @@ func encodeStringAscendingWithTerminatorAndPrefix(
 	b []byte, s string, terminator byte, prefix byte,
 ) []byte {
 	unsafeString := UnsafeConvertStringToBytes(s)
+
 	return encodeBytesAscendingWithTerminatorAndPrefix(b, unsafeString, terminator, prefix)
 }
 
@@ -243,6 +257,7 @@ func encodeBytesAscendingWithTerminatorAndPrefix(
 	b []byte, data []byte, terminator byte, prefix byte,
 ) []byte {
 	b = append(b, prefix)
+
 	return encodeBytesAscendingWithTerminator(b, data, terminator)
 }
 
@@ -251,14 +266,15 @@ func encodeBytesAscendingWithTerminatorAndPrefix(
 // "\x00\terminator". The encoded bytes are append to the supplied buffer
 // and the resulting buffer is returned. The terminator allows us to pass
 // different terminators for things such as JSON key encoding.
-func encodeBytesAscendingWithTerminator(b []byte, data []byte, terminator byte) []byte {
+func encodeBytesAscendingWithTerminator(b, data []byte, terminator byte) []byte {
 	bs := encodeBytesAscendingWithoutTerminatorOrPrefix(b, data)
+
 	return append(bs, escape, terminator)
 }
 
 // encodeBytesAscendingWithoutTerminatorOrPrefix encodes the []byte value using an escape-based
 // encoding.
-func encodeBytesAscendingWithoutTerminatorOrPrefix(b []byte, data []byte) []byte {
+func encodeBytesAscendingWithoutTerminatorOrPrefix(b, data []byte) []byte {
 	for {
 		// IndexByte is implemented by the go runtime in assembly and is
 		// much faster than looping over the bytes in the slice.
@@ -266,10 +282,13 @@ func encodeBytesAscendingWithoutTerminatorOrPrefix(b []byte, data []byte) []byte
 		if i == -1 {
 			break
 		}
+
 		b = append(b, data[:i]...)
 		b = append(b, escape, escaped00)
+
 		data = data[i+1:]
 	}
+
 	return append(b, data...)
 }
 
@@ -280,9 +299,10 @@ func encodeBytesAscendingWithoutTerminatorOrPrefix(b []byte, data []byte) []byte
 func UnsafeConvertStringToBytes(s string) []byte {
 	// unsafe.StringData output is unspecified for empty string input so always
 	// return nil.
-	if len(s) == 0 {
+	if s == "" {
 		return nil
 	}
+
 	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
@@ -291,8 +311,9 @@ func UnsafeConvertStringToBytes(s string) []byte {
 // temporary buffer in order to avoid memory allocations. The remainder of the
 // input buffer and the decoded string are returned. Note that the returned
 // string may share storage with the input buffer.
-func DecodeUnsafeStringAscending(b []byte, r []byte) ([]byte, string, error) {
+func DecodeUnsafeStringAscending(b, r []byte) ([]byte, string, error) {
 	b, r, err := DecodeBytesAscending(b, r)
+
 	return b, UnsafeConvertBytesToString(r), err
 }
 
@@ -309,7 +330,7 @@ func UnsafeConvertBytesToString(b []byte) string {
 // which was encoded using EncodeBytesAscending. The decoded bytes
 // are appended to r. The remainder of the input buffer and the
 // decoded []byte are returned.
-func DecodeBytesAscending(b []byte, r []byte) ([]byte, []byte, error) {
+func DecodeBytesAscending(b, r []byte) ([]byte, []byte, error) {
 	return decodeBytesInternal(b, r, ascendingBytesEscapes, true /* expectMarker */, false /* deepCopy */)
 }
 
@@ -324,6 +345,7 @@ func decodeBytesInternal(
 		if len(b) == 0 || b[0] != e.marker {
 			return nil, nil, fmt.Errorf("did not find marker %#x in buffer %#x", e.marker, b)
 		}
+
 		b = b[1:]
 	}
 
@@ -332,9 +354,11 @@ func decodeBytesInternal(
 		if i == -1 {
 			return nil, nil, fmt.Errorf("did not find terminator %#x in buffer %#x", e.escape, b)
 		}
+
 		if i+1 >= len(b) {
 			return nil, nil, fmt.Errorf("malformed escape in buffer %#x", b)
 		}
+
 		v := b[i+1]
 		if v == e.escapedTerm {
 			if r == nil && !deepCopy {
@@ -342,6 +366,7 @@ func decodeBytesInternal(
 			} else {
 				r = append(r, b[:i]...)
 			}
+
 			return b[i+2:], r, nil
 		}
 

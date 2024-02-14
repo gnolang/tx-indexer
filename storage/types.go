@@ -28,7 +28,8 @@ type Reader interface {
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
 	BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.Block], error)
 
-	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers and transaction indexes
+	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
+	// and transaction indexes
 	TxIterator(fromBlockNum, toBlockNum int64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
 }
 

@@ -121,6 +121,7 @@ func TestGetBlock_Handler(t *testing.T) {
 				getTxFn: func(bn int64, ti uint32) (*types.TxResult, error) {
 					require.Equal(t, blockNum, bn)
 					require.Equal(t, txIndex, ti)
+
 					return txResult, nil
 				},
 			}

@@ -42,12 +42,18 @@ func (m *Storage) GetTx(blockNum int64, index uint32) (*types.TxResult, error) {
 }
 
 // BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-func (m *Storage) BlockIterator(fromBlockNum int64, toBlockNum int64) (storage.Iterator[*types.Block], error) {
+func (m *Storage) BlockIterator(fromBlockNum, toBlockNum int64) (storage.Iterator[*types.Block], error) {
 	panic("not implemented") // TODO: Implement
 }
 
-// TxIterator iterates over transactions, limiting the results to be between the provided block numbers and transaction indexes
-func (m *Storage) TxIterator(fromBlockNum int64, toBlockNum int64, fromTxIndex uint32, toTxIndex uint32) (storage.Iterator[*types.TxResult], error) {
+// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
+// and transaction indexes
+func (m *Storage) TxIterator(
+	fromBlockNum,
+	toBlockNum int64,
+	fromTxIndex,
+	toTxIndex uint32,
+) (storage.Iterator[*types.TxResult], error) {
 	panic("not implemented") // TODO: Implement
 }
 

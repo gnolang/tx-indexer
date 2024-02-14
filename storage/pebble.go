@@ -29,6 +29,7 @@ func keyTx(blockNum int64, txIndex uint32) []byte {
 	key = EncodeStringAscending(key, prefixKeyTxs)
 	key = EncodeVarintAscending(key, blockNum)
 	key = EncodeUint32Ascending(key, txIndex)
+
 	return key
 }
 
@@ -36,6 +37,7 @@ func keyBlock(blockNum int64) []byte {
 	var key []byte
 	key = EncodeStringAscending(key, prefixKeyBlocks)
 	key = EncodeVarintAscending(key, blockNum)
+
 	return key
 }
 
@@ -75,6 +77,7 @@ func (s *Pebble) GetLatestHeight() (int64, error) {
 	defer c.Close()
 
 	_, val, err := DecodeVarintAscending(height)
+
 	return val, err
 }
 
@@ -116,6 +119,7 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
 	}
+
 	toKey := keyBlock(toBlockNum)
 
 	snap := s.db.NewSnapshot()
@@ -129,10 +133,14 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.
 	}
 
 	return &PebbleBlockIter{i: it, s: snap}, nil
-
 }
 
-func (s *Pebble) TxIterator(fromBlockNum, toBlockNum int64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error) {
+func (s *Pebble) TxIterator(
+	fromBlockNum,
+	toBlockNum int64,
+	fromTxIndex,
+	toTxIndex uint32,
+) (Iterator[*types.TxResult], error) {
 	fromKey := keyTx(fromBlockNum, fromTxIndex)
 
 	if toBlockNum == 0 {
@@ -146,6 +154,7 @@ func (s *Pebble) TxIterator(fromBlockNum, toBlockNum int64, fromTxIndex, toTxInd
 	toKey := keyTx(toBlockNum, toTxIndex)
 
 	snap := s.db.NewSnapshot()
+
 	it, err := snap.NewIter(&pebble.IterOptions{
 		LowerBound: fromKey,
 		UpperBound: toKey,
@@ -179,6 +188,7 @@ type PebbleBlockIter struct {
 func (pi *PebbleBlockIter) Next() bool {
 	if !pi.init {
 		pi.init = true
+
 		return pi.i.First()
 	}
 
@@ -200,13 +210,13 @@ func (pi *PebbleBlockIter) Close() error {
 var _ Iterator[*types.TxResult] = &PebbleTxIter{}
 
 type PebbleTxIter struct {
-	i *pebble.Iterator
-	s *pebble.Snapshot
-
 	fromIndex, toIndex uint32
 
 	init      bool
 	nextError error
+
+	i *pebble.Iterator
+	s *pebble.Snapshot
 }
 
 func (pi *PebbleTxIter) Next() bool {
@@ -221,24 +231,31 @@ func (pi *PebbleTxIter) Next() bool {
 		if !pi.i.Valid() {
 			return false
 		}
+
 		if !pi.i.Next() {
 			return false
 		}
 
 		var buf []byte
+
 		key, _, err := DecodeUnsafeStringAscending(pi.i.Key(), buf)
 		if err != nil {
 			pi.nextError = err
+
 			return false
 		}
+
 		key, _, err = DecodeVarintAscending(key)
 		if err != nil {
 			pi.nextError = err
+
 			return false
 		}
+
 		_, txIdx, err := DecodeUint32Ascending(key)
 		if err != nil {
 			pi.nextError = err
+
 			return false
 		}
 
@@ -273,6 +290,7 @@ type PebbleBatch struct {
 func (b *PebbleBatch) SetLatestHeight(h int64) error {
 	var val []byte
 	val = EncodeVarintAscending(val, h)
+
 	return b.b.Set([]byte(keyLatestHeight), val, pebble.NoSync)
 }
 
