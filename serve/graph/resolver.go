@@ -45,18 +45,22 @@ func handleChannel[T any](ctx context.Context, m *events.Manager, writeToChannel
 
 		sub := m.Subscribe([]events.Type{types.NewBlockEvent})
 		defer m.CancelSubscription(sub.ID)
+
 		for {
 			select {
 			case <-ctx.Done():
 				graphql.AddError(ctx, ctx.Err())
+
 				return
 			case rawE, ok := <-sub.SubCh:
 				if !ok {
 					return
 				}
+
 				e, ok := rawE.GetData().(*types.NewBlock)
 				if !ok {
 					graphql.AddError(ctx, fmt.Errorf("error casting event data. Obtained event ID: %q", rawE.GetType()))
+
 					return
 				}
 

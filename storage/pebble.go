@@ -210,13 +210,12 @@ func (pi *PebbleBlockIter) Close() error {
 var _ Iterator[*types.TxResult] = &PebbleTxIter{}
 
 type PebbleTxIter struct {
-	fromIndex, toIndex uint32
-
-	init      bool
 	nextError error
-
-	i *pebble.Iterator
-	s *pebble.Snapshot
+	i         *pebble.Iterator
+	s         *pebble.Snapshot
+	fromIndex uint32
+	toIndex   uint32
+	init      bool
 }
 
 func (pi *PebbleTxIter) Next() bool {

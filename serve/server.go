@@ -17,8 +17,8 @@ const (
 
 type HTTPServer struct {
 	h      http.Handler
-	addr   string
 	logger *zap.Logger
+	addr   string
 }
 
 func NewHTTPServer(h http.Handler, addr string, logger *zap.Logger) *HTTPServer {
