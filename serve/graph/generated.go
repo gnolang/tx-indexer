@@ -64,8 +64,8 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		Blocks       func(childComplexity int, filter model.BlockFilter) int
-		Transactions func(childComplexity int, filter model.TransactionFilter) int
+		Blocks       func(childComplexity int) int
+		Transactions func(childComplexity int) int
 	}
 
 	Transaction struct {
@@ -83,8 +83,8 @@ type QueryResolver interface {
 	LatestBlockHeight(ctx context.Context) (int, error)
 }
 type SubscriptionResolver interface {
-	Transactions(ctx context.Context, filter model.TransactionFilter) (<-chan *model.Transaction, error)
-	Blocks(ctx context.Context, filter model.BlockFilter) (<-chan *model.Block, error)
+	Transactions(ctx context.Context) (<-chan *model.Transaction, error)
+	Blocks(ctx context.Context) (<-chan *model.Block, error)
 }
 
 type executableSchema struct {
@@ -177,24 +177,14 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Subscription_blocks_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.Blocks(childComplexity, args["filter"].(model.BlockFilter)), true
+		return e.complexity.Subscription.Blocks(childComplexity), true
 
 	case "Subscription.transactions":
 		if e.complexity.Subscription.Transactions == nil {
 			break
 		}
 
-		args, err := ec.field_Subscription_transactions_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+		return e.complexity.Subscription.Transactions(childComplexity), true
 
 	case "Transaction.block_height":
 		if e.complexity.Transaction.BlockHeight == nil {
@@ -390,36 +380,6 @@ func (ec *executionContext) field_Query_blocks_args(ctx context.Context, rawArgs
 }
 
 func (ec *executionContext) field_Query_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 model.TransactionFilter
-	if tmp, ok := rawArgs["filter"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-		arg0, err = ec.unmarshalNTransactionFilter2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionFilter(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["filter"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Subscription_blocks_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 model.BlockFilter
-	if tmp, ok := rawArgs["filter"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-		arg0, err = ec.unmarshalNBlockFilter2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockFilter(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["filter"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Subscription_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 model.TransactionFilter
@@ -1007,7 +967,7 @@ func (ec *executionContext) _Subscription_transactions(ctx context.Context, fiel
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().Transactions(rctx, fc.Args["filter"].(model.TransactionFilter))
+		return ec.resolvers.Subscription().Transactions(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1060,17 +1020,6 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
 	return fc, nil
 }
 
@@ -1088,7 +1037,7 @@ func (ec *executionContext) _Subscription_blocks(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().Blocks(rctx, fc.Args["filter"].(model.BlockFilter))
+		return ec.resolvers.Subscription().Blocks(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1140,17 +1089,6 @@ func (ec *executionContext) fieldContext_Subscription_blocks(ctx context.Context
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Block", field.Name)
 		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_blocks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }

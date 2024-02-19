@@ -3,9 +3,15 @@
 package graph
 
 import (
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
+
+	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/storage"
+	"github.com/gnolang/tx-indexer/types"
 )
 
 // This file will not be regenerated automatically.
@@ -32,10 +38,41 @@ func dereferenceTime(i *time.Time) time.Time {
 	return *i
 }
 
-type Resolver struct {
-	store storage.Storage
+func handleChannel[T any](ctx context.Context, m *events.Manager, writeToChannel func(*types.NewBlock, chan T)) chan T {
+	ch := make(chan T)
+	go func() {
+		defer close(ch)
+
+		sub := m.Subscribe([]events.Type{types.NewBlockEvent})
+		defer m.CancelSubscription(sub.ID)
+		for {
+			select {
+			case <-ctx.Done():
+				graphql.AddError(ctx, ctx.Err())
+				return
+			case rawE, ok := <-sub.SubCh:
+				if !ok {
+					return
+				}
+				e, ok := rawE.GetData().(*types.NewBlock)
+				if !ok {
+					graphql.AddError(ctx, fmt.Errorf("error casting event data. Obtained event ID: %q", rawE.GetType()))
+					return
+				}
+
+				writeToChannel(e, ch)
+			}
+		}
+	}()
+
+	return ch
 }
 
-func NewResolver(s storage.Storage) *Resolver {
-	return &Resolver{store: s}
+type Resolver struct {
+	store   storage.Storage
+	manager *events.Manager
+}
+
+func NewResolver(s storage.Storage, m *events.Manager) *Resolver {
+	return &Resolver{store: s, manager: m}
 }
