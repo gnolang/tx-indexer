@@ -17,20 +17,20 @@ type Storage interface {
 type Reader interface {
 	io.Closer
 	// GetLatestHeight returns the latest block height from the storage
-	GetLatestHeight() (int64, error)
+	GetLatestHeight() (uint64, error)
 
 	// GetBlock fetches the block by its number
-	GetBlock(int64) (*types.Block, error)
+	GetBlock(uint64) (*types.Block, error)
 
 	// GetTx fetches the tx using the block height and the transaction index
-	GetTx(blockNum int64, index uint32) (*types.TxResult, error)
+	GetTx(blockNum uint64, index uint32) (*types.TxResult, error)
 
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-	BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.Block], error)
+	BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
 
 	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
 	// and transaction indexes
-	TxIterator(fromBlockNum, toBlockNum int64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
+	TxIterator(fromBlockNum, toBlockNum uint64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
 }
 
 type Iterator[T any] interface {
@@ -50,7 +50,7 @@ type Writer interface {
 
 type Batch interface {
 	// SetLatestHeight saves the latest block height to the storage
-	SetLatestHeight(int64) error
+	SetLatestHeight(uint64) error
 	// SetBlock saves the block to the permanent storage
 	SetBlock(block *types.Block) error
 	// SetTx saves the transaction to the permanent storage

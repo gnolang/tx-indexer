@@ -8,9 +8,10 @@ import (
 	"context"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/types"
-	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 // Transactions is the resolver for the transactions field.
@@ -18,8 +19,8 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 	it, err := r.
 		store.
 		TxIterator(
-			int64(dereferenceInt(filter.FromBlockHeight)),
-			int64(dereferenceInt(filter.ToBlockHeight)),
+			uint64(dereferenceInt(filter.FromBlockHeight)),
+			uint64(dereferenceInt(filter.ToBlockHeight)),
 			uint32(dereferenceInt(filter.FromIndex)),
 			uint32(dereferenceInt(filter.ToIndex)),
 		)
@@ -74,8 +75,8 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	it, err := r.
 		store.
 		BlockIterator(
-			int64(dereferenceInt(filter.FromHeight)),
-			int64(dereferenceInt(filter.ToHeight)),
+			uint64(dereferenceInt(filter.FromHeight)),
+			uint64(dereferenceInt(filter.ToHeight)),
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)

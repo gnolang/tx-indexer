@@ -4,34 +4,22 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"unsafe"
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/pkg/errors"
 )
 
 const (
-	bytesMarker     byte = 0x12
-	bytesDescMarker      = bytesMarker + 1
-
-	// IntMin is chosen such that the range of int tags does not overlap the
-	// ascii character set that is frequently used in testing.
-	IntMin      = 0x80 // 128
-	intMaxWidth = 8
-	intZero     = IntMin + intMaxWidth           // 136
-	intSmall    = IntMax - intZero - intMaxWidth // 109
-	// IntMax is the maximum int tag value.
-	IntMax = 0xfd // 253
+	bytesMarker byte = 0x12
 
 	// <term>     -> \x00\x01
 	// \x00       -> \x00\xff
-	escape                   byte = 0x00
-	escapedTerm              byte = 0x01
-	escapedJSONObjectKeyTerm byte = 0x02
-	escapedJSONArray         byte = 0x03
-	escaped00                byte = 0xff
-	escapedFF                byte = 0x00
+	escape      byte = 0x00
+	escapedTerm byte = 0x01
+	escaped00   byte = 0xff
+	escapedFF   byte = 0x00
 )
 
 type escapes struct {
@@ -44,195 +32,77 @@ type escapes struct {
 
 var ascendingBytesEscapes = escapes{escape, escapedTerm, escaped00, escapedFF, bytesMarker}
 
-// EncodeUint32Ascending encodes the uint32 value using a big-endian 4 byte
+// encodeUint32Ascending encodes the uint32 value using a big-endian 4 byte
 // representation. The bytes are appended to the supplied buffer and
 // the final buffer is returned.
-func EncodeUint32Ascending(b []byte, v uint32) []byte {
+func encodeUint32Ascending(b []byte, v uint32) []byte {
 	return append(b, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
-// EncodeUint32Descending encodes the uint32 value so that it sorts in
+// encodeUint32Descending encodes the uint32 value so that it sorts in
 // reverse order, from largest to smallest.
-func EncodeUint32Descending(b []byte, v uint32) []byte {
-	return EncodeUint32Ascending(b, ^v)
+func encodeUint32Descending(b []byte, v uint32) []byte {
+	return encodeUint32Ascending(b, ^v)
 }
 
-// DecodeUint32Ascending decodes a uint32 from the input buffer, treating
+// decodeUint32Ascending decodes a uint32 from the input buffer, treating
 // the input as a big-endian 4 byte uint32 representation. The remainder
 // of the input buffer and the decoded uint32 are returned.
-func DecodeUint32Ascending(b []byte) ([]byte, uint32, error) {
+func decodeUint32Ascending(b []byte) ([]byte, uint32, error) {
 	if len(b) < 4 {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode uint32 int value")
 	}
 
-	v := binary.BigEndian.Uint32(b)
+	v := uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
 
 	return b[4:], v, nil
 }
 
-// DecodeUint32Descending decodes a uint32 value which was encoded
+// decodeUint32Descending decodes a uint32 value which was encoded
 // using EncodeUint32Descending.
-func DecodeUint32Descending(b []byte) ([]byte, uint32, error) {
-	leftover, v, err := DecodeUint32Ascending(b)
+func decodeUint32Descending(b []byte) ([]byte, uint32, error) {
+	leftover, v, err := decodeUint32Ascending(b)
 
 	return leftover, ^v, err
 }
 
-// EncodeVarintAscending encodes the int64 value using a variable length
-// (length-prefixed) representation. The length is encoded as a single
-// byte. If the value to be encoded is negative the length is encoded
-// as 8-numBytes. If the value is positive it is encoded as
-// 8+numBytes. The encoded bytes are appended to the supplied buffer
-// and the final buffer is returned.
-func EncodeVarintAscending(b []byte, v int64) []byte {
-	if v < 0 {
-		switch {
-		case v >= -0xff:
-			return append(b, IntMin+7, byte(v))
-		case v >= -0xffff:
-			return append(b, IntMin+6, byte(v>>8), byte(v))
-		case v >= -0xffffff:
-			return append(b, IntMin+5, byte(v>>16), byte(v>>8), byte(v))
-		case v >= -0xffffffff:
-			return append(b, IntMin+4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
-		case v >= -0xffffffffff:
-			return append(b, IntMin+3, byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8),
-				byte(v))
-		case v >= -0xffffffffffff:
-			return append(b, IntMin+2, byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16),
-				byte(v>>8), byte(v))
-		case v >= -0xffffffffffffff:
-			return append(b, IntMin+1, byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24),
-				byte(v>>16), byte(v>>8), byte(v))
-		default:
-			return append(b, IntMin, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32),
-				byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
-		}
-	}
-
-	return EncodeUvarintAscending(b, uint64(v))
+// encodeUint64Ascending encodes the uint64 value using a big-endian 8 byte
+// representation. The bytes are appended to the supplied buffer and
+// the final buffer is returned.
+func encodeUint64Ascending(b []byte, v uint64) []byte {
+	return append(b,
+		byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32),
+		byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
-// EncodeVarintDescending encodes the int64 value so that it sorts in reverse
-// order, from largest to smallest.
-func EncodeVarintDescending(b []byte, v int64) []byte {
-	return EncodeVarintAscending(b, ^v)
+// encodeUint64Descending encodes the uint64 value so that it sorts in
+// reverse order, from largest to smallest.
+func encodeUint64Descending(b []byte, v uint64) []byte {
+	return encodeUint64Ascending(b, ^v)
 }
 
-// EncodeUvarintAscending encodes the uint64 value using a variable length
-// (length-prefixed) representation. The length is encoded as a single
-// byte indicating the number of encoded bytes (-8) to follow. See
-// EncodeVarintAscending for rationale. The encoded bytes are appended to the
-// supplied buffer and the final buffer is returned.
-func EncodeUvarintAscending(b []byte, v uint64) []byte {
-	switch {
-	case v <= intSmall:
-		return append(b, intZero+byte(v))
-	case v <= 0xff:
-		return append(b, IntMax-7, byte(v))
-	case v <= 0xffff:
-		return append(b, IntMax-6, byte(v>>8), byte(v))
-	case v <= 0xffffff:
-		return append(b, IntMax-5, byte(v>>16), byte(v>>8), byte(v))
-	case v <= 0xffffffff:
-		return append(b, IntMax-4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
-	case v <= 0xffffffffff:
-		return append(b, IntMax-3, byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8),
-			byte(v))
-	case v <= 0xffffffffffff:
-		return append(b, IntMax-2, byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16),
-			byte(v>>8), byte(v))
-	case v <= 0xffffffffffffff:
-		return append(b, IntMax-1, byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24),
-			byte(v>>16), byte(v>>8), byte(v))
-	default:
-		return append(b, IntMax, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32),
-			byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+// decodeUint64Ascending decodes a uint64 from the input buffer, treating
+// the input as a big-endian 8 byte uint64 representation. The remainder
+// of the input buffer and the decoded uint64 are returned.
+func decodeUint64Ascending(b []byte) ([]byte, uint64, error) {
+	if len(b) < 8 {
+		return nil, 0, errors.Errorf("insufficient bytes to decode uint64 int value")
 	}
+	v := binary.BigEndian.Uint64(b)
+	return b[8:], v, nil
 }
 
-// DecodeVarintAscending decodes a value encoded by EncodeVarintAscending.
-func DecodeVarintAscending(b []byte) ([]byte, int64, error) {
-	if len(b) == 0 {
-		return nil, 0, fmt.Errorf("insufficient bytes to decode varint value")
-	}
-
-	length := int(b[0]) - intZero
-	if length < 0 {
-		length = -length
-
-		remB := b[1:]
-		if len(remB) < length {
-			return nil, 0, fmt.Errorf("insufficient bytes to decode varint value: %q", remB)
-		}
-
-		var v int64
-		// Use the ones-complement of each encoded byte in order to build
-		// up a positive number, then take the ones-complement again to
-		// arrive at our negative value.
-		for _, t := range remB[:length] {
-			v = (v << 8) | int64(^t)
-		}
-
-		return remB[length:], ^v, nil
-	}
-
-	remB, v, err := DecodeUvarintAscending(b)
-	if err != nil {
-		return remB, 0, err
-	}
-
-	if v > math.MaxInt64 {
-		return nil, 0, fmt.Errorf("varint %d overflows int64", v)
-	}
-
-	return remB, int64(v), nil
-}
-
-// DecodeUvarintAscending decodes a uint64 encoded uint64 from the input
-// buffer. The remainder of the input buffer and the decoded uint64
-// are returned.
-func DecodeUvarintAscending(b []byte) ([]byte, uint64, error) {
-	if len(b) == 0 {
-		return nil, 0, fmt.Errorf("insufficient bytes to decode uvarint value")
-	}
-
-	length := int(b[0]) - intZero
-
-	b = b[1:] // skip length byte
-	if length <= intSmall {
-		return b, uint64(length), nil
-	}
-
-	length -= intSmall
-	if length < 0 || length > 8 {
-		return nil, 0, fmt.Errorf("invalid uvarint length of %d", length)
-	} else if len(b) < length {
-		return nil, 0, fmt.Errorf("insufficient bytes to decode uvarint value: %q", b)
-	}
-
-	var v uint64
-	// It is faster to range over the elements in a slice than to index
-	// into the slice on each loop iteration.
-	for _, t := range b[:length] {
-		v = (v << 8) | uint64(t)
-	}
-
-	return b[length:], v, nil
-}
-
-// DecodeVarintDescending decodes a int64 value which was encoded
-// using EncodeVarintDescending.
-func DecodeVarintDescending(b []byte) ([]byte, int64, error) {
-	leftover, v, err := DecodeVarintAscending(b)
-
+// decodeUint64Descending decodes a uint64 value which was encoded
+// using EncodeUint64Descending.
+func decodeUint64Descending(b []byte) ([]byte, uint64, error) {
+	leftover, v, err := decodeUint64Ascending(b)
 	return leftover, ^v, err
 }
 
-// EncodeStringAscending encodes the string value using an escape-based encoding. See
+// dncodeStringAscending encodes the string value using an escape-based encoding. See
 // EncodeBytes for details. The encoded bytes are append to the supplied buffer
 // and the resulting buffer is returned.
-func EncodeStringAscending(b []byte, s string) []byte {
+func encodeStringAscending(b []byte, s string) []byte {
 	return encodeStringAscendingWithTerminatorAndPrefix(b, s, ascendingBytesEscapes.escapedTerm, bytesMarker)
 }
 
@@ -243,7 +113,7 @@ func EncodeStringAscending(b []byte, s string) []byte {
 func encodeStringAscendingWithTerminatorAndPrefix(
 	b []byte, s string, terminator byte, prefix byte,
 ) []byte {
-	unsafeString := UnsafeConvertStringToBytes(s)
+	unsafeString := unsafeConvertStringToBytes(s)
 
 	return encodeBytesAscendingWithTerminatorAndPrefix(b, unsafeString, terminator, prefix)
 }
@@ -292,11 +162,11 @@ func encodeBytesAscendingWithoutTerminatorOrPrefix(b, data []byte) []byte {
 	return append(b, data...)
 }
 
-// UnsafeConvertStringToBytes converts a string to a byte array to be used with
+// unsafeConvertStringToBytes converts a string to a byte array to be used with
 // string encoding functions. Note that the output byte array should not be
 // modified if the input string is expected to be used again - doing so could
 // violate Go semantics.
-func UnsafeConvertStringToBytes(s string) []byte {
+func unsafeConvertStringToBytes(s string) []byte {
 	// unsafe.StringData output is unspecified for empty string input so always
 	// return nil.
 	if s == "" {
@@ -306,31 +176,31 @@ func UnsafeConvertStringToBytes(s string) []byte {
 	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
-// DecodeUnsafeStringAscending decodes a string value from the input buffer which was
+// decodeUnsafeStringAscending decodes a string value from the input buffer which was
 // encoded using EncodeString or EncodeBytes. The r []byte is used as a
 // temporary buffer in order to avoid memory allocations. The remainder of the
 // input buffer and the decoded string are returned. Note that the returned
 // string may share storage with the input buffer.
-func DecodeUnsafeStringAscending(b, r []byte) ([]byte, string, error) {
-	b, r, err := DecodeBytesAscending(b, r)
+func decodeUnsafeStringAscending(b, r []byte) ([]byte, string, error) {
+	b, r, err := decodeBytesAscending(b, r)
 
-	return b, UnsafeConvertBytesToString(r), err
+	return b, unsafeConvertBytesToString(r), err
 }
 
-// UnsafeConvertBytesToString performs an unsafe conversion from a []byte to a
+// unsafeConvertBytesToString performs an unsafe conversion from a []byte to a
 // string. The returned string will share the underlying memory with the
 // []byte which thus allows the string to be mutable through the []byte. We're
 // careful to use this method only in situations in which the []byte will not
 // be modified.
-func UnsafeConvertBytesToString(b []byte) string {
+func unsafeConvertBytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-// DecodeBytesAscending decodes a []byte value from the input buffer
+// decodeBytesAscending decodes a []byte value from the input buffer
 // which was encoded using EncodeBytesAscending. The decoded bytes
 // are appended to r. The remainder of the input buffer and the
 // decoded []byte are returned.
-func DecodeBytesAscending(b, r []byte) ([]byte, []byte, error) {
+func decodeBytesAscending(b, r []byte) ([]byte, []byte, error) {
 	return decodeBytesInternal(b, r, ascendingBytesEscapes, true /* expectMarker */, false /* deepCopy */)
 }
 

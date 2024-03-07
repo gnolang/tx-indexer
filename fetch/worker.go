@@ -108,7 +108,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 
 	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
 		// Get block info from the chain
-		block, err := client.GetBlock(blockNum)
+		block, err := client.GetBlock(uint64(blockNum))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
 
@@ -139,7 +139,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 		}
 
 		// Add the request to the batch
-		if err := batch.AddBlockResultsRequest(block.Height); err != nil {
+		if err := batch.AddBlockResultsRequest(uint64(block.Height)); err != nil {
 			return nil, fmt.Errorf(
 				"unable to add block results request for block %d, %w",
 				block.Height,
@@ -203,7 +203,7 @@ func getTxResultsSequentially(blocks []*types.Block, client Client) ([][]*types.
 		}
 
 		// Get the transaction execution results
-		blockResults, err := client.GetBlockResults(block.Height)
+		blockResults, err := client.GetBlockResults(uint64(block.Height))
 		if err != nil {
 			errs = append(
 				errs,

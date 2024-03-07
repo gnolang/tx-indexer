@@ -56,11 +56,11 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			blockNum = int64(42)
+			blockNum = uint64(42)
 			txIndex  = uint32(42)
 
 			mockStorage = &mockStorage{
-				getTxFn: func(bn int64, ti uint32) (*types.TxResult, error) {
+				getTxFn: func(bn uint64, ti uint32) (*types.TxResult, error) {
 					require.Equal(t, blockNum, bn)
 					require.Equal(t, txIndex, ti)
 
@@ -82,13 +82,13 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			blockNum = int64(42)
+			blockNum = uint64(42)
 			txIndex  = uint32(42)
 
 			fetchErr = errors.New("random error")
 
 			mockStorage = &mockStorage{
-				getTxFn: func(_ int64, _ uint32) (*types.TxResult, error) {
+				getTxFn: func(_ uint64, _ uint32) (*types.TxResult, error) {
 					return nil, fetchErr
 				},
 			}
@@ -110,7 +110,7 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		var (
-			blockNum = int64(42)
+			blockNum = uint64(42)
 			txIndex  = uint32(42)
 
 			txResult = &types.TxResult{
@@ -118,7 +118,7 @@ func TestGetBlock_Handler(t *testing.T) {
 			}
 
 			mockStorage = &mockStorage{
-				getTxFn: func(bn int64, ti uint32) (*types.TxResult, error) {
+				getTxFn: func(bn uint64, ti uint32) (*types.TxResult, error) {
 					require.Equal(t, blockNum, bn)
 					require.Equal(t, txIndex, ti)
 

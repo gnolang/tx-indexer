@@ -39,7 +39,7 @@ func TestStorage_LatestHeight(t *testing.T) {
 	require.EqualValues(t, 0, latest)
 
 	// Save the latest height and grab it
-	for i := int64(0); i < 100; i++ {
+	for i := uint64(0); i < 100; i++ {
 		b := s.WriteBatch()
 
 		require.NoError(t, b.SetLatestHeight(i))
@@ -73,7 +73,7 @@ func TestStorage_Block(t *testing.T) {
 	require.NoError(t, b.Commit())
 
 	for _, block := range blocks {
-		savedBlock, err := s.GetBlock(block.Height)
+		savedBlock, err := s.GetBlock(uint64(block.Height))
 		require.NoError(t, err)
 		assert.Equal(t, block, savedBlock)
 	}
@@ -101,7 +101,7 @@ func TestStorage_Tx(t *testing.T) {
 	require.NoError(t, wb.Commit())
 
 	for _, tx := range txs {
-		savedTx, err := s.GetTx(tx.Height, tx.Index)
+		savedTx, err := s.GetTx(uint64(tx.Height), tx.Index)
 		require.NoError(t, err)
 		assert.Equal(t, tx, savedTx)
 	}

@@ -35,7 +35,7 @@ func TestFetcher_FetchTransactions_Invalid(t *testing.T) {
 			fetchErr = errors.New("random DB error")
 
 			mockStorage = &mock.Storage{
-				GetLatestSavedHeightFn: func() (int64, error) {
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, fetchErr
 				},
 			}
@@ -85,10 +85,10 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 				},
 			}
 
-			latestSaved = int64(0)
+			latestSaved = uint64(0)
 
 			mockStorage = &mock.Storage{
-				GetLatestSavedHeightFn: func() (int64, error) {
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					if latestSaved == 0 {
 						return 0, storageErrors.ErrNotFound
 					}
@@ -106,7 +106,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 								cancelFn()
 							}
 
-							latestSaved = block.Height
+							latestSaved = uint64(block.Height)
 
 							return nil
 						},
@@ -131,12 +131,12 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
-				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+				getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
@@ -144,14 +144,14 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
 					return &core_types.ResultBlockResults{
-						Height: num,
+						Height: int64(num),
 						Results: &state.ABCIResponses{
 							DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
 						},
@@ -240,10 +240,10 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 				},
 			}
 
-			latestSaved = int64(0)
+			latestSaved = uint64(0)
 
 			mockStorage = &mock.Storage{
-				GetLatestSavedHeightFn: func() (int64, error) {
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					if latestSaved == 0 {
 						return 0, storageErrors.ErrNotFound
 					}
@@ -261,7 +261,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 								cancelFn()
 							}
 
-							latestSaved = block.Height
+							latestSaved = uint64(block.Height)
 
 							return nil
 						},
@@ -290,9 +290,9 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						countFn: func() int {
 							return len(batch)
 						},
-						addBlockRequestFn: func(num int64) error {
+						addBlockRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
@@ -305,15 +305,15 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 
 							return nil
 						},
-						addBlockResultsRequestFn: func(num int64) error {
+						addBlockResultsRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
 							batch = append(batch,
 								&core_types.ResultBlockResults{
-									Height: num,
+									Height: int64(num),
 									Results: &state.ABCIResponses{
 										DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
 									},
@@ -324,8 +324,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
 			}
 		)
@@ -417,7 +417,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			}
 
 			mockStorage = &mock.Storage{
-				GetLatestSavedHeightFn: func() (int64, error) {
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, storageErrors.ErrNotFound
 				},
 				GetWriteBatchFn: func() storage.Batch {
@@ -454,12 +454,12 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
-				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+				getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
@@ -467,7 +467,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(_ int64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(_ uint64) (*core_types.ResultBlockResults, error) {
 					t.Fatalf("should not request results")
 
 					return nil, nil
@@ -523,7 +523,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			}
 
 			mockStorage = &mock.Storage{
-				GetLatestSavedHeightFn: func() (int64, error) {
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, storageErrors.ErrNotFound
 				},
 				GetWriteBatchFn: func() storage.Batch {
@@ -564,9 +564,9 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						countFn: func() int {
 							return len(batch)
 						},
-						addBlockRequestFn: func(num int64) error {
+						addBlockRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
@@ -579,15 +579,15 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 
 							return nil
 						},
-						addBlockResultsRequestFn: func(num int64) error {
+						addBlockResultsRequestFn: func(num uint64) error {
 							t.Fatalf("block %d should not have txs", num)
 
 							return nil
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
 			}
 		)
@@ -643,7 +643,7 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 		}
 
 		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (int64, error) {
+			GetLatestSavedHeightFn: func() (uint64, error) {
 				return 0, storageErrors.ErrNotFound
 			},
 			GetWriteBatchFn: func() storage.Batch {
@@ -680,12 +680,12 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 					},
 				}
 			},
-			getLatestBlockNumberFn: func() (int64, error) {
-				return int64(blockNum), nil
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return uint64(blockNum), nil
 			},
-			getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+			getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 				// Sanity check
-				if num > int64(blockNum) {
+				if num > uint64(blockNum) {
 					t.Fatalf("invalid block requested, %d", num)
 				}
 
@@ -693,8 +693,8 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 					Block: blocks[num],
 				}, nil
 			},
-			getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
-				require.LessOrEqual(t, num, int64(blockNum))
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				require.LessOrEqual(t, num, uint64(blockNum))
 
 				return nil, fmt.Errorf("unable to fetch result for block %d", num)
 			},

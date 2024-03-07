@@ -8,9 +8,9 @@ import (
 )
 
 type (
-	getLatestBlockNumberDelegate func() (int64, error)
-	getBlockDelegate             func(int64) (*core_types.ResultBlock, error)
-	getBlockResultsDelegate      func(int64) (*core_types.ResultBlockResults, error)
+	getLatestBlockNumberDelegate func() (uint64, error)
+	getBlockDelegate             func(uint64) (*core_types.ResultBlock, error)
+	getBlockResultsDelegate      func(uint64) (*core_types.ResultBlockResults, error)
 
 	createBatchDelegate func() clientTypes.Batch
 )
@@ -23,7 +23,7 @@ type mockClient struct {
 	createBatchFn createBatchDelegate
 }
 
-func (m *mockClient) GetLatestBlockNumber() (int64, error) {
+func (m *mockClient) GetLatestBlockNumber() (uint64, error) {
 	if m.getLatestBlockNumberFn != nil {
 		return m.getLatestBlockNumberFn()
 	}
@@ -31,7 +31,7 @@ func (m *mockClient) GetLatestBlockNumber() (int64, error) {
 	return 0, nil
 }
 
-func (m *mockClient) GetBlock(blockNum int64) (*core_types.ResultBlock, error) {
+func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 	if m.getBlockFn != nil {
 		return m.getBlockFn(blockNum)
 	}
@@ -39,7 +39,7 @@ func (m *mockClient) GetBlock(blockNum int64) (*core_types.ResultBlock, error) {
 	return nil, nil
 }
 
-func (m *mockClient) GetBlockResults(blockNum int64) (*core_types.ResultBlockResults, error) {
+func (m *mockClient) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
 	if m.getBlockResultsFn != nil {
 		return m.getBlockResultsFn(blockNum)
 	}
@@ -56,8 +56,8 @@ func (m *mockClient) CreateBatch() clientTypes.Batch {
 }
 
 type (
-	addBlockRequestDelegate        func(int64) error
-	addBlockResultsRequestDelegate func(int64) error
+	addBlockRequestDelegate        func(uint64) error
+	addBlockResultsRequestDelegate func(uint64) error
 	executeDelegate                func() ([]any, error)
 	countDelegate                  func() int
 )
@@ -69,7 +69,7 @@ type mockBatch struct {
 	countFn                  countDelegate
 }
 
-func (m *mockBatch) AddBlockRequest(num int64) error {
+func (m *mockBatch) AddBlockRequest(num uint64) error {
 	if m.addBlockRequestFn != nil {
 		return m.addBlockRequestFn(num)
 	}
@@ -77,7 +77,7 @@ func (m *mockBatch) AddBlockRequest(num int64) error {
 	return nil
 }
 
-func (m *mockBatch) AddBlockResultsRequest(num int64) error {
+func (m *mockBatch) AddBlockResultsRequest(num uint64) error {
 	if m.addBlockResultsRequestFn != nil {
 		return m.addBlockResultsRequestFn(num)
 	}

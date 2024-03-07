@@ -24,19 +24,19 @@ const (
 	prefixKeyTxs = "/data/txs/"
 )
 
-func keyTx(blockNum int64, txIndex uint32) []byte {
-	var key []byte
-	key = EncodeStringAscending(key, prefixKeyTxs)
-	key = EncodeVarintAscending(key, blockNum)
-	key = EncodeUint32Ascending(key, txIndex)
+func keyTx(blockNum uint64, txIndex uint32) []byte {
+	key := make([]byte, len(prefixKeyTxs)+8+4)
+	key = encodeStringAscending(key, prefixKeyTxs)
+	key = encodeUint64Ascending(key, blockNum)
+	key = encodeUint32Ascending(key, txIndex)
 
 	return key
 }
 
-func keyBlock(blockNum int64) []byte {
-	var key []byte
-	key = EncodeStringAscending(key, prefixKeyBlocks)
-	key = EncodeVarintAscending(key, blockNum)
+func keyBlock(blockNum uint64) []byte {
+	key := make([]byte, len(prefixKeyBlocks)+8)
+	key = encodeStringAscending(key, prefixKeyBlocks)
+	key = encodeUint64Ascending(key, blockNum)
 
 	return key
 }
@@ -64,7 +64,7 @@ func NewPebble(path string) (*Pebble, error) {
 }
 
 // GetLatestHeight fetches the latest saved height from storage
-func (s *Pebble) GetLatestHeight() (int64, error) {
+func (s *Pebble) GetLatestHeight() (uint64, error) {
 	height, c, err := s.db.Get([]byte(keyLatestHeight))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return 0, storageErrors.ErrNotFound
@@ -76,13 +76,13 @@ func (s *Pebble) GetLatestHeight() (int64, error) {
 
 	defer c.Close()
 
-	_, val, err := DecodeVarintAscending(height)
+	_, val, err := decodeUint64Ascending(height)
 
 	return val, err
 }
 
 // GetBlock fetches the specified block from storage, if any
-func (s *Pebble) GetBlock(blockNum int64) (*types.Block, error) {
+func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 	block, c, err := s.db.Get(keyBlock(blockNum))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -98,8 +98,8 @@ func (s *Pebble) GetBlock(blockNum int64) (*types.Block, error) {
 }
 
 // GetTx fetches the specified tx result from storage, if any
-func (s *Pebble) GetTx(blockNum int64, index uint32) (*types.TxResult, error) {
-	tx, c, err := s.db.Get(keyTx(blockNum, index))
+func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
+	tx, c, err := s.db.Get(keyTx(uint64(blockNum), index))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
 	}
@@ -113,7 +113,7 @@ func (s *Pebble) GetTx(blockNum int64, index uint32) (*types.TxResult, error) {
 	return decodeTx(tx)
 }
 
-func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.Block], error) {
+func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error) {
 	fromKey := keyBlock(fromBlockNum)
 
 	if toBlockNum == 0 {
@@ -137,7 +137,7 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum int64) (Iterator[*types.
 
 func (s *Pebble) TxIterator(
 	fromBlockNum,
-	toBlockNum int64,
+	toBlockNum uint64,
 	fromTxIndex,
 	toTxIndex uint32,
 ) (Iterator[*types.TxResult], error) {
@@ -237,21 +237,21 @@ func (pi *PebbleTxIter) Next() bool {
 
 		var buf []byte
 
-		key, _, err := DecodeUnsafeStringAscending(pi.i.Key(), buf)
+		key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
 		if err != nil {
 			pi.nextError = err
 
 			return false
 		}
 
-		key, _, err = DecodeVarintAscending(key)
+		key, _, err = decodeUint64Ascending(key)
 		if err != nil {
 			pi.nextError = err
 
 			return false
 		}
 
-		_, txIdx, err := DecodeUint32Ascending(key)
+		_, txIdx, err := decodeUint32Ascending(key)
 		if err != nil {
 			pi.nextError = err
 
@@ -286,9 +286,9 @@ type PebbleBatch struct {
 	b *pebble.Batch
 }
 
-func (b *PebbleBatch) SetLatestHeight(h int64) error {
+func (b *PebbleBatch) SetLatestHeight(h uint64) error {
 	var val []byte
-	val = EncodeVarintAscending(val, h)
+	val = encodeUint64Ascending(val, h)
 
 	return b.b.Set([]byte(keyLatestHeight), val, pebble.NoSync)
 }
@@ -299,7 +299,7 @@ func (b *PebbleBatch) SetBlock(block *types.Block) error {
 		return err
 	}
 
-	key := keyBlock(block.Height)
+	key := keyBlock(uint64(block.Height))
 
 	return b.b.Set(
 		key,
@@ -314,7 +314,7 @@ func (b *PebbleBatch) SetTx(tx *types.TxResult) error {
 		return err
 	}
 
-	key := keyTx(tx.Height, tx.Index)
+	key := keyTx(uint64(tx.Height), tx.Index)
 
 	return b.b.Set(
 		key,

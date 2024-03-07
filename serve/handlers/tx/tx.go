@@ -31,7 +31,7 @@ func (h *Handler) GetTxHandler(
 	}
 
 	// Extract the params
-	blockNum, ok := params[0].(int64)
+	blockNum, ok := params[0].(uint64)
 	if !ok {
 		return nil, spec.GenerateInvalidParamError(1)
 	}
@@ -60,7 +60,7 @@ func (h *Handler) GetTxHandler(
 }
 
 // getTx fetches the tx from storage, if any
-func (h *Handler) getTx(blockNum int64, txIndex uint32) (*types.TxResult, error) {
+func (h *Handler) getTx(blockNum uint64, txIndex uint32) (*types.TxResult, error) {
 	tx, err := h.storage.GetTx(blockNum, txIndex)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -36,7 +37,7 @@ func (h *Handler) GetBlockHandler(
 		return nil, spec.GenerateInvalidParamError(1)
 	}
 
-	blockNum, err := strconv.ParseInt(requestedBlock, 10, 64)
+	blockNum, err := strconv.ParseUint(requestedBlock, 10, 64)
 	if err != nil {
 		return nil, spec.GenerateInvalidParamError(1)
 	}
@@ -60,7 +61,7 @@ func (h *Handler) GetBlockHandler(
 }
 
 // getBlock fetches the block from storage, if any
-func (h *Handler) getBlock(blockNum int64) (*types.Block, error) {
+func (h *Handler) getBlock(blockNum uint64) (*types.Block, error) {
 	block, err := h.storage.GetBlock(blockNum)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error

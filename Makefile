@@ -17,7 +17,11 @@ gofumpt:
 .PHONY: fixalign
 fixalign:
 	go install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest
-	fieldalignment -fix ./...
+	fieldalignment -fix $(filter-out $@,$(MAKECMDGOALS)) # the full package name (not path!)
+
+.PHONY: generate
+generate:
+	go generate ./...
 
 .PHONY: test
 test:

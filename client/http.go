@@ -5,6 +5,7 @@ import (
 
 	rpcClient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
+
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 )
 
@@ -27,17 +28,18 @@ func (c *Client) CreateBatch() clientTypes.Batch {
 	}
 }
 
-func (c *Client) GetLatestBlockNumber() (int64, error) {
+func (c *Client) GetLatestBlockNumber() (uint64, error) {
 	status, err := c.client.Status()
 	if err != nil {
 		return 0, fmt.Errorf("unable to get chain status, %w", err)
 	}
 
-	return status.SyncInfo.LatestBlockHeight, nil
+	return uint64(status.SyncInfo.LatestBlockHeight), nil
 }
 
-func (c *Client) GetBlock(blockNum int64) (*core_types.ResultBlock, error) {
-	block, err := c.client.Block(&blockNum)
+func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
+	bn := int64(blockNum)
+	block, err := c.client.Block(&bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block, %w", err)
 	}
@@ -45,8 +47,9 @@ func (c *Client) GetBlock(blockNum int64) (*core_types.ResultBlock, error) {
 	return block, nil
 }
 
-func (c *Client) GetBlockResults(blockNum int64) (*core_types.ResultBlockResults, error) {
-	results, err := c.client.BlockResults(&blockNum)
+func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
+	bn := int64(blockNum)
+	results, err := c.client.BlockResults(&bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block results, %w", err)
 	}
