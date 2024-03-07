@@ -38,7 +38,7 @@ func dereferenceTime(i *time.Time) time.Time {
 	return *i
 }
 
-func handleChannel[T any](ctx context.Context, m *events.Manager, writeToChannel func(*types.NewBlock, chan T)) chan T {
+func handleChannel[T any](ctx context.Context, m *events.Manager, writeToChannel func(*types.NewBlock, chan<- T)) <-chan T {
 	ch := make(chan T)
 	go func() {
 		defer close(ch)

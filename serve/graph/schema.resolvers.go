@@ -127,7 +127,7 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 
 // Transactions is the resolver for the transactions field.
 func (r *subscriptionResolver) Transactions(ctx context.Context) (<-chan *model.Transaction, error) {
-	return handleChannel[*model.Transaction](ctx, r.manager, func(nb *types.NewBlock, c chan *model.Transaction) {
+	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Transaction) {
 		for _, tx := range nb.Results {
 			c <- model.NewTransaction(tx)
 		}
@@ -136,7 +136,7 @@ func (r *subscriptionResolver) Transactions(ctx context.Context) (<-chan *model.
 
 // Blocks is the resolver for the blocks field.
 func (r *subscriptionResolver) Blocks(ctx context.Context) (<-chan *model.Block, error) {
-	return handleChannel[*model.Block](ctx, r.manager, func(nb *types.NewBlock, c chan *model.Block) {
+	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Block) {
 		c <- model.NewBlock(nb.Block)
 	}), nil
 }
