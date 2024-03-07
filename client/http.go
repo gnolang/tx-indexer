@@ -39,6 +39,7 @@ func (c *Client) GetLatestBlockNumber() (uint64, error) {
 
 func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 	bn := int64(blockNum)
+
 	block, err := c.client.Block(&bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block, %w", err)
@@ -49,6 +50,7 @@ func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 
 func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
 	bn := int64(blockNum)
+
 	results, err := c.client.BlockResults(&bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block results, %w", err)

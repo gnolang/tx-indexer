@@ -25,7 +25,7 @@ const (
 )
 
 func keyTx(blockNum uint64, txIndex uint32) []byte {
-	key := make([]byte, len(prefixKeyTxs)+8+4)
+	var key []byte
 	key = encodeStringAscending(key, prefixKeyTxs)
 	key = encodeUint64Ascending(key, blockNum)
 	key = encodeUint32Ascending(key, txIndex)
@@ -34,7 +34,7 @@ func keyTx(blockNum uint64, txIndex uint32) []byte {
 }
 
 func keyBlock(blockNum uint64) []byte {
-	key := make([]byte, len(prefixKeyBlocks)+8)
+	var key []byte
 	key = encodeStringAscending(key, prefixKeyBlocks)
 	key = encodeUint64Ascending(key, blockNum)
 
@@ -99,7 +99,7 @@ func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 
 // GetTx fetches the specified tx result from storage, if any
 func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
-	tx, c, err := s.db.Get(keyTx(uint64(blockNum), index))
+	tx, c, err := s.db.Get(keyTx(blockNum, index))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
 	}

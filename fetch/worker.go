@@ -108,7 +108,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 
 	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
 		// Get block info from the chain
-		block, err := client.GetBlock(uint64(blockNum))
+		block, err := client.GetBlock(blockNum)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
 

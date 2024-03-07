@@ -39,12 +39,6 @@ func encodeUint32Ascending(b []byte, v uint32) []byte {
 	return append(b, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
-// encodeUint32Descending encodes the uint32 value so that it sorts in
-// reverse order, from largest to smallest.
-func encodeUint32Descending(b []byte, v uint32) []byte {
-	return encodeUint32Ascending(b, ^v)
-}
-
 // decodeUint32Ascending decodes a uint32 from the input buffer, treating
 // the input as a big-endian 4 byte uint32 representation. The remainder
 // of the input buffer and the decoded uint32 are returned.
@@ -58,14 +52,6 @@ func decodeUint32Ascending(b []byte) ([]byte, uint32, error) {
 	return b[4:], v, nil
 }
 
-// decodeUint32Descending decodes a uint32 value which was encoded
-// using EncodeUint32Descending.
-func decodeUint32Descending(b []byte) ([]byte, uint32, error) {
-	leftover, v, err := decodeUint32Ascending(b)
-
-	return leftover, ^v, err
-}
-
 // encodeUint64Ascending encodes the uint64 value using a big-endian 8 byte
 // representation. The bytes are appended to the supplied buffer and
 // the final buffer is returned.
@@ -75,12 +61,6 @@ func encodeUint64Ascending(b []byte, v uint64) []byte {
 		byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
-// encodeUint64Descending encodes the uint64 value so that it sorts in
-// reverse order, from largest to smallest.
-func encodeUint64Descending(b []byte, v uint64) []byte {
-	return encodeUint64Ascending(b, ^v)
-}
-
 // decodeUint64Ascending decodes a uint64 from the input buffer, treating
 // the input as a big-endian 8 byte uint64 representation. The remainder
 // of the input buffer and the decoded uint64 are returned.
@@ -88,15 +68,10 @@ func decodeUint64Ascending(b []byte) ([]byte, uint64, error) {
 	if len(b) < 8 {
 		return nil, 0, errors.Errorf("insufficient bytes to decode uint64 int value")
 	}
-	v := binary.BigEndian.Uint64(b)
-	return b[8:], v, nil
-}
 
-// decodeUint64Descending decodes a uint64 value which was encoded
-// using EncodeUint64Descending.
-func decodeUint64Descending(b []byte) ([]byte, uint64, error) {
-	leftover, v, err := decodeUint64Ascending(b)
-	return leftover, ^v, err
+	v := binary.BigEndian.Uint64(b)
+
+	return b[8:], v, nil
 }
 
 // dncodeStringAscending encodes the string value using an escape-based encoding. See
