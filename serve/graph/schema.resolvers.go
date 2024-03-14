@@ -8,9 +8,10 @@ import (
 	"context"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/types"
-	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 // Transactions is the resolver for the transactions field.
@@ -82,8 +83,6 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	}
 	defer it.Close()
 
-	dft := dereferenceTime(filter.FromTime)
-
 	var out []*model.Block
 
 	i := 0
@@ -108,7 +107,10 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 				return out, nil
 			}
 
-			if !((b.Time.After(dft) || b.Time.Equal(dft)) && (filter.ToTime == nil || b.Time.Before(*filter.ToTime))) {
+			dft := dereferenceTime(filter.FromTime)
+			dtt := dereferenceTime(filter.ToTime)
+
+			if !((b.Time.After(dft) || b.Time.Equal(dft)) && (dtt.IsZero() || b.Time.Before(dtt))) {
 				continue
 			}
 
