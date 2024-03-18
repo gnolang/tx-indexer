@@ -6,5 +6,5 @@ import (
 
 type Storage interface {
 	// GetBlock returns specified block from permanent storage
-	GetBlock(int64) (*types.Block, error)
+	GetBlock(uint64) (*types.Block, error)
 }

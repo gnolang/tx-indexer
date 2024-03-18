@@ -9,13 +9,13 @@ import (
 var _ storage.Storage = &Storage{}
 
 type Storage struct {
-	GetLatestSavedHeightFn func() (int64, error)
+	GetLatestSavedHeightFn func() (uint64, error)
 	GetWriteBatchFn        func() storage.Batch
-	GetBlockFn             func(int64) (*types.Block, error)
-	GetTxFn                func([]byte) (*types.TxResult, error)
+	GetBlockFn             func(uint64) (*types.Block, error)
+	GetTxFn                func(uint64, uint32) (*types.TxResult, error)
 }
 
-func (m *Storage) GetLatestHeight() (int64, error) {
+func (m *Storage) GetLatestHeight() (uint64, error) {
 	if m.GetLatestSavedHeightFn != nil {
 		return m.GetLatestSavedHeightFn()
 	}
@@ -24,7 +24,7 @@ func (m *Storage) GetLatestHeight() (int64, error) {
 }
 
 // GetBlock fetches the block by its number
-func (m *Storage) GetBlock(blockNum int64) (*types.Block, error) {
+func (m *Storage) GetBlock(blockNum uint64) (*types.Block, error) {
 	if m.GetBlockFn != nil {
 		return m.GetBlockFn(blockNum)
 	}
@@ -32,13 +32,29 @@ func (m *Storage) GetBlock(blockNum int64) (*types.Block, error) {
 	panic("not implemented")
 }
 
-// GetTx fetches the tx using its hash
-func (m *Storage) GetTx(tx []byte) (*types.TxResult, error) {
+// GetTx fetches the tx using block height and transaction index
+func (m *Storage) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
 	if m.GetTxFn != nil {
-		return m.GetTxFn(tx)
+		return m.GetTxFn(blockNum, index)
 	}
 
 	panic("not implemented")
+}
+
+// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
+func (m *Storage) BlockIterator(_, _ uint64) (storage.Iterator[*types.Block], error) {
+	panic("not implemented") // TODO: Implement
+}
+
+// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
+// and transaction indexes
+func (m *Storage) TxIterator(
+	_,
+	_ uint64,
+	_,
+	_ uint32,
+) (storage.Iterator[*types.TxResult], error) {
+	panic("not implemented") // TODO: Implement
 }
 
 // WriteBatch provides a batch intended to do a write action that
@@ -56,13 +72,13 @@ func (m *Storage) Close() error {
 }
 
 type WriteBatch struct {
-	SetLatestHeightFn func(int64) error
+	SetLatestHeightFn func(uint64) error
 	SetBlockFn        func(*types.Block) error
 	SetTxFn           func(*types.TxResult) error
 }
 
 // SetLatestHeight saves the latest block height to the storage
-func (mb *WriteBatch) SetLatestHeight(h int64) error {
+func (mb *WriteBatch) SetLatestHeight(h uint64) error {
 	if mb.SetLatestHeightFn != nil {
 		return mb.SetLatestHeightFn(h)
 	}

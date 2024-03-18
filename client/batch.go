@@ -12,8 +12,9 @@ type Batch struct {
 }
 
 // AddBlockRequest adds a new block request (block fetch) to the batch
-func (b *Batch) AddBlockRequest(blockNum int64) error {
-	if _, err := b.batch.Block(&blockNum); err != nil {
+func (b *Batch) AddBlockRequest(blockNum uint64) error {
+	bn := int64(blockNum)
+	if _, err := b.batch.Block(&bn); err != nil {
 		return fmt.Errorf("unable to add block request, %w", err)
 	}
 
@@ -21,8 +22,9 @@ func (b *Batch) AddBlockRequest(blockNum int64) error {
 }
 
 // AddBlockResultsRequest adds a new block results request (block results fetch) to the batch
-func (b *Batch) AddBlockResultsRequest(blockNum int64) error {
-	if _, err := b.batch.BlockResults(&blockNum); err != nil {
+func (b *Batch) AddBlockResultsRequest(blockNum uint64) error {
+	bn := int64(blockNum)
+	if _, err := b.batch.BlockResults(&bn); err != nil {
 		return fmt.Errorf("unable to add block results request, %w", err)
 	}
 

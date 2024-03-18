@@ -3,16 +3,16 @@ package block
 import (
 	"encoding/base64"
 	"errors"
-	"math"
 	"strconv"
 	"testing"
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/gnolang/tx-indexer/serve/spec"
-	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/serve/spec"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
 func TestGetBlock_InvalidParams(t *testing.T) {
@@ -29,10 +29,6 @@ func TestGetBlock_InvalidParams(t *testing.T) {
 		{
 			"invalid param type",
 			[]any{1},
-		},
-		{
-			"invalid int64 type",
-			[]any{strconv.FormatUint(math.MaxUint64, 10)},
 		},
 	}
 
@@ -61,7 +57,7 @@ func TestGetBlock_Handler(t *testing.T) {
 		t.Parallel()
 
 		mockStorage := &mockStorage{
-			getBlockFn: func(_ int64) (*types.Block, error) {
+			getBlockFn: func(_ uint64) (*types.Block, error) {
 				return nil, storageErrors.ErrNotFound
 			},
 		}
@@ -82,7 +78,7 @@ func TestGetBlock_Handler(t *testing.T) {
 			fetchErr = errors.New("random error")
 
 			mockStorage = &mockStorage{
-				getBlockFn: func(_ int64) (*types.Block, error) {
+				getBlockFn: func(_ uint64) (*types.Block, error) {
 					return nil, fetchErr
 				},
 			}
@@ -113,7 +109,7 @@ func TestGetBlock_Handler(t *testing.T) {
 			}
 
 			mockStorage = &mockStorage{
-				getBlockFn: func(num int64) (*types.Block, error) {
+				getBlockFn: func(num uint64) (*types.Block, error) {
 					require.EqualValues(t, blockNum, num)
 
 					return block, nil

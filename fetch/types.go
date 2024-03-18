@@ -10,14 +10,14 @@ import (
 // Client defines the interface for the node (client) communication
 type Client interface {
 	// GetLatestBlockNumber returns the latest block height from the chain
-	GetLatestBlockNumber() (int64, error)
+	GetLatestBlockNumber() (uint64, error)
 
 	// GetBlock returns specified block
-	GetBlock(int64) (*core_types.ResultBlock, error)
+	GetBlock(uint64) (*core_types.ResultBlock, error)
 
 	// GetBlockResults returns the results of executing the transactions
 	// for the specified block
-	GetBlockResults(int64) (*core_types.ResultBlockResults, error)
+	GetBlockResults(uint64) (*core_types.ResultBlockResults, error)
 
 	// CreateBatch creates a new client batch
 	CreateBatch() clientTypes.Batch

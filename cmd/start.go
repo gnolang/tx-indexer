@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
+	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/storage"
 )
 
@@ -141,11 +143,17 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	// Create the JSON-RPC service
 	j := setupJSONRPC(
-		c.listenAddress,
 		db,
 		em,
 		logger,
 	)
+
+	mux := chi.NewMux()
+	mux = j.SetupRoutes(mux)
+	mux = graph.Setup(db, em, mux)
+
+	// Create the HTTP server
+	hs := serve.NewHTTPServer(mux, c.listenAddress, logger.Named("http-server"))
 
 	// Create a new waiter
 	w := newWaiter(ctx)
@@ -154,7 +162,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	w.add(f.FetchChainData)
 
 	// Add the JSON-RPC service
-	w.add(j.Serve)
+	w.add(hs.Serve)
 
 	// Wait for the services to stop
 	return errors.Join(
@@ -165,7 +173,6 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 // setupJSONRPC sets up the JSONRPC instance
 func setupJSONRPC(
-	listenAddress string,
 	db *storage.Pebble,
 	em *events.Manager,
 	logger *zap.Logger,
@@ -174,9 +181,6 @@ func setupJSONRPC(
 		em,
 		serve.WithLogger(
 			logger.Named("json-rpc"),
-		),
-		serve.WithListenAddress(
-			listenAddress,
 		),
 	)
 

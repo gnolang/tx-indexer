@@ -110,8 +110,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		for _, gap := range gaps {
 			f.logger.Info(
 				"Fetching range",
-				zap.Int64("from", gap.from),
-				zap.Int64("to", gap.to),
+				zap.Uint64("from", gap.from),
+				zap.Uint64("to", gap.to),
 			)
 
 			// Spawn worker
@@ -223,8 +223,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 
 				f.logger.Info(
 					"Added to batch block and tx data for range",
-					zap.Int64("from", item.chunkRange.from),
-					zap.Int64("to", item.chunkRange.to),
+					zap.Uint64("from", item.chunkRange.from),
+					zap.Uint64("to", item.chunkRange.to),
 				)
 
 				// Save the latest height data

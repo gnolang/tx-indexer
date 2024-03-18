@@ -9,12 +9,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gnolang/tx-indexer/serve/metadata"
-	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/gnolang/tx-indexer/serve/metadata"
+	"github.com/gnolang/tx-indexer/serve/spec"
 )
 
 func decodeResponse[T spec.BaseJSONResponse | spec.BaseJSONResponses](t *testing.T, responseBody []byte) *T {
@@ -161,7 +162,7 @@ func newWebServer(t *testing.T, callbacks ...func(s *JSONRPC)) *testWebServer {
 	}
 
 	// Hook up the JSON-RPC server to the mux
-	mux.Mount("/", s.setupRouter())
+	mux.Mount("/", s.SetupRoutes(chi.NewMux()))
 
 	return webServer
 }
