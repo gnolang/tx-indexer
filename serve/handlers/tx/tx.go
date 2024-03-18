@@ -59,9 +59,58 @@ func (h *Handler) GetTxHandler(
 	return encodedResponse, nil
 }
 
+func (h *Handler) GetTxByHashHandler(
+	_ *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
+	// Check the params
+	if len(params) < 1 {
+		return nil, spec.GenerateInvalidParamCountError()
+	}
+
+	// Extract the params
+	txHash, ok := params[0].(string)
+	if !ok {
+		return nil, spec.GenerateInvalidParamError(1)
+	}
+
+	// Run the handler
+	response, err := h.getTxByHash(txHash)
+	if err != nil {
+		return nil, spec.GenerateResponseError(err)
+	}
+
+	if response == nil {
+		return nil, nil
+	}
+
+	encodedResponse, err := encode.PrepareValue(response)
+	if err != nil {
+		return nil, spec.GenerateResponseError(err)
+	}
+
+	return encodedResponse, nil
+}
+
 // getTx fetches the tx from storage, if any
 func (h *Handler) getTx(blockNum uint64, txIndex uint32) (*types.TxResult, error) {
 	tx, err := h.storage.GetTx(blockNum, txIndex)
+	if errors.Is(err, storageErrors.ErrNotFound) {
+		// Wrap the error
+		//nolint:nilnil // This is a special case
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+// getTx fetches the tx from storage, if any
+func (h *Handler) getTxByHash(hash string) (*types.TxResult, error) {
+	tx, err := h.storage.GetTxByHash(hash)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case

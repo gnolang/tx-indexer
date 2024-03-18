@@ -9,14 +9,22 @@ import (
 	"math"
 
 	"github.com/99designs/gqlgen/graphql"
-	"github.com/vektah/gqlparser/v2/gqlerror"
-
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/types"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 // Transactions is the resolver for the transactions field.
 func (r *queryResolver) Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error) {
+	if filter.Hash != nil {
+		tx, err := r.store.GetTxByHash(*filter.Hash)
+		if err != nil {
+			return nil, gqlerror.Wrap(err)
+		}
+
+		return []*model.Transaction{model.NewTransaction(tx)}, nil
+	}
+
 	it, err := r.
 		store.
 		TxIterator(

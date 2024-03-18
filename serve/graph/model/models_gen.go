@@ -45,4 +45,6 @@ type TransactionFilter struct {
 	FromGasUsed *int `json:"from_gas_used,omitempty"`
 	// Maximum `gas_used` value for filtering Transactions, exclusive. Refines selection based on the computational effort actually consumed.
 	ToGasUsed *int `json:"to_gas_used,omitempty"`
+	// Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
+	Hash *string `json:"hash,omitempty"`
 }

@@ -120,6 +120,11 @@ func (j *JSONRPC) RegisterTxEndpoints(db tx.Storage) {
 		"getTxResult",
 		txHandler.GetTxHandler,
 	)
+
+	j.RegisterHandler(
+		"getTxResultByHash",
+		txHandler.GetTxByHashHandler,
+	)
 }
 
 // RegisterBlockEndpoints registers the block endpoints
