@@ -56,7 +56,7 @@ type Transaction {
   """
   The actual amount of computational effort consumed to execute this Transaction. It could be less or equal to `gas_wanted`.
   """
-	gas_used: Int!
+  gas_used: Int!
 
   """
   The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.

@@ -6,6 +6,7 @@ package graph
 
 import (
 	"context"
+	"math"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -19,20 +20,26 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 	it, err := r.
 		store.
 		TxIterator(
-			uint64(dereferenceInt(filter.FromBlockHeight)),
-			uint64(dereferenceInt(filter.ToBlockHeight)),
-			uint32(dereferenceInt(filter.FromIndex)),
-			uint32(dereferenceInt(filter.ToIndex)),
+			uint64(deref(filter.FromBlockHeight)),
+			uint64(deref(filter.ToBlockHeight)),
+			uint32(deref(filter.FromIndex)),
+			uint32(deref(filter.ToIndex)),
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
 	}
 	defer it.Close()
 
-	fgw := dereferenceInt(filter.FromGasUsed)
-	tgw := dereferenceInt(filter.ToGasWanted)
-	fgu := dereferenceInt(filter.FromGasUsed)
-	tgu := dereferenceInt(filter.ToGasUsed)
+	fgw := deref(filter.FromGasUsed)
+	tgw := deref(filter.ToGasWanted)
+	if tgw == 0 {
+		tgw = math.MaxInt
+	}
+	fgu := deref(filter.FromGasUsed)
+	tgu := deref(filter.ToGasUsed)
+	if tgu == 0 {
+		tgu = math.MaxInt
+	}
 
 	var out []*model.Transaction
 	i := 0
@@ -57,10 +64,10 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 				return out, nil
 			}
 
-			if !(t.Response.GasUsed >= int64(fgu) && (tgu == 0 || t.Response.GasUsed <= int64(tgu))) {
+			if !(t.Response.GasUsed >= int64(fgu) && (t.Response.GasUsed <= int64(tgu))) {
 				continue
 			}
-			if !(t.Response.GasWanted >= int64(fgw) && (tgw == 0 || t.Response.GasWanted <= int64(tgw))) {
+			if !(t.Response.GasWanted >= int64(fgw) && (t.Response.GasWanted <= int64(tgw))) {
 				continue
 			}
 
@@ -75,8 +82,8 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	it, err := r.
 		store.
 		BlockIterator(
-			uint64(dereferenceInt(filter.FromHeight)),
-			uint64(dereferenceInt(filter.ToHeight)),
+			uint64(deref(filter.FromHeight)),
+			uint64(deref(filter.ToHeight)),
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
@@ -107,8 +114,8 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 				return out, nil
 			}
 
-			dft := dereferenceTime(filter.FromTime)
-			dtt := dereferenceTime(filter.ToTime)
+			dft := deref(filter.FromTime)
+			dtt := deref(filter.ToTime)
 
 			if !((b.Time.After(dft) || b.Time.Equal(dft)) && (dtt.IsZero() || b.Time.Before(dtt))) {
 				continue

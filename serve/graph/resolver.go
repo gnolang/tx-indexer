@@ -5,7 +5,6 @@ package graph
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 
@@ -20,22 +19,12 @@ import (
 
 const maxElementsPerQuery = 10000
 
-func dereferenceInt(i *int) int {
-	if i == nil {
-		return 0
+func deref[T any](v *T) T {
+	if v == nil {
+		var zero T
+		return zero
 	}
-
-	return *i
-}
-
-func dereferenceTime(i *time.Time) time.Time {
-	if i == nil {
-		var t time.Time
-
-		return t
-	}
-
-	return *i
+	return *v
 }
 
 func handleChannel[T any](
