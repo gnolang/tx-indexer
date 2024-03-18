@@ -149,4 +149,46 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		assert.Equal(t, txResult, &decodedTxResult)
 	})
+
+	t.Run("block found in storage by hash", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			hash = "hash"
+
+			txResult = &types.TxResult{
+				Height: 10,
+			}
+
+			mockStorage = &mockStorage{
+				getTxHashFn: func(s string) (*types.TxResult, error) {
+					require.Equal(t, hash, s)
+
+					return txResult, nil
+				},
+			}
+		)
+
+		h := NewHandler(mockStorage)
+
+		responseRaw, err := h.GetTxByHashHandler(nil, []any{hash})
+		require.Nil(t, err)
+
+		require.NotNil(t, responseRaw)
+
+		// Make sure the response is valid (base64 + amino)
+		response, ok := responseRaw.(string)
+		require.True(t, ok)
+
+		// Decode from base64
+		encodedTxResult, decodeErr := base64.StdEncoding.DecodeString(response)
+		require.Nil(t, decodeErr)
+
+		// Decode from amino binary
+		var decodedTxResult types.TxResult
+
+		require.NoError(t, amino.Unmarshal(encodedTxResult, &decodedTxResult))
+
+		assert.Equal(t, txResult, &decodedTxResult)
+	})
 }

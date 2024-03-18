@@ -25,6 +25,9 @@ type Reader interface {
 	// GetTx fetches the tx using the block height and the transaction index
 	GetTx(blockNum uint64, index uint32) (*types.TxResult, error)
 
+	// GetTxByHash fetches the tx using the transaction hash
+	GetTxByHash(txHash string) (*types.TxResult, error)
+
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
 	BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
 

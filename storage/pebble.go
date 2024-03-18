@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
@@ -17,11 +18,14 @@ const (
 	// for the latest height saved in the DB
 	keyLatestHeight = "/meta/lh"
 
-	// keyBlocks is the key for each block saved. They are stored by height
+	// prefixKeyBlocks is the key for each block saved. They are stored by height
 	prefixKeyBlocks = "/data/blocks/"
 
-	// keyTxs is the prefix for each transaction saved.
+	// prefixKeyTxs is the prefix for each transaction saved.
 	prefixKeyTxs = "/data/txs/"
+
+	// prefixKeyTxByHash is a secondary index to query transaction by hash
+	prefixKeyTxByHash = "/index/txh/"
 )
 
 func keyTx(blockNum uint64, txIndex uint32) []byte {
@@ -29,6 +33,14 @@ func keyTx(blockNum uint64, txIndex uint32) []byte {
 	key = encodeStringAscending(key, prefixKeyTxs)
 	key = encodeUint64Ascending(key, blockNum)
 	key = encodeUint32Ascending(key, txIndex)
+
+	return key
+}
+
+func keyHashTx(hash string) []byte {
+	var key []byte
+	key = encodeStringAscending(key, prefixKeyTxByHash)
+	key = encodeStringAscending(key, hash)
 
 	return key
 }
@@ -100,6 +112,34 @@ func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 // GetTx fetches the specified tx result from storage, if any
 func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
 	tx, c, err := s.db.Get(keyTx(blockNum, index))
+	if errors.Is(err, pebble.ErrNotFound) {
+		return nil, storageErrors.ErrNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer c.Close()
+
+	return decodeTx(tx)
+}
+
+func (s *Pebble) GetTxByHash(txHash string) (*types.TxResult, error) {
+	txKey, ch, err := s.db.Get(keyHashTx(txHash))
+	if errors.Is(err, pebble.ErrNotFound) {
+		return nil, storageErrors.ErrNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	tx, c, err := s.db.Get(txKey)
+
+	// Close after using the txKey array output
+	defer ch.Close()
+
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
 	}
@@ -315,6 +355,12 @@ func (b *PebbleBatch) SetTx(tx *types.TxResult) error {
 	}
 
 	key := keyTx(uint64(tx.Height), tx.Index)
+
+	// write secondary index to be able to query by tx hash
+	hashIndexKey := keyHashTx(base64.StdEncoding.EncodeToString(tx.Tx.Hash()))
+	if err := b.b.Set(hashIndexKey, key, pebble.NoSync); err != nil {
+		return err
+	}
 
 	return b.b.Set(
 		key,

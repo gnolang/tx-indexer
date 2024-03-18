@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -20,6 +21,10 @@ func (t *Transaction) ID() string {
 
 func (t *Transaction) Index() int {
 	return int(t.t.Index)
+}
+
+func (t *Transaction) Hash() string {
+	return base64.StdEncoding.EncodeToString(t.t.Tx.Hash())
 }
 
 func (t *Transaction) BlockHeight() int {

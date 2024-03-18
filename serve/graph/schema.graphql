@@ -44,6 +44,11 @@ type Transaction {
   index: Int!
 
   """
+  Hash from Transaction content in base64 encoding.
+  """
+  hash: String!
+
+  """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
   block_height: Int!
@@ -134,6 +139,12 @@ input TransactionFilter {
   Maximum `gas_used` value for filtering Transactions, exclusive. Refines selection based on the computational effort actually consumed.
   """
   to_gas_used: Int
+
+  """
+  Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
+  """
+  hash: String
+
 }
 
 """

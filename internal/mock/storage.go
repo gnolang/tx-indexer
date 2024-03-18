@@ -13,6 +13,7 @@ type Storage struct {
 	GetWriteBatchFn        func() storage.Batch
 	GetBlockFn             func(uint64) (*types.Block, error)
 	GetTxFn                func(uint64, uint32) (*types.TxResult, error)
+	GetTxByHashFn          func(string) (*types.TxResult, error)
 }
 
 func (m *Storage) GetLatestHeight() (uint64, error) {
@@ -36,6 +37,14 @@ func (m *Storage) GetBlock(blockNum uint64) (*types.Block, error) {
 func (m *Storage) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
 	if m.GetTxFn != nil {
 		return m.GetTxFn(blockNum, index)
+	}
+
+	panic("not implemented")
+}
+
+func (m *Storage) GetTxByHash(txHash string) (*types.TxResult, error) {
+	if m.GetTxByHashFn != nil {
+		return m.GetTxByHashFn(txHash)
 	}
 
 	panic("not implemented")
