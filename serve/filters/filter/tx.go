@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	queue "github.com/madz-lab/insertion-queue"
 )
 
 // filterPriority defines the priority of a filter condition.
@@ -24,36 +25,45 @@ type condition struct {
 	priority filterPriority
 }
 
+func (c condition) Less(other queue.Item) bool {
+	otherCond, ok := other.(condition)
+	if !ok {
+		panic("invalid type")
+	}
+
+	return c.priority < otherCond.priority
+}
+
 // TxFilter holds a slice of transaction results.
 // It provides methods to manipulate and query the transactions.
 type TxFilter struct {
 	*baseFilter
-	// txrs represents the transactions in the filter.
-	txrs []*types.TxResult
+	// txs represents the transactions in the filter.
+	txs []*types.TxResult
 	// conditions holds the filtering conditions.
-	conditions []condition
+	conditions queue.Queue
 }
 
 // NewTxFilter creates a new TxFilter object.
 func NewTxFilter() *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
-		txrs:       make([]*types.TxResult, 0),
-		conditions: make([]condition, 0),
+		txs:        make([]*types.TxResult, 0),
+		conditions: queue.NewQueue(),
 	}
 }
 
 // GetHashes iterates over all transactions in the filter and returns their hashes.
 //
 // It appends `nil` to the result slice if the transaction or its content is `nil`.
-// This ensures that the length og the returned slice matches the number of transactions in the filter.
+// This ensures that the length of the returned slice matches the number of transactions in the filter.
 func (tf *TxFilter) GetHashes() [][]byte {
 	tf.Lock()
 	defer tf.Unlock()
 
-	hashes := make([][]byte, 0, len(tf.txrs))
+	hashes := make([][]byte, 0, len(tf.txs))
 
-	for _, txr := range tf.txrs {
+	for _, txr := range tf.txs {
 		if txr == nil || txr.Tx == nil {
 			hashes = append(hashes, nil)
 
@@ -73,10 +83,10 @@ func (tf *TxFilter) GetChanges() any {
 	tf.Lock()
 	defer tf.Unlock()
 
-	changes := make([]*types.TxResult, len(tf.txrs))
-	copy(changes, tf.txrs)
+	changes := make([]*types.TxResult, len(tf.txs))
+	copy(changes, tf.txs)
 
-	tf.txrs = tf.txrs[:0] // reset for new transactions
+	tf.txs = tf.txs[:0] // reset for new transactions
 
 	return changes
 }
@@ -86,17 +96,7 @@ func (tf *TxFilter) UpdateWithTx(txr *types.TxResult) {
 	tf.Lock()
 	defer tf.Unlock()
 
-	tf.txrs = append(tf.txrs, txr)
-}
-
-// ClearConditions resets the previously set conditions from the filter.
-func (tf *TxFilter) ClearConditions() *TxFilter {
-	tf.Lock()
-	defer tf.Unlock()
-
-	tf.conditions = nil
-
-	return tf
+	tf.txs = append(tf.txs, txr)
 }
 
 // Height sets a filter for the height of the transactions.
@@ -109,7 +109,7 @@ func (tf *TxFilter) Height(height int64) *TxFilter {
 		},
 		HeightPriority,
 	}
-	tf.insertConditionInOrder(cond)
+	tf.conditions.Push(cond)
 
 	return tf
 }
@@ -161,18 +161,23 @@ func (tf *TxFilter) Apply() []*types.TxResult {
 	defer tf.Unlock()
 
 	if len(tf.conditions) == 0 {
-		return tf.txrs
+		return tf.txs
 	}
 
 	var filtered []*types.TxResult
 
-	for _, txr := range tf.txrs {
+	// Convert conditions queue to a slice to iterate in priority order.
+	condSlice := make([]condition, tf.conditions.Len())
+	for i := 0; i < tf.conditions.Len(); i++ {
+		condSlice[i] = tf.conditions.Index(i).(condition)
+	}
+
+	for _, txr := range tf.txs {
 		pass := true
 
-		for _, condition := range tf.conditions {
-			if !condition.filter(txr) {
+		for _, cond := range condSlice {
+			if !cond.filter(txr) {
 				pass = false
-
 				break
 			}
 		}
@@ -195,9 +200,9 @@ func (tf *TxFilter) insertConditionInOrder(cond condition) {
 	tf.Lock()
 	defer tf.Unlock()
 
-	i := sort.Search(len(tf.conditions), func(i int) bool {
-		return tf.conditions[i].priority >= cond.priority
+	i := sort.Search(tf.conditions.Len(), func(i int) bool {
+		return !tf.conditions.Index(i).(condition).Less(cond)
 	})
 
-	tf.conditions = append(tf.conditions[:i], append([]condition{cond}, tf.conditions[i:]...)...)
+	tf.conditions = append(tf.conditions[:i], append([]queue.Item{cond}, tf.conditions[i:]...)...)
 }

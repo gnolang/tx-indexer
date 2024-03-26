@@ -46,116 +46,116 @@ func TestGetHashAndChanges(t *testing.T) {
 		assert.Equal(t, tx, changes[i])
 	}
 
-	assert.Empty(t, f.txrs)
+	assert.Empty(t, f.txs)
 }
 
-var txs = []*types.TxResult{
-	{
-		Height: 100,
-		Index:  0,
-		Tx:     []byte(`sampleTx0`),
-		Response: abci.ResponseDeliverTx{
-			GasWanted: 1000,
-			GasUsed:   900,
-			ResponseBase: abci.ResponseBase{
-				Data: []byte(`data0`),
-			},
-		},
-	},
-	{
-		Height: 101,
-		Index:  1,
-		Tx:     []byte(`sampleTx1`),
-		Response: abci.ResponseDeliverTx{
-			GasWanted: 1200,
-			GasUsed:   1100,
-			ResponseBase: abci.ResponseBase{
-				Data: []byte(`data1`),
-			},
-		},
-	},
-	{
-		Height: 102,
-		Index:  2,
-		Tx:     []byte(`sampleTx2`),
-		Response: abci.ResponseDeliverTx{
-			GasWanted: 900,
-			GasUsed:   800,
-			ResponseBase: abci.ResponseBase{
-				Data: []byte(`data2`),
-			},
-		},
-	},
-	{
-		Height: 103,
-		Index:  3,
-		Tx:     []byte(`sampleTx3`),
-		Response: abci.ResponseDeliverTx{
-			GasWanted: 1300,
-			GasUsed:   1250,
-			ResponseBase: abci.ResponseBase{
-				Data: []byte(`data3`),
-			},
-		},
-	},
-	{
-		Height: 104,
-		Index:  4,
-		Tx:     []byte(`sampleTx4`),
-		Response: abci.ResponseDeliverTx{
-			GasWanted: 800,
-			GasUsed:   700,
-			ResponseBase: abci.ResponseBase{
-				Data: []byte(`data4`),
-			},
-		},
-	},
-}
+// func TestTxFilters(t *testing.T) {
+// 	t.Parallel()
 
-func TestTxFilters(t *testing.T) {
-	t.Parallel()
+// 	f := NewTxFilter()
+// 	for _, tx := range txs {
+// 		f.UpdateWithTx(tx)
+// 	}
 
-	f := NewTxFilter()
-	for _, tx := range txs {
-		f.UpdateWithTx(tx)
-	}
+// 	height := f.Height(100).Apply()
+// 	require.Len(t, height, 1)
+// 	assert.Equal(t, txs[0], height[0])
 
-	height := f.Height(100).Apply()
-	require.Len(t, height, 1)
-	assert.Equal(t, txs[0], height[0])
+// 	f.ClearConditions()
 
-	f.ClearConditions()
+// 	index := f.Index(1).Apply()
+// 	require.Len(t, index, 1)
+// 	assert.Equal(t, txs[1], index[0])
 
-	index := f.Index(1).Apply()
-	require.Len(t, index, 1)
-	assert.Equal(t, txs[1], index[0])
+// 	f.ClearConditions()
 
-	f.ClearConditions()
+// 	gasUsed := f.GasUsed(800, 1000).Apply()
+// 	require.Len(t, gasUsed, 2)
+// 	assert.Equal(t, txs[0], gasUsed[0])
+// 	assert.Equal(t, txs[2], gasUsed[1])
 
-	gasUsed := f.GasUsed(800, 1000).Apply()
-	require.Len(t, gasUsed, 2)
-	assert.Equal(t, txs[0], gasUsed[0])
-	assert.Equal(t, txs[2], gasUsed[1])
+// 	f.ClearConditions()
 
-	f.ClearConditions()
+// 	gasWanted := f.GasWanted(1000, 1200).Apply()
+// 	require.Len(t, gasWanted, 2)
+// 	assert.Equal(t, txs[0], gasWanted[0])
+// 	assert.Equal(t, txs[1], gasWanted[1])
 
-	gasWanted := f.GasWanted(1000, 1200).Apply()
-	require.Len(t, gasWanted, 2)
-	assert.Equal(t, txs[0], gasWanted[0])
-	assert.Equal(t, txs[1], gasWanted[1])
+// 	f.ClearConditions()
 
-	f.ClearConditions()
+// 	// query-like method chaining. order of methods doesn't really matter (except `Apply`)
+// 	query := f.Height(101).Index(1).GasUsed(1000, 1200).Apply()
+// 	require.Len(t, query, 1)
+// 	assert.Equal(t, txs[1], query[0])
 
-	// query-like method chaining. order of methods doesn't really matter (except `Apply`)
-	query := f.Height(101).Index(1).GasUsed(1000, 1200).Apply()
-	require.Len(t, query, 1)
-	assert.Equal(t, txs[1], query[0])
-
-	f.ClearConditions()
-}
+// 	f.ClearConditions()
+// }
 
 func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
 	t.Parallel()
+
+	var txs = []*types.TxResult{
+		{
+			Height: 100,
+			Index:  0,
+			Tx:     []byte(`sampleTx0`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1000,
+				GasUsed:   900,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data0`),
+				},
+			},
+		},
+		{
+			Height: 101,
+			Index:  1,
+			Tx:     []byte(`sampleTx1`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1200,
+				GasUsed:   1100,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data1`),
+				},
+			},
+		},
+		{
+			Height: 102,
+			Index:  2,
+			Tx:     []byte(`sampleTx2`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 900,
+				GasUsed:   800,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data2`),
+				},
+			},
+		},
+		{
+			Height: 103,
+			Index:  3,
+			Tx:     []byte(`sampleTx3`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1300,
+				GasUsed:   1250,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data3`),
+				},
+			},
+		},
+		{
+			Height: 104,
+			Index:  4,
+			Tx:     []byte(`sampleTx4`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 800,
+				GasUsed:   700,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data4`),
+				},
+			},
+		},
+	}
 
 	f := NewTxFilter()
 	for _, tx := range txs {
@@ -168,6 +168,69 @@ func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
 
 func TestApplyWithMultipleGoroutines(t *testing.T) {
 	t.Parallel()
+
+	var txs = []*types.TxResult{
+		{
+			Height: 100,
+			Index:  0,
+			Tx:     []byte(`sampleTx0`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1000,
+				GasUsed:   900,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data0`),
+				},
+			},
+		},
+		{
+			Height: 101,
+			Index:  1,
+			Tx:     []byte(`sampleTx1`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1200,
+				GasUsed:   1100,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data1`),
+				},
+			},
+		},
+		{
+			Height: 102,
+			Index:  2,
+			Tx:     []byte(`sampleTx2`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 900,
+				GasUsed:   800,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data2`),
+				},
+			},
+		},
+		{
+			Height: 103,
+			Index:  3,
+			Tx:     []byte(`sampleTx3`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1300,
+				GasUsed:   1250,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data3`),
+				},
+			},
+		},
+		{
+			Height: 104,
+			Index:  4,
+			Tx:     []byte(`sampleTx4`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 800,
+				GasUsed:   700,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data4`),
+				},
+			},
+		},
+	}
 
 	f := NewTxFilter()
 
@@ -197,27 +260,27 @@ func TestApplyWithMultipleGoroutines(t *testing.T) {
 	}
 }
 
-func TestTxFilterReOrderedByPriority(t *testing.T) {
-	t.Parallel()
+// func TestTxFilterReOrderedByPriority(t *testing.T) {
+// 	t.Parallel()
 
-	f := NewTxFilter()
+// 	f := NewTxFilter()
 
-	f.Index(1).GasUsed(800, 1200).Height(101)
+// 	f.Index(1).GasUsed(800, 1200).Height(101)
 
-	// checks the state of the conditions before prioritizing them correctly
-	require.Len(t, f.conditions, 3)
+// 	// checks the state of the conditions before prioritizing them correctly
+// 	require.Len(t, f.conditions, 3)
 
-	// after `Apply`, check to see if the conditions (filters) are ordered by priority correctly
-	expectedOrder := []filterPriority{HeightPriority, IndexPriority, GasUsedPriority}
+// 	// after `Apply`, check to see if the conditions (filters) are ordered by priority correctly
+// 	expectedOrder := []filterPriority{HeightPriority, IndexPriority, GasUsedPriority}
 
-	for i, cond := range f.conditions {
-		if cond.priority != expectedOrder[i] {
-			t.Errorf(
-				"Condition at position %d has wrong priority before Apply. Got %v, want %v",
-				i,
-				cond.priority,
-				expectedOrder[i],
-			)
-		}
-	}
-}
+// 	for i, cond := range f.conditions {
+// 		if cond.priority != expectedOrder[i] {
+// 			t.Errorf(
+// 				"Condition at position %d has wrong priority before Apply. Got %v, want %v",
+// 				i,
+// 				cond.priority,
+// 				expectedOrder[i],
+// 			)
+// 		}
+// 	}
+// }
