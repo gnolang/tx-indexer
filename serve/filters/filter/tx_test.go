@@ -1,8 +1,9 @@
 package filter
 
 import (
-	"sync"
+	"fmt"
 	"testing"
+	"time"
 
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -10,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetHashAndChanges(t *testing.T) {
+func TestGetHashes(t *testing.T) {
 	t.Parallel()
 
-	txs := []*types.TxResult{
+	var txs = []*types.TxResult{
 		{Tx: []byte(`c25dda249cdece9d908cc33adcd16aa05e20290f`)},
 		{Tx: []byte(`71ac9eed6a76a285ae035fe84a251d56ae9485a4`)},
 		{Tx: []byte(`356a192b7913b04c54574d18c28d46e6395428ab`)},
@@ -24,74 +25,19 @@ func TestGetHashAndChanges(t *testing.T) {
 		{Tx: []byte(`c1dfd96eea8cc2b62785275bca38ac261256e278`)},
 	}
 
-	// create a new tx filter
-	f := NewTxFilter()
-	assert.Equal(t, TxFilterType, f.GetType())
-
+	f := NewTxFilter(FilterOptions{})
 	for _, tx := range txs {
 		f.UpdateWithTx(tx)
 	}
 
-	// get the hashes of the txs
 	hashes := f.GetHashes()
-	for i, tx := range txs {
-		assert.Equal(t, tx.Tx.Hash(), hashes[i])
+	require.Len(t, hashes, 8, fmt.Sprintf("There should be 8 hashes in the filter: %v", len(hashes)))
+	for i, hs := range hashes {
+		assert.Equal(t, txs[i].Tx.Hash(), hs, fmt.Sprintf("The hash should match the expected hash: %v", txs[i].Tx.Hash()))
 	}
-
-	// get the chages from the filter
-	changes := f.GetChanges().([]*types.TxResult)
-	require.Len(t, changes, len(txs))
-
-	for i, tx := range txs {
-		assert.Equal(t, tx, changes[i])
-	}
-
-	assert.Empty(t, f.txs)
 }
 
-// func TestTxFilters(t *testing.T) {
-// 	t.Parallel()
-
-// 	f := NewTxFilter()
-// 	for _, tx := range txs {
-// 		f.UpdateWithTx(tx)
-// 	}
-
-// 	height := f.Height(100).Apply()
-// 	require.Len(t, height, 1)
-// 	assert.Equal(t, txs[0], height[0])
-
-// 	f.ClearConditions()
-
-// 	index := f.Index(1).Apply()
-// 	require.Len(t, index, 1)
-// 	assert.Equal(t, txs[1], index[0])
-
-// 	f.ClearConditions()
-
-// 	gasUsed := f.GasUsed(800, 1000).Apply()
-// 	require.Len(t, gasUsed, 2)
-// 	assert.Equal(t, txs[0], gasUsed[0])
-// 	assert.Equal(t, txs[2], gasUsed[1])
-
-// 	f.ClearConditions()
-
-// 	gasWanted := f.GasWanted(1000, 1200).Apply()
-// 	require.Len(t, gasWanted, 2)
-// 	assert.Equal(t, txs[0], gasWanted[0])
-// 	assert.Equal(t, txs[1], gasWanted[1])
-
-// 	f.ClearConditions()
-
-// 	// query-like method chaining. order of methods doesn't really matter (except `Apply`)
-// 	query := f.Height(101).Index(1).GasUsed(1000, 1200).Apply()
-// 	require.Len(t, query, 1)
-// 	assert.Equal(t, txs[1], query[0])
-
-// 	f.ClearConditions()
-// }
-
-func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
+func TestApplyFilters(t *testing.T) {
 	t.Parallel()
 
 	var txs = []*types.TxResult{
@@ -124,8 +70,8 @@ func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
 			Index:  2,
 			Tx:     []byte(`sampleTx2`),
 			Response: abci.ResponseDeliverTx{
-				GasWanted: 900,
-				GasUsed:   800,
+				GasWanted: 1000,
+				GasUsed:   1400,
 				ResponseBase: abci.ResponseBase{
 					Data: []byte(`data2`),
 				},
@@ -135,152 +81,118 @@ func TestTxFilterWithNoConditionsShouldReturnsAllTxs(t *testing.T) {
 			Height: 103,
 			Index:  3,
 			Tx:     []byte(`sampleTx3`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1300,
-				GasUsed:   1250,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data3`),
-				},
-			},
-		},
-		{
-			Height: 104,
-			Index:  4,
-			Tx:     []byte(`sampleTx4`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 800,
-				GasUsed:   700,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data4`),
-				},
-			},
-		},
-	}
-
-	f := NewTxFilter()
-	for _, tx := range txs {
-		f.UpdateWithTx(tx)
-	}
-
-	all := f.Apply()
-	require.Len(t, all, len(txs))
-}
-
-func TestApplyWithMultipleGoroutines(t *testing.T) {
-	t.Parallel()
-
-	var txs = []*types.TxResult{
-		{
-			Height: 100,
-			Index:  0,
-			Tx:     []byte(`sampleTx0`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1000,
-				GasUsed:   900,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data0`),
-				},
-			},
-		},
-		{
-			Height: 101,
-			Index:  1,
-			Tx:     []byte(`sampleTx1`),
 			Response: abci.ResponseDeliverTx{
 				GasWanted: 1200,
-				GasUsed:   1100,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data1`),
-				},
-			},
-		},
-		{
-			Height: 102,
-			Index:  2,
-			Tx:     []byte(`sampleTx2`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 900,
-				GasUsed:   800,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data2`),
-				},
-			},
-		},
-		{
-			Height: 103,
-			Index:  3,
-			Tx:     []byte(`sampleTx3`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 1300,
-				GasUsed:   1250,
+				GasUsed:   900,
 				ResponseBase: abci.ResponseBase{
 					Data: []byte(`data3`),
 				},
 			},
 		},
+        {
+            Height: 104,
+            Index:  4,
+            Tx:     []byte(`sampleTx4`),
+            Response: abci.ResponseDeliverTx{
+                GasWanted: 1100,
+                GasUsed:   1000,
+                ResponseBase: abci.ResponseBase{
+                    Data: []byte(`data4`),
+                },
+            },
+        },
+	}
+
+	tests := []struct {
+		name     string
+		options  FilterOptions
+		expected []*types.TxResult
+	}{
 		{
-			Height: 104,
-			Index:  4,
-			Tx:     []byte(`sampleTx4`),
-			Response: abci.ResponseDeliverTx{
-				GasWanted: 800,
-				GasUsed:   700,
-				ResponseBase: abci.ResponseBase{
-					Data: []byte(`data4`),
-				},
-			},
+			name:     "no filter",
+			options:  FilterOptions{},
+			expected: txs,
 		},
+		{ // took 34.5µs
+			name: "filter by index",
+			options: FilterOptions{
+				Index: 1,
+			},
+			expected: []*types.TxResult{txs[1]},
+		},
+		{ // took 29.583µs
+			name: "filter by height and gas used",
+			options: FilterOptions{
+				Height:  100,
+				GasUsed: struct{ Min, Max int64 }{900, 1000},
+			},
+			expected: []*types.TxResult{txs[0]},
+		},
+		{ // took 37.292µs
+			name: "filter by gas wanted 1",
+			options: FilterOptions{
+				GasWanted: struct{ Min, Max int64 }{1100, 1200},
+			},
+			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
+		},
+		{ // took 36.583µs
+            name: "filter by gas used 2",
+            options: FilterOptions{
+                GasUsed: struct{ Min, Max int64 }{900, 1000},
+            },
+            expected: []*types.TxResult{txs[0], txs[3], txs[4]},
+        },
+        { // took 15.417µs
+            name: "filter by gas wanted is invalid",
+            options: FilterOptions{
+                GasWanted: struct{ Min, Max int64 }{1200, 1100},
+            },
+            expected: []*types.TxResult{},
+        },
+        { // took 15.166µs
+            name: "gas used filter is invalid",
+            options: FilterOptions{
+                GasUsed: struct{ Min, Max int64 }{1000, 900},
+            },
+            expected: []*types.TxResult{},
+        },
+        { // took 36.834µs
+            name: "use all filters",
+            options: FilterOptions{
+                Height:  100,
+                Index:   0,
+                GasUsed: struct{ Min, Max int64 }{900, 1000},
+                GasWanted: struct{ Min, Max int64 }{1000, 1100},
+            },
+            expected: []*types.TxResult{txs[0]},
+        },
+        { // took 27.167µs
+            name: "use all filters but sequence is flipped",
+            options: FilterOptions{
+                GasWanted: struct{ Min, Max int64 }{1000, 1100},
+                GasUsed: struct{ Min, Max int64 }{900, 1000},
+                Index:   0,
+                Height:  100,
+            },
+			expected: []*types.TxResult{txs[0]},
+        },
 	}
 
-	f := NewTxFilter()
+	for _, tt := range tests {
+		start := time.Now()
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewTxFilter(tt.options)
+			for _, tx := range txs {
+				f.UpdateWithTx(tx)
+			}
 
-	for _, tx := range txs {
-		f.UpdateWithTx(tx)
-	}
+			filtered := f.Apply()
+			require.Len(t, filtered, len(tt.expected), fmt.Sprintf("There should be one transaction after applying filters: %v", len(tt.expected)))
+			for i, tx := range filtered {
+				assert.Equal(t, tt.expected[i], tx, fmt.Sprintf("The filtered transaction should match the expected transaction: %v", tt.expected[i]))
+			}
 
-	results := make([][]*types.TxResult, 10)
-	expected := f.Height(100).Apply()
-
-	var wg sync.WaitGroup
-
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-
-		go func(i int) {
-			defer wg.Done()
-
-			results[i] = f.Height(100).Apply()
-		}(i)
-	}
-
-	wg.Wait()
-
-	for i := 0; i < 10; i++ {
-		assert.Equal(t, expected, results[i])
+			fmt.Printf("took %v\n", time.Since(start))
+		})
 	}
 }
-
-// func TestTxFilterReOrderedByPriority(t *testing.T) {
-// 	t.Parallel()
-
-// 	f := NewTxFilter()
-
-// 	f.Index(1).GasUsed(800, 1200).Height(101)
-
-// 	// checks the state of the conditions before prioritizing them correctly
-// 	require.Len(t, f.conditions, 3)
-
-// 	// after `Apply`, check to see if the conditions (filters) are ordered by priority correctly
-// 	expectedOrder := []filterPriority{HeightPriority, IndexPriority, GasUsedPriority}
-
-// 	for i, cond := range f.conditions {
-// 		if cond.priority != expectedOrder[i] {
-// 			t.Errorf(
-// 				"Condition at position %d has wrong priority before Apply. Got %v, want %v",
-// 				i,
-// 				cond.priority,
-// 				expectedOrder[i],
-// 			)
-// 		}
-// 	}
-// }
