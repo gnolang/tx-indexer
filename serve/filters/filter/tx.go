@@ -5,10 +5,10 @@ import (
 )
 
 type FilterOptions struct {
-	Height     int64
-	Index      uint32
-	GasUsed    struct{ Min, Max int64 }
-	GasWanted  struct{ Min, Max int64 }
+	Height    int64
+	Index     uint32
+	GasUsed   struct{ Min, Max int64 }
+	GasWanted struct{ Min, Max int64 }
 }
 
 // TxFilter holds a slice of transaction results.

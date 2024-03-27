@@ -14,7 +14,7 @@ import (
 func TestGetHashes(t *testing.T) {
 	t.Parallel()
 
-	var txs = []*types.TxResult{
+	txs := []*types.TxResult{
 		{Tx: []byte(`c25dda249cdece9d908cc33adcd16aa05e20290f`)},
 		{Tx: []byte(`71ac9eed6a76a285ae035fe84a251d56ae9485a4`)},
 		{Tx: []byte(`356a192b7913b04c54574d18c28d46e6395428ab`)},
@@ -40,7 +40,7 @@ func TestGetHashes(t *testing.T) {
 func TestApplyFilters(t *testing.T) {
 	t.Parallel()
 
-	var txs = []*types.TxResult{
+	txs := []*types.TxResult{
 		{
 			Height: 100,
 			Index:  0,
@@ -89,18 +89,18 @@ func TestApplyFilters(t *testing.T) {
 				},
 			},
 		},
-        {
-            Height: 104,
-            Index:  4,
-            Tx:     []byte(`sampleTx4`),
-            Response: abci.ResponseDeliverTx{
-                GasWanted: 1100,
-                GasUsed:   1000,
-                ResponseBase: abci.ResponseBase{
-                    Data: []byte(`data4`),
-                },
-            },
-        },
+		{
+			Height: 104,
+			Index:  4,
+			Tx:     []byte(`sampleTx4`),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: 1100,
+				GasUsed:   1000,
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(`data4`),
+				},
+			},
+		},
 	}
 
 	tests := []struct {
@@ -113,14 +113,14 @@ func TestApplyFilters(t *testing.T) {
 			options:  FilterOptions{},
 			expected: txs,
 		},
-		{ // took 34.5µs
+		{
 			name: "filter by index",
 			options: FilterOptions{
 				Index: 1,
 			},
 			expected: []*types.TxResult{txs[1]},
 		},
-		{ // took 29.583µs
+		{
 			name: "filter by height and gas used",
 			options: FilterOptions{
 				Height:  100,
@@ -128,54 +128,54 @@ func TestApplyFilters(t *testing.T) {
 			},
 			expected: []*types.TxResult{txs[0]},
 		},
-		{ // took 37.292µs
+		{
 			name: "filter by gas wanted 1",
 			options: FilterOptions{
 				GasWanted: struct{ Min, Max int64 }{1100, 1200},
 			},
 			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
 		},
-		{ // took 36.583µs
-            name: "filter by gas used 2",
-            options: FilterOptions{
-                GasUsed: struct{ Min, Max int64 }{900, 1000},
-            },
-            expected: []*types.TxResult{txs[0], txs[3], txs[4]},
-        },
-        { // took 15.417µs
-            name: "filter by gas wanted is invalid",
-            options: FilterOptions{
-                GasWanted: struct{ Min, Max int64 }{1200, 1100},
-            },
-            expected: []*types.TxResult{},
-        },
-        { // took 15.166µs
-            name: "gas used filter is invalid",
-            options: FilterOptions{
-                GasUsed: struct{ Min, Max int64 }{1000, 900},
-            },
-            expected: []*types.TxResult{},
-        },
-        { // took 36.834µs
-            name: "use all filters",
-            options: FilterOptions{
-                Height:  100,
-                Index:   0,
-                GasUsed: struct{ Min, Max int64 }{900, 1000},
-                GasWanted: struct{ Min, Max int64 }{1000, 1100},
-            },
-            expected: []*types.TxResult{txs[0]},
-        },
-        { // took 27.167µs
-            name: "use all filters but sequence is flipped",
-            options: FilterOptions{
-                GasWanted: struct{ Min, Max int64 }{1000, 1100},
-                GasUsed: struct{ Min, Max int64 }{900, 1000},
-                Index:   0,
-                Height:  100,
-            },
+		{
+			name: "filter by gas used 2",
+			options: FilterOptions{
+				GasUsed: struct{ Min, Max int64 }{900, 1000},
+			},
+			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
+		},
+		{
+			name: "filter by gas wanted is invalid",
+			options: FilterOptions{
+				GasWanted: struct{ Min, Max int64 }{1200, 1100},
+			},
+			expected: []*types.TxResult{},
+		},
+		{
+			name: "gas used filter is invalid",
+			options: FilterOptions{
+				GasUsed: struct{ Min, Max int64 }{1000, 900},
+			},
+			expected: []*types.TxResult{},
+		},
+		{
+			name: "use all filters",
+			options: FilterOptions{
+				Height:    100,
+				Index:     0,
+				GasUsed:   struct{ Min, Max int64 }{900, 1000},
+				GasWanted: struct{ Min, Max int64 }{1000, 1100},
+			},
 			expected: []*types.TxResult{txs[0]},
-        },
+		},
+		{
+			name: "use all filters but sequence is flipped",
+			options: FilterOptions{
+				GasWanted: struct{ Min, Max int64 }{1000, 1100},
+				GasUsed:   struct{ Min, Max int64 }{900, 1000},
+				Index:     0,
+				Height:    100,
+			},
+			expected: []*types.TxResult{txs[0]},
+		},
 	}
 
 	for _, tt := range tests {
