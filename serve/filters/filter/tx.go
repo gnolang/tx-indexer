@@ -4,7 +4,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
 
-type FilterOptions struct {
+type Options struct {
 	Height    int64
 	Index     uint32
 	GasUsed   struct{ Min, Max int64 }
@@ -15,16 +15,16 @@ type FilterOptions struct {
 // It provides methods to manipulate and query the transactions.
 type TxFilter struct {
 	*baseFilter
-	txs     []*types.TxResult
-	options FilterOptions
+	txs  []*types.TxResult
+	opts Options
 }
 
 // NewTxFilter creates a new TxFilter object.
-func NewTxFilter(opts FilterOptions) *TxFilter {
+func NewTxFilter(opts Options) *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
 		txs:        make([]*types.TxResult, 0),
-		options:    opts,
+		opts:       opts,
 	}
 }
 
@@ -33,7 +33,8 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	tf.Lock()
 	defer tf.Unlock()
 
-	var hashes [][]byte
+	hashes := make([][]byte, 0, len(tf.txs))
+
 	for _, txr := range tf.txs {
 		var hash []byte
 
@@ -62,11 +63,11 @@ func (tf *TxFilter) Apply() []*types.TxResult {
 	tf.Lock()
 	defer tf.Unlock()
 
-	return checkOpts(tf.txs, tf.options)
+	return checkOpts(tf.txs, tf.opts)
 }
 
-func checkOpts(txs []*types.TxResult, opts FilterOptions) []*types.TxResult {
-	var filtered []*types.TxResult
+func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
+	filtered := make([]*types.TxResult, 0, len(txs))
 
 	for _, tx := range txs {
 		if opts.Height != 0 && tx.Height != opts.Height {

@@ -3,7 +3,6 @@ package filter
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -25,15 +24,23 @@ func TestGetHashes(t *testing.T) {
 		{Tx: []byte(`c1dfd96eea8cc2b62785275bca38ac261256e278`)},
 	}
 
-	f := NewTxFilter(FilterOptions{})
+	f := NewTxFilter(Options{})
+
 	for _, tx := range txs {
 		f.UpdateWithTx(tx)
 	}
 
 	hashes := f.GetHashes()
-	require.Len(t, hashes, 8, fmt.Sprintf("There should be 8 hashes in the filter: %v", len(hashes)))
+	require.Len(
+		t, hashes, 8,
+		fmt.Sprintf("There should be 8 hashes in the filter: %v", len(hashes)),
+	)
+
 	for i, hs := range hashes {
-		assert.Equal(t, txs[i].Tx.Hash(), hs, fmt.Sprintf("The hash should match the expected hash: %v", txs[i].Tx.Hash()))
+		assert.Equal(
+			t, txs[i].Tx.Hash(), hs,
+			fmt.Sprintf("The hash should match the expected hash: %v", txs[i].Tx.Hash()),
+		)
 	}
 }
 
@@ -105,24 +112,24 @@ func TestApplyFilters(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		options  FilterOptions
 		expected []*types.TxResult
+		options  Options
 	}{
 		{
 			name:     "no filter",
-			options:  FilterOptions{},
+			options:  Options{},
 			expected: txs,
 		},
 		{
 			name: "filter by index",
-			options: FilterOptions{
+			options: Options{
 				Index: 1,
 			},
 			expected: []*types.TxResult{txs[1]},
 		},
 		{
 			name: "filter by height and gas used",
-			options: FilterOptions{
+			options: Options{
 				Height:  100,
 				GasUsed: struct{ Min, Max int64 }{900, 1000},
 			},
@@ -130,35 +137,35 @@ func TestApplyFilters(t *testing.T) {
 		},
 		{
 			name: "filter by gas wanted 1",
-			options: FilterOptions{
+			options: Options{
 				GasWanted: struct{ Min, Max int64 }{1100, 1200},
 			},
 			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
 		},
 		{
 			name: "filter by gas used 2",
-			options: FilterOptions{
+			options: Options{
 				GasUsed: struct{ Min, Max int64 }{900, 1000},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
 			name: "filter by gas wanted is invalid",
-			options: FilterOptions{
+			options: Options{
 				GasWanted: struct{ Min, Max int64 }{1200, 1100},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "gas used filter is invalid",
-			options: FilterOptions{
+			options: Options{
 				GasUsed: struct{ Min, Max int64 }{1000, 900},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "use all filters",
-			options: FilterOptions{
+			options: Options{
 				Height:    100,
 				Index:     0,
 				GasUsed:   struct{ Min, Max int64 }{900, 1000},
@@ -168,7 +175,7 @@ func TestApplyFilters(t *testing.T) {
 		},
 		{
 			name: "use all filters but sequence is flipped",
-			options: FilterOptions{
+			options: Options{
 				GasWanted: struct{ Min, Max int64 }{1000, 1100},
 				GasUsed:   struct{ Min, Max int64 }{900, 1000},
 				Index:     0,
@@ -179,20 +186,105 @@ func TestApplyFilters(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		start := time.Now()
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			f := NewTxFilter(tt.options)
+
 			for _, tx := range txs {
 				f.UpdateWithTx(tx)
 			}
 
 			filtered := f.Apply()
-			require.Len(t, filtered, len(tt.expected), fmt.Sprintf("There should be one transaction after applying filters: %v", len(tt.expected)))
+			require.Len(
+				t, filtered, len(tt.expected),
+				fmt.Sprintf(
+					"There should be one transaction after applying filters: %v",
+					len(tt.expected),
+				),
+			)
+
 			for i, tx := range filtered {
-				assert.Equal(t, tt.expected[i], tx, fmt.Sprintf("The filtered transaction should match the expected transaction: %v", tt.expected[i]))
+				assert.Equal(
+					t, tt.expected[i], tx,
+					fmt.Sprintf(
+						"The filtered transaction should match the expected transaction: %v",
+						tt.expected[i],
+					),
+				)
+			}
+		})
+	}
+}
+
+func TestApplyFiltersWithLargeData(t *testing.T) {
+	t.Parallel()
+
+	const txCount = 100000
+
+	txs := make([]*types.TxResult, txCount)
+
+	for i := 0; i < txCount; i++ {
+		txs[i] = &types.TxResult{
+			Height: int64(i / 10000),
+			Index:  uint32(i),
+			Tx:     []byte(fmt.Sprintf("sampleTx%d", i)),
+			Response: abci.ResponseDeliverTx{
+				GasWanted: int64(1000 + i%200),
+				GasUsed:   int64(900 + i%100),
+				ResponseBase: abci.ResponseBase{
+					Data: []byte(fmt.Sprintf("data%d", i)),
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		options  Options
+		expected int
+	}{
+		{
+			name:     "no filter",
+			options:  Options{},
+			expected: txCount,
+		},
+		{
+			name: "filter by height",
+			options: Options{
+				Height: 5,
+			},
+			expected: txCount / 10,
+		},
+		{
+			name: "filter by gas used",
+			options: Options{
+				GasUsed: struct{ Min, Max int64 }{950, 1000},
+			},
+			expected: txCount / 2,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := NewTxFilter(tt.options)
+
+			for _, tx := range txs {
+				f.UpdateWithTx(tx)
 			}
 
-			fmt.Printf("took %v\n", time.Since(start))
+			filtered := f.Apply()
+			require.Len(
+				t, filtered, tt.expected,
+				fmt.Sprintf(
+					"There should be %d transactions after applying filters. got %d",
+					tt.expected, len(filtered),
+				),
+			)
 		})
 	}
 }
