@@ -56,8 +56,8 @@ func TestSlots_FindGaps(t *testing.T) {
 		existingRanges []chunkRange
 		expectedRanges []chunkRange
 
-		start        int64
-		end          int64
+		start        uint64
+		end          uint64
 		maxChunkSize int64
 	}{
 		{

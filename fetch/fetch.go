@@ -8,10 +8,12 @@ import (
 	"sort"
 	"time"
 
-	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
-	"github.com/gnolang/tx-indexer/types"
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
+
+	"github.com/gnolang/tx-indexer/storage"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
+	"github.com/gnolang/tx-indexer/types"
 )
 
 const (
@@ -22,7 +24,7 @@ const (
 // Fetcher is an instance of the block indexer
 // fetcher
 type Fetcher struct {
-	storage Storage
+	storage storage.Storage
 	client  Client
 	events  Events
 
@@ -38,7 +40,7 @@ type Fetcher struct {
 // New creates a new data fetcher instance
 // that gets blockchain data from a remote chain
 func New(
-	storage Storage,
+	storage storage.Storage,
 	client Client,
 	events Events,
 	opts ...Option,
@@ -108,8 +110,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		for _, gap := range gaps {
 			f.logger.Info(
 				"Fetching range",
-				zap.Int64("from", gap.from),
-				zap.Int64("to", gap.to),
+				zap.Uint64("from", gap.from),
+				zap.Uint64("to", gap.to),
 			)
 
 			// Spawn worker
@@ -176,9 +178,11 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
+				wb := f.storage.WriteBatch()
+
 				// Save the fetched data
 				for blockIndex, block := range item.chunk.blocks {
-					if saveErr := f.storage.SaveBlock(block); saveErr != nil {
+					if saveErr := wb.SetBlock(block); saveErr != nil {
 						// This is a design choice that really highlights the strain
 						// of keeping legacy testnets running. Current TM2 testnets
 						// have blocks / transactions that are no longer compatible
@@ -189,21 +193,21 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 						continue
 					}
 
-					f.logger.Debug("Saved block data", zap.Int64("number", block.Height))
+					f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
 
 					// Get block results
 					txResults := item.chunk.results[blockIndex]
 
 					// Save the fetched transaction results
 					for _, txResult := range txResults {
-						if err := f.storage.SaveTx(txResult); err != nil {
+						if err := wb.SetTx(txResult); err != nil {
 							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
 
 							continue
 						}
 
 						f.logger.Debug(
-							"Saved tx",
+							"Added tx to batch",
 							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
 						)
 					}
@@ -218,14 +222,22 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				}
 
 				f.logger.Info(
-					"Saved block and tx data for range",
-					zap.Int64("from", item.chunkRange.from),
-					zap.Int64("to", item.chunkRange.to),
+					"Added to batch block and tx data for range",
+					zap.Uint64("from", item.chunkRange.from),
+					zap.Uint64("to", item.chunkRange.to),
 				)
 
 				// Save the latest height data
-				if err := f.storage.SaveLatestHeight(item.chunkRange.to); err != nil {
+				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
+					if rErr := wb.Rollback(); rErr != nil {
+						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+					}
+
 					return fmt.Errorf("unable to save latest height info, %w", err)
+				}
+
+				if err := wb.Commit(); err != nil {
+					return fmt.Errorf("error persisting block information into storage, %w", err)
 				}
 			}
 		}

@@ -10,17 +10,18 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/internal/mock"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/filters"
 	"github.com/gnolang/tx-indexer/serve/filters/filter"
-	"github.com/gnolang/tx-indexer/serve/filters/mocks"
 	"github.com/gnolang/tx-indexer/serve/filters/subscription"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	indexerTypes "github.com/gnolang/tx-indexer/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // generateBlocks generates dummy blocks
@@ -63,8 +64,8 @@ func TestNewBlockFilter_Valid(t *testing.T) {
 
 	fm := filters.NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
-		&mocks.MockEvents{
+		&mock.Storage{},
+		&mock.Events{
 			SubscribeFn: func(_ []events.Type) *events.Subscription {
 				return &events.Subscription{}
 			},
@@ -132,8 +133,8 @@ func TestUninstallFilter_Valid(t *testing.T) {
 
 		fm := filters.NewFilterManager(
 			context.Background(),
-			&mocks.MockStorage{},
-			&mocks.MockEvents{
+			&mock.Storage{},
+			&mock.Events{
 				SubscribeFn: func(_ []events.Type) *events.Subscription {
 					return &events.Subscription{}
 				},
@@ -156,8 +157,8 @@ func TestUninstallFilter_Valid(t *testing.T) {
 
 		fm := filters.NewFilterManager(
 			context.Background(),
-			&mocks.MockStorage{},
-			&mocks.MockEvents{
+			&mock.Storage{},
+			&mock.Events{
 				SubscribeFn: func(_ []events.Type) *events.Subscription {
 					return &events.Subscription{}
 				},
@@ -236,7 +237,7 @@ func TestGetFilterChanges_Valid(t *testing.T) {
 
 		eventsCh = make(chan events.Event)
 
-		mockEvents = &mocks.MockEvents{
+		mockEvents = &mock.Events{
 			SubscribeFn: func(_ []events.Type) *events.Subscription {
 				return &events.Subscription{
 					ID:    events.SubscriptionID(1),
@@ -248,7 +249,7 @@ func TestGetFilterChanges_Valid(t *testing.T) {
 
 	fm := filters.NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		mockEvents,
 	)
 
@@ -358,7 +359,7 @@ func TestSubscribe_InvalidParams(t *testing.T) {
 				getWSConnectionFn: func(wsID string) conns.WSConnection {
 					require.Equal(t, id, wsID)
 
-					return &mocks.MockConn{} // connection found
+					return &mock.Conn{} // connection found
 				},
 			}
 		)
@@ -397,7 +398,7 @@ func TestSubscribe_Valid(t *testing.T) {
 			WebSocketID: &connID,
 		}
 
-		mockEvents = &mocks.MockEvents{
+		mockEvents = &mock.Events{
 			SubscribeFn: func(_ []events.Type) *events.Subscription {
 				return &events.Subscription{
 					ID:    events.SubscriptionID(1),
@@ -407,7 +408,7 @@ func TestSubscribe_Valid(t *testing.T) {
 		}
 
 		writtenData = make([]any, 0)
-		mockConn    = &mocks.MockConn{
+		mockConn    = &mock.Conn{
 			WriteDataFn: func(data any) error {
 				defer wg.Done()
 				writtenData = append(writtenData, data)
@@ -426,7 +427,7 @@ func TestSubscribe_Valid(t *testing.T) {
 
 	fm := filters.NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		mockEvents,
 	)
 
@@ -578,13 +579,13 @@ func TestUnsubscribe_Valid(t *testing.T) {
 			WebSocketID: &connID,
 		}
 
-		mockEvents = &mocks.MockEvents{
+		mockEvents = &mock.Events{
 			SubscribeFn: func(_ []events.Type) *events.Subscription {
 				return &events.Subscription{}
 			},
 		}
 
-		mockConn = &mocks.MockConn{}
+		mockConn = &mock.Conn{}
 
 		mockConnFetcher = &mockConnectionFetcher{
 			getWSConnectionFn: func(id string) conns.WSConnection {
@@ -597,7 +598,7 @@ func TestUnsubscribe_Valid(t *testing.T) {
 
 	fm := filters.NewFilterManager(
 		context.Background(),
-		&mocks.MockStorage{},
+		&mock.Storage{},
 		mockEvents,
 	)
 

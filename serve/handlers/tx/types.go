@@ -4,5 +4,8 @@ import "github.com/gnolang/gno/tm2/pkg/bft/types"
 
 type Storage interface {
 	// GetTx returns specified tx from permanent storage
-	GetTx([]byte) (*types.TxResult, error)
+	GetTx(uint64, uint32) (*types.TxResult, error)
+
+	// GetTxByHash fetches the tx using the transaction hash
+	GetTxByHash(txHash string) (*types.TxResult, error)
 }

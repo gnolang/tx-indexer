@@ -13,13 +13,16 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
-	clientTypes "github.com/gnolang/tx-indexer/client/types"
-	"github.com/gnolang/tx-indexer/events"
-	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
-	indexerTypes "github.com/gnolang/tx-indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	clientTypes "github.com/gnolang/tx-indexer/client/types"
+	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/internal/mock"
+	"github.com/gnolang/tx-indexer/storage"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
+	indexerTypes "github.com/gnolang/tx-indexer/types"
 )
 
 func TestFetcher_FetchTransactions_Invalid(t *testing.T) {
@@ -31,8 +34,8 @@ func TestFetcher_FetchTransactions_Invalid(t *testing.T) {
 		var (
 			fetchErr = errors.New("random DB error")
 
-			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func() (int64, error) {
+			mockStorage = &mock.Storage{
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, fetchErr
 				},
 			}
@@ -82,33 +85,37 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 				},
 			}
 
-			latestSaved = int64(0)
+			latestSaved = uint64(0)
 
-			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func() (int64, error) {
+			mockStorage = &mock.Storage{
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					if latestSaved == 0 {
 						return 0, storageErrors.ErrNotFound
 					}
 
 					return latestSaved, nil
 				},
-				saveBlockFn: func(block *types.Block) error {
-					savedBlocks = append(savedBlocks, block)
+				GetWriteBatchFn: func() storage.Batch {
+					return &mock.WriteBatch{
+						SetBlockFn: func(block *types.Block) error {
+							savedBlocks = append(savedBlocks, block)
 
-					// Check if all blocks are saved
-					if block.Height == int64(blockNum) {
-						// At this point, we can cancel the process
-						cancelFn()
+							// Check if all blocks are saved
+							if block.Height == int64(blockNum) {
+								// At this point, we can cancel the process
+								cancelFn()
+							}
+
+							latestSaved = uint64(block.Height)
+
+							return nil
+						},
+						SetTxFn: func(result *types.TxResult) error {
+							savedTxs = append(savedTxs, result)
+
+							return nil
+						},
 					}
-
-					latestSaved = block.Height
-
-					return nil
-				},
-				saveTxFn: func(result *types.TxResult) error {
-					savedTxs = append(savedTxs, result)
-
-					return nil
 				},
 			}
 
@@ -124,12 +131,12 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
-				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+				getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
@@ -137,14 +144,14 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
 					return &core_types.ResultBlockResults{
-						Height: num,
+						Height: int64(num),
 						Results: &state.ABCIResponses{
 							DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
 						},
@@ -233,33 +240,37 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 				},
 			}
 
-			latestSaved = int64(0)
+			latestSaved = uint64(0)
 
-			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func() (int64, error) {
+			mockStorage = &mock.Storage{
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					if latestSaved == 0 {
 						return 0, storageErrors.ErrNotFound
 					}
 
 					return latestSaved, nil
 				},
-				saveBlockFn: func(block *types.Block) error {
-					savedBlocks = append(savedBlocks, block)
+				GetWriteBatchFn: func() storage.Batch {
+					return &mock.WriteBatch{
+						SetBlockFn: func(block *types.Block) error {
+							savedBlocks = append(savedBlocks, block)
 
-					// Check if all blocks are saved
-					if block.Height == int64(blockNum) {
-						// At this point, we can cancel the process
-						cancelFn()
+							// Check if all blocks are saved
+							if block.Height == int64(blockNum) {
+								// At this point, we can cancel the process
+								cancelFn()
+							}
+
+							latestSaved = uint64(block.Height)
+
+							return nil
+						},
+						SetTxFn: func(result *types.TxResult) error {
+							savedTxs = append(savedTxs, result)
+
+							return nil
+						},
 					}
-
-					latestSaved = block.Height
-
-					return nil
-				},
-				saveTxFn: func(result *types.TxResult) error {
-					savedTxs = append(savedTxs, result)
-
-					return nil
 				},
 			}
 
@@ -279,9 +290,9 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						countFn: func() int {
 							return len(batch)
 						},
-						addBlockRequestFn: func(num int64) error {
+						addBlockRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
@@ -294,15 +305,15 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 
 							return nil
 						},
-						addBlockResultsRequestFn: func(num int64) error {
+						addBlockResultsRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
 							batch = append(batch,
 								&core_types.ResultBlockResults{
-									Height: num,
+									Height: int64(num),
 									Results: &state.ABCIResponses{
 										DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
 									},
@@ -313,8 +324,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
 			}
 		)
@@ -405,25 +416,29 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 				},
 			}
 
-			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func() (int64, error) {
+			mockStorage = &mock.Storage{
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, storageErrors.ErrNotFound
 				},
-				saveBlockFn: func(block *types.Block) error {
-					savedBlocks = append(savedBlocks, block)
+				GetWriteBatchFn: func() storage.Batch {
+					return &mock.WriteBatch{
+						SetBlockFn: func(block *types.Block) error {
+							savedBlocks = append(savedBlocks, block)
 
-					// Check if all blocks are saved
-					if block.Height == int64(blockNum) {
-						// At this point, we can cancel the process
-						cancelFn()
+							// Check if all blocks are saved
+							if block.Height == int64(blockNum) {
+								// At this point, we can cancel the process
+								cancelFn()
+							}
+
+							return nil
+						},
+						SetTxFn: func(_ *types.TxResult) error {
+							t.Fatalf("should not save txs")
+
+							return nil
+						},
 					}
-
-					return nil
-				},
-				saveTxFn: func(_ *types.TxResult) error {
-					t.Fatalf("should not save txs")
-
-					return nil
 				},
 			}
 
@@ -439,12 +454,12 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
-				getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+				getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 					// Sanity check
-					if num > int64(blockNum) {
+					if num > uint64(blockNum) {
 						t.Fatalf("invalid block requested, %d", num)
 					}
 
@@ -452,7 +467,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(_ uint64) (*core_types.ResultBlockResults, error) {
 					t.Fatalf("should not request results")
 
 					return nil, nil
@@ -507,25 +522,29 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 				},
 			}
 
-			mockStorage = &mockStorage{
-				getLatestSavedHeightFn: func() (int64, error) {
+			mockStorage = &mock.Storage{
+				GetLatestSavedHeightFn: func() (uint64, error) {
 					return 0, storageErrors.ErrNotFound
 				},
-				saveBlockFn: func(block *types.Block) error {
-					savedBlocks = append(savedBlocks, block)
+				GetWriteBatchFn: func() storage.Batch {
+					return &mock.WriteBatch{
+						SetBlockFn: func(block *types.Block) error {
+							savedBlocks = append(savedBlocks, block)
 
-					// Check if all blocks are saved
-					if block.Height == int64(blockNum) {
-						// At this point, we can cancel the process
-						cancelFn()
+							// Check if all blocks are saved
+							if block.Height == int64(blockNum) {
+								// At this point, we can cancel the process
+								cancelFn()
+							}
+
+							return nil
+						},
+						SetTxFn: func(_ *types.TxResult) error {
+							t.Fatalf("should not save txs")
+
+							return nil
+						},
 					}
-
-					return nil
-				},
-				saveTxFn: func(_ *types.TxResult) error {
-					t.Fatalf("should not save txs")
-
-					return nil
 				},
 			}
 
@@ -545,9 +564,9 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						countFn: func() int {
 							return len(batch)
 						},
-						addBlockRequestFn: func(num int64) error {
+						addBlockRequestFn: func(num uint64) error {
 							// Sanity check
-							if num > int64(blockNum) {
+							if num > uint64(blockNum) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
@@ -560,15 +579,15 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 
 							return nil
 						},
-						addBlockResultsRequestFn: func(num int64) error {
+						addBlockResultsRequestFn: func(num uint64) error {
 							t.Fatalf("block %d should not have txs", num)
 
 							return nil
 						},
 					}
 				},
-				getLatestBlockNumberFn: func() (int64, error) {
-					return int64(blockNum), nil
+				getLatestBlockNumberFn: func() (uint64, error) {
+					return uint64(blockNum), nil
 				},
 			}
 		)
@@ -623,25 +642,29 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 			},
 		}
 
-		mockStorage = &mockStorage{
-			getLatestSavedHeightFn: func() (int64, error) {
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
 				return 0, storageErrors.ErrNotFound
 			},
-			saveBlockFn: func(block *types.Block) error {
-				savedBlocks = append(savedBlocks, block)
+			GetWriteBatchFn: func() storage.Batch {
+				return &mock.WriteBatch{
+					SetBlockFn: func(block *types.Block) error {
+						savedBlocks = append(savedBlocks, block)
 
-				// Check if all blocks are saved
-				if block.Height == int64(blockNum) {
-					// At this point, we can cancel the process
-					cancelFn()
+						// Check if all blocks are saved
+						if block.Height == int64(blockNum) {
+							// At this point, we can cancel the process
+							cancelFn()
+						}
+
+						return fmt.Errorf("unable to save block %d", block.Height)
+					},
+					SetTxFn: func(_ *types.TxResult) error {
+						t.Fatalf("should not save txs")
+
+						return nil
+					},
 				}
-
-				return fmt.Errorf("unable to save block %d", block.Height)
-			},
-			saveTxFn: func(_ *types.TxResult) error {
-				t.Fatalf("should not save txs")
-
-				return nil
 			},
 		}
 
@@ -657,12 +680,12 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 					},
 				}
 			},
-			getLatestBlockNumberFn: func() (int64, error) {
-				return int64(blockNum), nil
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return uint64(blockNum), nil
 			},
-			getBlockFn: func(num int64) (*core_types.ResultBlock, error) {
+			getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
 				// Sanity check
-				if num > int64(blockNum) {
+				if num > uint64(blockNum) {
 					t.Fatalf("invalid block requested, %d", num)
 				}
 
@@ -670,8 +693,8 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 					Block: blocks[num],
 				}, nil
 			},
-			getBlockResultsFn: func(num int64) (*core_types.ResultBlockResults, error) {
-				require.LessOrEqual(t, num, int64(blockNum))
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				require.LessOrEqual(t, num, uint64(blockNum))
 
 				return nil, fmt.Errorf("unable to fetch result for block %d", num)
 			},

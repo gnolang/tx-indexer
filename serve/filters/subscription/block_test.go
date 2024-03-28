@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/gnolang/tx-indexer/serve/encode"
-	"github.com/gnolang/tx-indexer/serve/filters/mocks"
-	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/internal/mock"
+	"github.com/gnolang/tx-indexer/serve/encode"
+	"github.com/gnolang/tx-indexer/serve/spec"
 )
 
 func TestBlockSubscription_WriteResponse(t *testing.T) {
@@ -29,7 +30,7 @@ func TestBlockSubscription_WriteResponse(t *testing.T) {
 
 	expectedBlockResponse := spec.NewJSONSubscribeResponse("", encodedResponse)
 
-	mockConn := &mocks.MockConn{
+	mockConn := &mock.Conn{
 		WriteDataFn: func(data any) error {
 			capturedWrite = data
 

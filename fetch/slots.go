@@ -27,8 +27,8 @@ func (s *slot) Less(i queue.Item) bool {
 
 // chunkRange is the data sequence range for the data
 type chunkRange struct {
-	from int64 // sequence from (inclusive)
-	to   int64 // sequence to (inclusive)
+	from uint64 // sequence from (inclusive)
+	to   uint64 // sequence to (inclusive)
 }
 
 // less returns a flag indicating if the current chunk range is less than the other
@@ -61,7 +61,7 @@ func (s *slots) setChunk(index int, chunk *chunk) {
 }
 
 // reserveChunkRanges reserves empty chunk ranges, and returns them, if any
-func (s *slots) reserveChunkRanges(start, end, maxChunkSize int64) []chunkRange {
+func (s *slots) reserveChunkRanges(start, end uint64, maxChunkSize int64) []chunkRange {
 	freeSlots := s.maxSlots - s.Len()
 
 	gaps := s.findGaps(start, end, maxChunkSize)
@@ -86,7 +86,7 @@ func (s *slots) reserveChunkRanges(start, end, maxChunkSize int64) []chunkRange 
 // can potentially recover unfilled gaps, since they will exist given the
 // proper start and end ranges. This situation is reflected in the testing
 // suite for the slots
-func (s *slots) findGaps(start, end, maxSize int64) []chunkRange {
+func (s *slots) findGaps(start, end uint64, maxSize int64) []chunkRange {
 	var (
 		chunkRanges []chunkRange // contains all gaps
 		dividedGaps []chunkRange // contains at most maxSize gaps
@@ -122,16 +122,16 @@ func (s *slots) findGaps(start, end, maxSize int64) []chunkRange {
 	}
 
 	for _, gap := range chunkRanges {
-		if gap.to-gap.from+1 <= maxSize {
+		if gap.to-gap.from+1 <= uint64(maxSize) {
 			dividedGaps = append(dividedGaps, gap)
 
 			continue
 		}
 
-		for i := gap.from; i <= gap.to; i += maxSize {
+		for i := gap.from; i <= gap.to; i += uint64(maxSize) {
 			newGap := chunkRange{
 				from: i,
-				to:   i + maxSize - 1,
+				to:   i + uint64(maxSize) - 1,
 			}
 
 			if newGap.to > gap.to {
