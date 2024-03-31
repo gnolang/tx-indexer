@@ -3,19 +3,113 @@
 package model
 
 import (
-	"time"
+	"fmt"
+	"io"
+	"strconv"
 )
 
-// Filters for querying Blocks within specified criteria related to their attributes.
-type BlockFilter struct {
-	// Minimum block height from which to start fetching Blocks, inclusive. If unspecified, there is no lower bound.
-	FromHeight *int `json:"from_height,omitempty"`
-	// Maximum block height up to which Blocks should be fetched, exclusive. If unspecified, there is no upper bound.
-	ToHeight *int `json:"to_height,omitempty"`
-	// Minimum timestamp from which to start fetching Blocks, inclusive. Blocks created at or after this time will be included.
-	FromTime *time.Time `json:"from_time,omitempty"`
-	// Maximum timestamp up to which to fetch Blocks, exclusive. Only Blocks created before this time are included.
-	ToTime *time.Time `json:"to_time,omitempty"`
+type MessageValue interface {
+	IsMessageValue()
+}
+
+type BankMsgSend struct {
+	FromAddress string `json:"from_address"`
+	ToAddress   string `json:"to_address"`
+	Amount      string `json:"amount"`
+}
+
+func (BankMsgSend) IsMessageValue() {}
+
+// Input parameters required when the message type is `send`.
+type BankMsgSendInput struct {
+	// Filter by `from_address`.
+	FromAddress *string `json:"from_address,omitempty"`
+	// Filter by `to_address`.
+	ToAddress *string `json:"to_address,omitempty"`
+	// Filter by `amount`.
+	Amount *string `json:"amount,omitempty"`
+}
+
+type MemFile struct {
+	Name string `json:"Name"`
+	Body string `json:"Body"`
+}
+
+type MemFileInput struct {
+	Name *string `json:"Name,omitempty"`
+	Body *string `json:"Body,omitempty"`
+}
+
+type MemPackage struct {
+	Name  string     `json:"Name"`
+	Path  string     `json:"Path"`
+	Files []*MemFile `json:"Files,omitempty"`
+}
+
+type MemPackageInput struct {
+	Name  *string         `json:"Name,omitempty"`
+	Path  *string         `json:"Path,omitempty"`
+	Files []*MemFileInput `json:"Files,omitempty"`
+}
+
+type MsgAddPackage struct {
+	Creator string      `json:"creator"`
+	Package *MemPackage `json:"package"`
+	Deposit string      `json:"deposit"`
+}
+
+func (MsgAddPackage) IsMessageValue() {}
+
+// Input parameters required when the message type is `add_package`.
+type MsgAddPackageInput struct {
+	// Filter by `creator`.
+	Creator *string `json:"creator,omitempty"`
+	// Filter by `package`.
+	Package *MemPackageInput `json:"package,omitempty"`
+	// Filter by `deposit`.
+	Deposit *string `json:"deposit,omitempty"`
+}
+
+type MsgCall struct {
+	Caller  string   `json:"caller"`
+	Send    string   `json:"send"`
+	PkgPath string   `json:"pkg_path"`
+	Func    string   `json:"func"`
+	Args    []string `json:"args,omitempty"`
+}
+
+func (MsgCall) IsMessageValue() {}
+
+// Input parameters required when the message type is `exec`.
+type MsgCallInput struct {
+	// Filter by `caller`.
+	Caller *string `json:"caller,omitempty"`
+	// Filter by `send`.
+	Send *string `json:"send,omitempty"`
+	// Filter by `pkg_path`.
+	PkgPath *string `json:"pkg_path,omitempty"`
+	// Filter by `func`.
+	Func *string `json:"func,omitempty"`
+	// Filter by `args`, Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+	Args []string `json:"args,omitempty"`
+}
+
+type MsgRun struct {
+	Caller  string      `json:"caller"`
+	Send    string      `json:"send"`
+	Package *MemPackage `json:"package"`
+}
+
+func (MsgRun) IsMessageValue() {}
+
+// Input parameters required when the message type is `run`.
+type MsgRunInput struct {
+	// Filter by `caller`.
+	Caller *string `json:"caller,omitempty"`
+	// Filter by `send`.
+	Send *string `json:"send,omitempty"`
+	// Filter by `package`.
+	Package *MemPackageInput `json:"package,omitempty"`
 }
 
 // Root Query type to fetch data about Blocks and Transactions based on filters or retrieve the latest block height.
@@ -27,24 +121,121 @@ type Query struct {
 type Subscription struct {
 }
 
-// Filters for querying Transactions within specified criteria related to their execution and placement within Blocks.
-type TransactionFilter struct {
-	// Minimum block height from which to start fetching Transactions, inclusive. Aids in scoping the search to recent Transactions.
-	FromBlockHeight *int `json:"from_block_height,omitempty"`
-	// Maximum block height up to which Transactions should be fetched, exclusive. Helps in limiting the search to older Transactions.
-	ToBlockHeight *int `json:"to_block_height,omitempty"`
-	// Minimum Transaction index from which to start fetching, inclusive. Facilitates ordering in Transaction queries.
-	FromIndex *int `json:"from_index,omitempty"`
-	// Maximum Transaction index up to which to fetch, exclusive. Ensures a limit on the ordering range for Transaction queries.
-	ToIndex *int `json:"to_index,omitempty"`
-	// Minimum `gas_wanted` value to filter Transactions by, inclusive. Filters Transactions based on the minimum computational effort declared.
-	FromGasWanted *int `json:"from_gas_wanted,omitempty"`
-	// Maximum `gas_wanted` value for filtering Transactions, exclusive. Limits Transactions based on the declared computational effort.
-	ToGasWanted *int `json:"to_gas_wanted,omitempty"`
-	// Minimum `gas_used` value to filter Transactions by, inclusive. Selects Transactions based on the minimum computational effort actually used.
-	FromGasUsed *int `json:"from_gas_used,omitempty"`
-	// Maximum `gas_used` value for filtering Transactions, exclusive. Refines selection based on the computational effort actually consumed.
-	ToGasUsed *int `json:"to_gas_used,omitempty"`
-	// Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
-	Hash *string `json:"hash,omitempty"`
+// Input parameters required when the message router is `bank`.
+type TransactionBankMessageInput struct {
+	// Input parameters required when the message type is `send`.
+	Send *BankMsgSendInput `json:"send,omitempty"`
+}
+
+// Input for filters by transaction message.
+type TransactionMessageInput struct {
+	// The type of transaction message.
+	TypeURL *MessageType `json:"type_url,omitempty"`
+	// The route of transaction message.
+	Route *MessageRoute `json:"route,omitempty"`
+	// Input parameters required when the message router type is `bank`.
+	BankParam *TransactionBankMessageInput `json:"bank_param,omitempty"`
+	// Input parameters required when the message router type is `vm`.
+	VMParam *TransactionVMMessageInput `json:"vm_param,omitempty"`
+}
+
+// Input parameters required when the message router is `vm`.
+type TransactionVMMessageInput struct {
+	// Input parameters required when the message type is `exec`.
+	MCall *MsgCallInput `json:"m_call,omitempty"`
+	// Input parameters required when the message type is `add_package`.
+	MAddpkg *MsgAddPackageInput `json:"m_addpkg,omitempty"`
+	// Input parameters required when the message type is `run`.
+	MRun *MsgRunInput `json:"m_run,omitempty"`
+}
+
+type TxFee struct {
+	GasWanted int `json:"gas_wanted"`
+	GasFee    int `json:"gas_fee"`
+}
+
+type MessageRoute string
+
+const (
+	MessageRouteVM   MessageRoute = "vm"
+	MessageRouteBank MessageRoute = "bank"
+)
+
+var AllMessageRoute = []MessageRoute{
+	MessageRouteVM,
+	MessageRouteBank,
+}
+
+func (e MessageRoute) IsValid() bool {
+	switch e {
+	case MessageRouteVM, MessageRouteBank:
+		return true
+	}
+	return false
+}
+
+func (e MessageRoute) String() string {
+	return string(e)
+}
+
+func (e *MessageRoute) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MessageRoute(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MessageRoute", str)
+	}
+	return nil
+}
+
+func (e MessageRoute) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type MessageType string
+
+const (
+	MessageTypeSend       MessageType = "send"
+	MessageTypeExec       MessageType = "exec"
+	MessageTypeAddPackage MessageType = "add_package"
+	MessageTypeRun        MessageType = "run"
+)
+
+var AllMessageType = []MessageType{
+	MessageTypeSend,
+	MessageTypeExec,
+	MessageTypeAddPackage,
+	MessageTypeRun,
+}
+
+func (e MessageType) IsValid() bool {
+	switch e {
+	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun:
+		return true
+	}
+	return false
+}
+
+func (e MessageType) String() string {
+	return string(e)
+}
+
+func (e *MessageType) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MessageType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MessageType", str)
+	}
+	return nil
+}
+
+func (e MessageType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
 }
