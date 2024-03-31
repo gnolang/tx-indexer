@@ -1,0 +1,106 @@
+"""
+Defines a transaction within a block, detailing its execution specifics and content.
+"""
+type Transaction {
+  """
+  A sequential index representing the order of this Transaction within its Block. Unique within the context of its Block.
+  """
+  index: Int!
+
+  """
+  Hash from Transaction content in base64 encoding.
+  """
+  hash: String!
+
+  """
+  The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
+  """
+  block_height: Int!
+
+  """
+  The declared amount of computational effort the sender is willing to pay for executing this Transaction.
+  """
+  gas_wanted: Int!
+
+  """
+  The actual amount of computational effort consumed to execute this Transaction. It could be less or equal to `gas_wanted`.
+  """
+  gas_used: Int!
+
+  """
+  The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+  """
+  content_raw: String!
+
+  """
+  The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+  """
+  messages: [TransactionMessage]!
+
+  """
+  The memo of the Transaction.
+  """
+  memo: String!
+}
+
+enum MessageRoute {
+  vm
+  bank
+}
+
+enum MessageType {
+  send
+  exec
+  add_package
+  run
+}
+
+type TransactionMessage {
+  typeUrl: MessageType!
+  route: MessageRoute!
+  value: MessageValue!
+}
+
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun
+
+type BankMsgSend {
+  from_address: String!
+  to_address: String!
+  amount: String!
+}
+
+type MsgCall {
+  caller: String!
+  send: String!
+  pkg_path: String!
+  func: String!
+  args: [String!]
+}
+
+type MsgAddPackage {
+  creator: String!
+  package: MemPackage!
+  deposit: String!
+}
+
+type MsgRun {
+  caller: String!
+  send: String!
+  package: MemPackage!
+}
+
+type MemPackage {
+  Name: String!
+  Path: String!
+  Files: [MemFile!]
+}
+
+type MemFile {
+  Name: String!
+  Body: String!
+}
+
+type TxFee {
+  gas_wanted: Int!
+  gas_fee: Int!
+}

@@ -1,0 +1,29 @@
+"""
+Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
+Subscribers will only receive updates for events occurring after the subscription is established.
+"""
+type Subscription {
+  """
+  Subscribes to real-time updates of Transactions that match the provided filter criteria.
+  This subscription starts immediately and only includes Transactions added to the blockchain after the subscription is active.
+
+  This is useful for applications needing to track Transactions in real-time, such as wallets tracking incoming transactions
+  or analytics platforms monitoring blockchain activity.
+
+  Returns:
+  - Transaction: Each received update is a Transaction object that matches the filter criteria.
+  """
+  transactions(filter: TransactionFilter!): Transaction!
+
+  """
+  Subscribes to real-time updates of Blocks that match the provided filter criteria. Similar to the Transactions subscription,
+  this subscription is active immediately upon creation and only includes Blocks added after the subscription begins.
+
+  This subscription is ideal for services that need to be notified of new Blocks for processing or analysis, such as block explorers,
+  data aggregators, or security monitoring tools.
+
+  Returns:
+  - Block: Each update consists of a Block object that satisfies the filter criteria, allowing subscribers to process or analyze new Blocks in real time.
+  """
+  blocks(filter: BlockFilter!): Block!
+}

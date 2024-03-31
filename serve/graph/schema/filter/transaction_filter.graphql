@@ -1,0 +1,215 @@
+"""
+Filters for querying Transactions within specified criteria related to their execution and placement within Blocks.
+"""
+input TransactionFilter {
+  """
+  Minimum block height from which to start fetching Transactions, inclusive. Aids in scoping the search to recent Transactions.
+  """
+  from_block_height: Int
+
+  """
+  Maximum block height up to which Transactions should be fetched, exclusive. Helps in limiting the search to older Transactions.
+  """
+  to_block_height: Int
+
+  """
+  Minimum Transaction index from which to start fetching, inclusive. Facilitates ordering in Transaction queries.
+  """
+  from_index: Int
+
+  """
+  Maximum Transaction index up to which to fetch, exclusive. Ensures a limit on the ordering range for Transaction queries.
+  """
+  to_index: Int
+
+  """
+  Minimum `gas_wanted` value to filter Transactions by, inclusive. Filters Transactions based on the minimum computational effort declared.
+  """
+  from_gas_wanted: Int
+
+  """
+  Maximum `gas_wanted` value for filtering Transactions, exclusive. Limits Transactions based on the declared computational effort.
+  """
+  to_gas_wanted: Int
+
+  """
+  Minimum `gas_used` value to filter Transactions by, inclusive. Selects Transactions based on the minimum computational effort actually used.
+  """
+  from_gas_used: Int
+
+  """
+  Maximum `gas_used` value for filtering Transactions, exclusive. Refines selection based on the computational effort actually consumed.
+  """
+  to_gas_used: Int
+
+  """
+  Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
+  """
+  hash: String
+
+  """
+  Transaction's message to filter Transactions.
+  """
+  message: TransactionMessageInput
+
+  """
+  `memo` value to filter Transaction's memo.
+  """
+  memo: String
+}
+
+"""
+Input for filters by transaction message.
+"""
+input TransactionMessageInput {
+  """
+  The type of transaction message.
+  """
+  type_url: MessageType
+
+  """
+  The route of transaction message.
+  """
+  route: MessageRoute
+
+  """
+  Input parameters required when the message router type is `bank`.
+  """
+  bank_param: TransactionBankMessageInput
+
+  """
+  Input parameters required when the message router type is `vm`.
+  """
+  vm_param: TransactionVmMessageInput
+}
+
+"""
+Input parameters required when the message router is `bank`.
+"""
+input TransactionBankMessageInput {
+  """
+  Input parameters required when the message type is `send`.
+  """
+  send: BankMsgSendInput
+}
+
+"""
+Input parameters required when the message type is `send`.
+"""
+input BankMsgSendInput {
+  """
+  Filter by `from_address`.
+  """
+  from_address: String
+
+  """
+  Filter by `to_address`.
+  """
+  to_address: String
+
+  """
+  Filter by `amount`.
+  """
+  amount: String
+}
+
+"""
+Input parameters required when the message router is `vm`.
+"""
+input TransactionVmMessageInput {
+  """
+  Input parameters required when the message type is `exec`.
+  """
+  m_call: MsgCallInput
+
+  """
+  Input parameters required when the message type is `add_package`.
+  """
+  m_addpkg: MsgAddPackageInput
+
+  """
+  Input parameters required when the message type is `run`.
+  """
+  m_run: MsgRunInput
+}
+
+"""
+Input parameters required when the message type is `exec`.
+"""
+input MsgCallInput {
+  """
+  Filter by `caller`.
+  """
+  caller: String
+
+  """
+  Filter by `send`.
+  """
+  send: String
+
+  """
+  Filter by `pkg_path`.
+  """
+  pkg_path: String
+
+  """
+  Filter by `func`.
+  """
+  func: String
+
+  """
+  Filter by `args`, Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+  """
+  args: [String!]
+}
+
+"""
+Input parameters required when the message type is `add_package`.
+"""
+input MsgAddPackageInput {
+  """
+  Filter by `creator`.
+  """
+  creator: String
+
+  """
+  Filter by `package`.
+  """
+  package: MemPackageInput
+
+  """
+  Filter by `deposit`.
+  """
+  deposit: String
+}
+
+"""
+Input parameters required when the message type is `run`.
+"""
+input MsgRunInput {
+  """
+  Filter by `caller`.
+  """
+  caller: String
+
+  """
+  Filter by `send`.
+  """
+  send: String
+
+  """
+  Filter by `package`.
+  """
+  package: MemPackageInput
+}
+
+input MemPackageInput {
+  Name: String
+  Path: String
+  Files: [MemFileInput]
+}
+
+input MemFileInput {
+  Name: String
+  Body: String
+}

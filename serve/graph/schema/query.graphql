@@ -1,0 +1,19 @@
+"""
+Root Query type to fetch data about Blocks and Transactions based on filters or retrieve the latest block height.
+"""
+type Query {
+  """
+  Retrieves a list of Transactions that match the given filter criteria. If the result is incomplete due to errors, both partial results and errors are returned.
+  """
+  transactions(filter: TransactionFilter!): [Transaction!]
+
+  """
+  Fetches Blocks matching the specified filter criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
+  """
+  blocks(filter: BlockFilter!): [Block!]
+
+  """
+  Returns the height of the most recently processed Block by the blockchain indexer, indicating the current length of the blockchain.
+  """
+  latestBlockHeight: Int!
+}

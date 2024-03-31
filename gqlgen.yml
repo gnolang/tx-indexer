@@ -1,11 +1,12 @@
 # Where are all the schema files located? globs are supported eg  src/**/*.graphql
 schema:
-  - serve/graph/*.graphql
+  - serve/graph/schema/*.graphql
+  - serve/graph/schema/**/*.graphql
 
 # Where should the generated server code go?
 exec:
-  filename: serve/graph/generated.go
-  package: graph
+  filename: serve/graph/generated/generated.go
+  package: generated
 
 # Where should any generated models go?
 model:
@@ -15,8 +16,8 @@ model:
 # Where should the resolver implementations go?
 resolver:
   layout: follow-schema
-  dir: serve/graph
-  package: graph
+  dir: serve/graph/resolvers
+  package: resolvers
   filename_template: "{name}.resolvers.go"
   # Optional: turn on to not generate template comments above resolvers
   # omit_template_comment: false
@@ -86,3 +87,12 @@ models:
   Transaction:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Transaction
+  TransactionMessage:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.TransactionMessage
+  BlockFilter:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.BlockFilter
+  TransactionFilter:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.TransactionFilter
