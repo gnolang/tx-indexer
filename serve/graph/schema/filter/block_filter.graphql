@@ -1,0 +1,24 @@
+"""
+Filters for querying Blocks within specified criteria related to their attributes.
+"""
+input BlockFilter {
+  """
+  Minimum block height from which to start fetching Blocks, inclusive. If unspecified, there is no lower bound.
+  """
+  from_height: Int
+
+  """
+  Maximum block height up to which Blocks should be fetched, exclusive. If unspecified, there is no upper bound.
+  """
+  to_height: Int
+
+  """
+  Minimum timestamp from which to start fetching Blocks, inclusive. Blocks created at or after this time will be included.
+  """
+  from_time: Time
+
+  """
+  Maximum timestamp up to which to fetch Blocks, exclusive. Only Blocks created before this time are included.
+  """
+  to_time: Time
+}

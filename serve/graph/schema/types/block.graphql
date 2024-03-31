@@ -1,0 +1,33 @@
+"""
+Represents a blockchain block with various attributes detailing its creation and content.
+"""
+type Block {
+  """
+  A unique identifier for the Block determined by its position in the blockchain.
+  This integer is strictly increasing with each new Block.
+  """
+  height: Int!
+
+  """
+  The software version of the node that created this Block, indicating the specific
+  implementation and versioning of the blockchain protocol used.
+  """
+  version: String!
+
+  """
+  An identifier for the specific blockchain network this Block belongs to. Helps in
+  distinguishing between different networks like mainnet, testnet, etc.
+  """
+  chain_id: String!
+
+  """
+  The timestamp at which this Block was proposed and finalized in the blockchain. Represented in UTC.
+  """
+  time: Time!
+
+  """
+  Encoded data representing the blockchain address of the proposer who submitted this Block.
+  It is raw and requires decoding to be human-readable.
+  """
+  proposer_address_raw: String!
+}
