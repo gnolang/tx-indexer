@@ -12,7 +12,9 @@ import (
 )
 
 func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
-	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: resolvers.NewResolver(s, manager)}))
+	srv := handler.NewDefaultServer(generated.NewExecutableSchema(
+		generated.Config{Resolvers: resolvers.NewResolver(s, manager)},
+	))
 
 	srv.AddTransport(&transport.Websocket{})
 

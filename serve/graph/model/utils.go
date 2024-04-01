@@ -15,8 +15,8 @@ func Deref[T any](v *T) T {
 
 		return zero
 	}
-	return *v
 
+	return *v
 }
 
 // Cast casts a type.
@@ -27,7 +27,7 @@ func Cast[T any](input any) (*T, error) {
 	}
 
 	var data T
-	if err = json.Unmarshal(encoded, &data); err != nil {
+	if err := json.Unmarshal(encoded, &data); err != nil {
 		return nil, err
 	}
 
@@ -47,7 +47,7 @@ func ParseBankMsgSend(value std.Msg) BankMsgSend {
 	}
 }
 
-func ParseVmMsgCall(value std.Msg) MsgCall {
+func ParseVMMsgCall(value std.Msg) MsgCall {
 	decodedMessage, err := Cast[vm.MsgCall](value)
 	if err != nil {
 		return MsgCall{}
@@ -62,7 +62,7 @@ func ParseVmMsgCall(value std.Msg) MsgCall {
 	}
 }
 
-func ParseVmAddPackage(value std.Msg) MsgAddPackage {
+func ParseVMAddPackage(value std.Msg) MsgAddPackage {
 	decodedMessage, err := Cast[vm.MsgAddPackage](value)
 	if err != nil {
 		return MsgAddPackage{}
@@ -87,7 +87,7 @@ func ParseVmAddPackage(value std.Msg) MsgAddPackage {
 	}
 }
 
-func ParseVmMsgRun(value std.Msg) MsgRun {
+func ParseVMMsgRun(value std.Msg) MsgRun {
 	decodedMessage, err := Cast[vm.MsgRun](value)
 	if err != nil {
 		return MsgRun{}

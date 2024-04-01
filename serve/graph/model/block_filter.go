@@ -7,14 +7,18 @@ import (
 )
 
 type BlockFilter struct {
-	// Minimum block height from which to start fetching Blocks, inclusive. Aids in scoping the search to recent Blocks.
-	FromHeight *int `json:"from_height,omitempty"`
-	// Maximum block height up to which Blocks should be fetched, exclusive. Helps in limiting the search to older Blocks.
-	ToHeight *int `json:"to_height,omitempty"`
-	// Minimum block create time from which to start fetching Blocks, inclusive. Aids in scoping the search to recent Blocks.
-	FromTime *time.Time `json:"from_time,omitempty"`
-	// Maximum block create time up to which Blocks should be fetched, exclusive. Helps in limiting the search to older Blocks.
-	ToTime *time.Time `json:"to_time,omitempty"`
+	// Minimum block height from which to start fetching Blocks, inclusive.
+	// Aids in scoping the search to recent Blocks.
+	FromHeight *int `json:"fromHeight,omitempty"`
+	// Maximum block height up to which Blocks should be fetched, exclusive.
+	// Helps in limiting the search to older Blocks.
+	ToHeight *int `json:"toHeight,omitempty"`
+	// Minimum block create time from which to start fetching Blocks, inclusive.
+	// Aids in scoping the search to recent Blocks.
+	FromTime *time.Time `json:"fromTime,omitempty"`
+	// Maximum block create time up to which Blocks should be fetched, exclusive.
+	// Helps in limiting the search to older Blocks.
+	ToTime *time.Time `json:"toTime,omitempty"`
 }
 
 func (filter *BlockFilter) GetFromHeight() uint64 {
@@ -40,5 +44,6 @@ func (filter *BlockFilter) FilterBy(block *types.Block) bool {
 func (filter *BlockFilter) filterByBlockTime(blockTime time.Time) bool {
 	fromTime := filter.GetFromTime()
 	toTIme := filter.GetToTime()
+
 	return (blockTime.After(fromTime) || blockTime.Equal(fromTime)) && (toTIme.IsZero() || blockTime.Before(toTIme))
 }

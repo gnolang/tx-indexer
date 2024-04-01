@@ -117,7 +117,7 @@ type ComplexityRoot struct {
 
 	TransactionMessage struct {
 		Route   func(childComplexity int) int
-		TypeUrl func(childComplexity int) int
+		TypeURL func(childComplexity int) int
 		Value   func(childComplexity int) int
 	}
 
@@ -443,11 +443,11 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		return e.complexity.TransactionMessage.Route(childComplexity), true
 
 	case "TransactionMessage.typeUrl":
-		if e.complexity.TransactionMessage.TypeUrl == nil {
+		if e.complexity.TransactionMessage.TypeURL == nil {
 			break
 		}
 
-		return e.complexity.TransactionMessage.TypeUrl(childComplexity), true
+		return e.complexity.TransactionMessage.TypeURL(childComplexity), true
 
 	case "TransactionMessage.value":
 		if e.complexity.TransactionMessage.Value == nil {
@@ -3071,7 +3071,7 @@ func (ec *executionContext) _TransactionMessage_typeUrl(ctx context.Context, fie
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.TypeUrl, nil
+		return obj.TypeURL, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)

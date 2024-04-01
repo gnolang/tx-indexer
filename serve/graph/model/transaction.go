@@ -12,19 +12,23 @@ import (
 )
 
 type Transaction struct {
+	memo     string
 	txResult *types.TxResult
 	messages []*TransactionMessage
-	memo     string
 }
 
 func NewTransaction(txResult *types.TxResult) *Transaction {
 	var stdTx std.Tx
-	amino.Unmarshal(txResult.Tx, &stdTx)
+
+	if err := amino.Unmarshal(txResult.Tx, &stdTx); err != nil {
+		return nil
+	}
 
 	messages := make([]*TransactionMessage, 0)
 	for _, message := range stdTx.GetMsgs() {
 		messages = append(messages, NewTransactionMessage(message))
 	}
+
 	return &Transaction{txResult: txResult, messages: messages, memo: stdTx.GetMemo()}
 }
 
@@ -72,9 +76,9 @@ func (t *Transaction) Fee() *TxFee {
 }
 
 type TransactionMessage struct {
-	TypeUrl MessageType
-	Route   MessageRoute
 	Value   MessageValue
+	TypeURL MessageType
+	Route   MessageRoute
 }
 
 func NewTransactionMessage(message std.Msg) *TransactionMessage {
@@ -82,11 +86,10 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 
 	switch message.Route() {
 	case bank.RouterKey:
-		switch message.Type() {
-		case MessageTypeSend.String():
+		if message.Type() == MessageTypeSend.String() {
 			contentMessage = &TransactionMessage{
 				Route:   MessageRouteBank,
-				TypeUrl: MessageTypeSend,
+				TypeURL: MessageTypeSend,
 				Value:   ParseBankMsgSend(message),
 			}
 		}
@@ -95,20 +98,20 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 		case MessageTypeExec.String():
 			contentMessage = &TransactionMessage{
 				Route:   MessageRouteVM,
-				TypeUrl: MessageTypeExec,
-				Value:   ParseVmMsgCall(message),
+				TypeURL: MessageTypeExec,
+				Value:   ParseVMMsgCall(message),
 			}
 		case MessageTypeAddPackage.String():
 			contentMessage = &TransactionMessage{
 				Route:   MessageRouteVM,
-				TypeUrl: MessageTypeAddPackage,
-				Value:   ParseVmAddPackage(message),
+				TypeURL: MessageTypeAddPackage,
+				Value:   ParseVMAddPackage(message),
 			}
 		case MessageTypeRun.String():
 			contentMessage = &TransactionMessage{
 				Route:   MessageRouteVM,
-				TypeUrl: MessageTypeRun,
-				Value:   ParseVmMsgRun(message),
+				TypeURL: MessageTypeRun,
+				Value:   ParseVMMsgRun(message),
 			}
 		}
 	}
@@ -120,14 +123,14 @@ func (tm *TransactionMessage) BankMsgSend() BankMsgSend {
 	return tm.Value.(BankMsgSend)
 }
 
-func (tm *TransactionMessage) VmMsgCall() MsgCall {
+func (tm *TransactionMessage) VMMsgCall() MsgCall {
 	return tm.Value.(MsgCall)
 }
 
-func (tm *TransactionMessage) VmAddPackage() MsgAddPackage {
+func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 	return tm.Value.(MsgAddPackage)
 }
 
-func (tm *TransactionMessage) VmMsgRun() MsgRun {
+func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
 }

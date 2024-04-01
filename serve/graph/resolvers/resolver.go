@@ -18,16 +18,6 @@ import (
 
 const maxElementsPerQuery = 10000
 
-func deref[T any](v *T) T {
-	if v == nil {
-		var zero T
-
-		return zero
-	}
-
-	return *v
-}
-
 type Resolver struct {
 	store   storage.Storage
 	manager *events.Manager
