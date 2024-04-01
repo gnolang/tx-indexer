@@ -962,6 +962,9 @@ type Transaction {
   """
   messages: [TransactionMessage]!
 
+  """
+  The memo of the Transaction.
+  """
   memo: String!
 }
 
