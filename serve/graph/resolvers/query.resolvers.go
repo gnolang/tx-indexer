@@ -26,10 +26,10 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 	it, err := r.
 		store.
 		TxIterator(
-			filter.GetFromBlockHeight(),
-			filter.GetToBlockHeight(),
-			filter.GetFromIndex(),
-			filter.GetToIndex(),
+			uint64(deref(filter.FromBlockHeight)),
+			uint64(deref(filter.ToBlockHeight)),
+			uint32(deref(filter.FromIndex)),
+			uint32(deref(filter.ToIndex)),
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
@@ -59,11 +59,11 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 				return out, nil
 			}
 
-			transaction := model.NewTransaction(t)
-			if !filter.FilterBy(transaction) {
+			transactionResolver := NewTransactionResolver(model.NewTransaction(t))
+			if !transactionResolver.FilteredBy(filter) {
 				continue
 			}
-			out = append(out, transaction)
+			out = append(out, transactionResolver.GetTransaction())
 			i++
 		}
 	}
@@ -74,8 +74,8 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	it, err := r.
 		store.
 		BlockIterator(
-			filter.GetFromHeight(),
-			filter.GetToHeight(),
+			uint64(deref(filter.FromHeight)),
+			uint64(deref(filter.ToHeight)),
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
@@ -106,11 +106,12 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 				return out, nil
 			}
 
-			if !filter.FilterBy(b) {
+			blockResolver := NewBlockResolver(model.NewBlock(b))
+			if !blockResolver.FilteredBy(filter) {
 				continue
 			}
 
-			out = append(out, model.NewBlock(b))
+			out = append(out, blockResolver.GetBlock())
 			i++
 		}
 	}

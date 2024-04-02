@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/gnolang/tx-indexer/types"
@@ -18,7 +19,6 @@ import (
 
 const maxElementsPerQuery = 10000
 
-// Deref dereferences a pointer variable.
 func deref[T any](v *T) T {
 	if v == nil {
 		var zero T
@@ -27,11 +27,6 @@ func deref[T any](v *T) T {
 	}
 
 	return *v
-}
-
-type Resolver struct {
-	store   storage.Storage
-	manager *events.Manager
 }
 
 func handleChannel[T any](
@@ -70,6 +65,11 @@ func handleChannel[T any](
 	}()
 
 	return ch
+}
+
+type Resolver struct {
+	store   storage.Storage
+	manager *events.Manager
 }
 
 func NewResolver(s storage.Storage, m *events.Manager) *Resolver {
