@@ -56,19 +56,50 @@ enum MessageType {
 }
 
 type TransactionMessage {
+  """
+  The type of transaction message.
+  """
   typeUrl: MessageType!
+
+  """
+  The route of transaction message.
+  """
   route: MessageRoute!
+
+  """
+  MessageValue is the content of the transaction.
+  The content can be of type `BankMsgSend` or `MsgCall` or `MsgAddPackage` or `MsgRun`.
+  """
   value: MessageValue!
 }
 
 union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun
 
+"""
+`BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
+`BankMsgSend` is the fund transfer tx message.
+"""
 type BankMsgSend {
+  """
+  the bech32 address of the fund sender.
+  """
   from_address: String!
+
+  """
+  the bech32 address of the fund receiver.
+  """
   to_address: String!
+
+  """
+  the denomination and amount of fund sent ("<amount><denomination>").
+  """
   amount: String!
 }
 
+"""
+`MsgCall` is a message with a message router of `vm` and a message type of `exec`.
+`MsgCall` is the method invocation tx message.
+"""
 type MsgCall {
   caller: String!
   send: String!
@@ -77,30 +108,91 @@ type MsgCall {
   args: [String!]
 }
 
+"""
+`MsgAddPackage` is a message with a message router of `vm` and a message type of `add_package`.
+`MsgAddPackage` is the package deployment tx message.
+"""
 type MsgAddPackage {
+  """
+  the package deployer.
+  """
   creator: String!
+
+  """
+  the package being deployed.
+  """
   package: MemPackage!
+
+  """
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  """
   deposit: String!
 }
 
+"""
+`MsgRun` is a message with a message router of `vm` and a message type of `run`.
+`MsgRun is the execute arbitrary Gno code tx message`.
+"""
 type MsgRun {
+  """
+  the bech32 address of the caller.
+  """
   caller: String!
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  """
   send: String!
+
+  """
+  the package being executed.
+  """
   package: MemPackage!
 }
 
+"""
+`MemPackage` is the metadata information tied to package / realm deployment.
+"""
 type MemPackage {
+  """
+  the name of the package.
+  """
   Name: String!
+
+  """
+  the gno path of the package.
+  """
   Path: String!
+
+  """
+  the associated package gno source.
+  """
   Files: [MemFile!]
 }
 
+"""
+`MemFile` is the metadata information tied to a single gno package / realm file
+"""
 type MemFile {
+  """
+  the name of the source file.
+  """
   Name: String!
+
+  """
+  the content of the source file.
+  """
   Body: String!
 }
 
 type TxFee {
+  """
+  gas limit
+  """
   gas_wanted: Int!
+
+  """
+  gas fee details (<value><denomination>)
+  """
   gas_fee: Int!
 }

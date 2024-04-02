@@ -748,144 +748,169 @@ input TransactionMessageInput {
   route: MessageRoute
 
   """
-  Input parameters required when the message router type is ` + "`" + `bank` + "`" + `.
+  ` + "`" + `TransactionBankMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `bank` + "`" + `.
   """
   bank_param: TransactionBankMessageInput
 
   """
-  Input parameters required when the message router type is ` + "`" + `vm` + "`" + `.
+  ` + "`" + `TransactionVmMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `vm` + "`" + `.
   """
   vm_param: TransactionVmMessageInput
 }
 
 """
-Input parameters required when the message router is ` + "`" + `bank` + "`" + `.
+` + "`" + `TransactionBankMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `bank` + "`" + `.
 """
 input TransactionBankMessageInput {
   """
-  Input parameters required when the message type is ` + "`" + `send` + "`" + `.
+  send represents input parameters required when the message type is ` + "`" + `send` + "`" + `.
   """
   send: BankMsgSendInput
 }
 
 """
-Input parameters required when the message type is ` + "`" + `send` + "`" + `.
+` + "`" + `BankMsgSendInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `send` + "`" + `.
 """
 input BankMsgSendInput {
   """
-  Filter by ` + "`" + `from_address` + "`" + `.
+  the bech32 address of the fund sender.
   """
   from_address: String
 
   """
-  Filter by ` + "`" + `to_address` + "`" + `.
+  the bech32 address of the fund receiver.
   """
   to_address: String
 
   """
-  Filter by ` + "`" + `amount` + "`" + `.
+  the denomination and amount of fund sent ("<amount><denomination>").
   """
   amount: String
 }
 
 """
-Input parameters required when the message router is ` + "`" + `vm` + "`" + `.
+` + "`" + `TransactionVmMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `vm` + "`" + `.
 """
 input TransactionVmMessageInput {
   """
-  Input parameters required when the message type is ` + "`" + `exec` + "`" + `.
+  ` + "`" + `MsgCallInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `exec` + "`" + `.
   """
   m_call: MsgCallInput
 
   """
-  Input parameters required when the message type is ` + "`" + `add_package` + "`" + `.
+  ` + "`" + `MsgAddPackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `add_package` + "`" + `.
   """
   m_addpkg: MsgAddPackageInput
 
   """
-  Input parameters required when the message type is ` + "`" + `run` + "`" + `.
+  ` + "`" + `MsgRunInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `run` + "`" + `.
   """
   m_run: MsgRunInput
 }
 
 """
-Input parameters required when the message type is ` + "`" + `exec` + "`" + `.
+` + "`" + `MsgCallInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `exec` + "`" + `.
 """
 input MsgCallInput {
   """
-  Filter by ` + "`" + `caller` + "`" + `.
+  the bech32 address of the caller.
   """
   caller: String
 
   """
-  Filter by ` + "`" + `send` + "`" + `.
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   """
   send: String
 
   """
-  Filter by ` + "`" + `pkg_path` + "`" + `.
+  the gno package path.
   """
   pkg_path: String
 
   """
-  Filter by ` + "`" + `func` + "`" + `.
+  the function name being invoked.
   """
   func: String
 
   """
-  Filter by ` + "`" + `args` + "`" + `, Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+  ` + "`" + `args` + "`" + ` are the arguments passed to the executed function.
+  Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
   """
   args: [String!]
 }
 
 """
-Input parameters required when the message type is ` + "`" + `add_package` + "`" + `.
+` + "`" + `MsgAddPackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `add_package` + "`" + `.
 """
 input MsgAddPackageInput {
   """
-  Filter by ` + "`" + `creator` + "`" + `.
+  the package deployer.
   """
   creator: String
 
   """
-  Filter by ` + "`" + `package` + "`" + `.
+  the package being deployed.
   """
   package: MemPackageInput
 
   """
-  Filter by ` + "`" + `deposit` + "`" + `.
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
   """
   deposit: String
 }
 
 """
-Input parameters required when the message type is ` + "`" + `run` + "`" + `.
+` + "`" + `MsgRunInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `run` + "`" + `.
 """
 input MsgRunInput {
   """
-  Filter by ` + "`" + `caller` + "`" + `.
+  the bech32 address of the caller.
   """
   caller: String
 
   """
-  Filter by ` + "`" + `send` + "`" + `.
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   """
   send: String
 
   """
-  Filter by ` + "`" + `package` + "`" + `.
+  the package being executed.
   """
   package: MemPackageInput
 }
 
+"""
+` + "`" + `MemPackageInput` + "`" + ` represents a package stored in memory.
+"""
 input MemPackageInput {
+  """
+  the name of the package.
+  """
   Name: String
+
+  """
+  the gno path of the package.
+  """
   Path: String
+
+  """
+  the associated package gno source.
+  """
   Files: [MemFileInput]
 }
 
+"""
+` + "`" + `MemFileInput` + "`" + ` is the metadata information tied to a single gno package / realm file.
+"""
 input MemFileInput {
+  """
+  the name of the source file.
+  """
   Name: String
+
+  """
+  the content of the source file.
+  """
   Body: String
 }
 `, BuiltIn: false},
@@ -981,19 +1006,50 @@ enum MessageType {
 }
 
 type TransactionMessage {
+  """
+  The type of transaction message.
+  """
   typeUrl: MessageType!
+
+  """
+  The route of transaction message.
+  """
   route: MessageRoute!
+
+  """
+  MessageValue is the content of the transaction.
+  The content can be of type ` + "`" + `BankMsgSend` + "`" + ` or ` + "`" + `MsgCall` + "`" + ` or ` + "`" + `MsgAddPackage` + "`" + ` or ` + "`" + `MsgRun` + "`" + `.
+  """
   value: MessageValue!
 }
 
 union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun
 
+"""
+` + "`" + `BankMsgSend` + "`" + ` is a message with a message router of ` + "`" + `bank` + "`" + ` and a message type of ` + "`" + `send` + "`" + `.
+` + "`" + `BankMsgSend` + "`" + ` is the fund transfer tx message.
+"""
 type BankMsgSend {
+  """
+  the bech32 address of the fund sender.
+  """
   from_address: String!
+
+  """
+  the bech32 address of the fund receiver.
+  """
   to_address: String!
+
+  """
+  the denomination and amount of fund sent ("<amount><denomination>").
+  """
   amount: String!
 }
 
+"""
+` + "`" + `MsgCall` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `exec` + "`" + `.
+` + "`" + `MsgCall` + "`" + ` is the method invocation tx message.
+"""
 type MsgCall {
   caller: String!
   send: String!
@@ -1002,31 +1058,92 @@ type MsgCall {
   args: [String!]
 }
 
+"""
+` + "`" + `MsgAddPackage` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `add_package` + "`" + `.
+` + "`" + `MsgAddPackage` + "`" + ` is the package deployment tx message.
+"""
 type MsgAddPackage {
+  """
+  the package deployer.
+  """
   creator: String!
+
+  """
+  the package being deployed.
+  """
   package: MemPackage!
+
+  """
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  """
   deposit: String!
 }
 
+"""
+` + "`" + `MsgRun` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `run` + "`" + `.
+` + "`" + `MsgRun is the execute arbitrary Gno code tx message` + "`" + `.
+"""
 type MsgRun {
+  """
+  the bech32 address of the caller.
+  """
   caller: String!
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  """
   send: String!
+
+  """
+  the package being executed.
+  """
   package: MemPackage!
 }
 
+"""
+` + "`" + `MemPackage` + "`" + ` is the metadata information tied to package / realm deployment.
+"""
 type MemPackage {
+  """
+  the name of the package.
+  """
   Name: String!
+
+  """
+  the gno path of the package.
+  """
   Path: String!
+
+  """
+  the associated package gno source.
+  """
   Files: [MemFile!]
 }
 
+"""
+` + "`" + `MemFile` + "`" + ` is the metadata information tied to a single gno package / realm file
+"""
 type MemFile {
+  """
+  the name of the source file.
+  """
   Name: String!
+
+  """
+  the content of the source file.
+  """
   Body: String!
 }
 
 type TxFee {
+  """
+  gas limit
+  """
   gas_wanted: Int!
+
+  """
+  gas fee details (<value><denomination>)
+  """
   gas_fee: Int!
 }
 `, BuiltIn: false},

@@ -13,21 +13,26 @@ type MessageValue interface {
 	IsMessageValue()
 }
 
+// `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
+// `BankMsgSend` is the fund transfer tx message.
 type BankMsgSend struct {
+	// the bech32 address of the fund sender.
 	FromAddress string `json:"from_address"`
-	ToAddress   string `json:"to_address"`
-	Amount      string `json:"amount"`
+	// the bech32 address of the fund receiver.
+	ToAddress string `json:"to_address"`
+	// the denomination and amount of fund sent ("<amount><denomination>").
+	Amount string `json:"amount"`
 }
 
 func (BankMsgSend) IsMessageValue() {}
 
-// Input parameters required when the message type is `send`.
+// `BankMsgSendInput` represents input parameters required when the message type is `send`.
 type BankMsgSendInput struct {
-	// Filter by `from_address`.
+	// the bech32 address of the fund sender.
 	FromAddress *string `json:"from_address,omitempty"`
-	// Filter by `to_address`.
+	// the bech32 address of the fund receiver.
 	ToAddress *string `json:"to_address,omitempty"`
-	// Filter by `amount`.
+	// the denomination and amount of fund sent ("<amount><denomination>").
 	Amount *string `json:"amount,omitempty"`
 }
 
@@ -43,46 +48,67 @@ type BlockFilter struct {
 	ToTime *time.Time `json:"to_time,omitempty"`
 }
 
+// `MemFile` is the metadata information tied to a single gno package / realm file
 type MemFile struct {
+	// the name of the source file.
 	Name string `json:"Name"`
+	// the content of the source file.
 	Body string `json:"Body"`
 }
 
+// `MemFileInput` is the metadata information tied to a single gno package / realm file.
 type MemFileInput struct {
+	// the name of the source file.
 	Name *string `json:"Name,omitempty"`
+	// the content of the source file.
 	Body *string `json:"Body,omitempty"`
 }
 
+// `MemPackage` is the metadata information tied to package / realm deployment.
 type MemPackage struct {
-	Name  string     `json:"Name"`
-	Path  string     `json:"Path"`
+	// the name of the package.
+	Name string `json:"Name"`
+	// the gno path of the package.
+	Path string `json:"Path"`
+	// the associated package gno source.
 	Files []*MemFile `json:"Files,omitempty"`
 }
 
+// `MemPackageInput` represents a package stored in memory.
 type MemPackageInput struct {
-	Name  *string         `json:"Name,omitempty"`
-	Path  *string         `json:"Path,omitempty"`
+	// the name of the package.
+	Name *string `json:"Name,omitempty"`
+	// the gno path of the package.
+	Path *string `json:"Path,omitempty"`
+	// the associated package gno source.
 	Files []*MemFileInput `json:"Files,omitempty"`
 }
 
+// `MsgAddPackage` is a message with a message router of `vm` and a message type of `add_package`.
+// `MsgAddPackage` is the package deployment tx message.
 type MsgAddPackage struct {
-	Creator string      `json:"creator"`
+	// the package deployer.
+	Creator string `json:"creator"`
+	// the package being deployed.
 	Package *MemPackage `json:"package"`
-	Deposit string      `json:"deposit"`
+	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	Deposit string `json:"deposit"`
 }
 
 func (MsgAddPackage) IsMessageValue() {}
 
-// Input parameters required when the message type is `add_package`.
+// `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
 type MsgAddPackageInput struct {
-	// Filter by `creator`.
+	// the package deployer.
 	Creator *string `json:"creator,omitempty"`
-	// Filter by `package`.
+	// the package being deployed.
 	Package *MemPackageInput `json:"package,omitempty"`
-	// Filter by `deposit`.
+	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
 	Deposit *string `json:"deposit,omitempty"`
 }
 
+// `MsgCall` is a message with a message router of `vm` and a message type of `exec`.
+// `MsgCall` is the method invocation tx message.
 type MsgCall struct {
 	Caller  string   `json:"caller"`
 	Send    string   `json:"send"`
@@ -93,35 +119,41 @@ type MsgCall struct {
 
 func (MsgCall) IsMessageValue() {}
 
-// Input parameters required when the message type is `exec`.
+// `MsgCallInput` represents input parameters required when the message type is `exec`.
 type MsgCallInput struct {
-	// Filter by `caller`.
+	// the bech32 address of the caller.
 	Caller *string `json:"caller,omitempty"`
-	// Filter by `send`.
+	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
 	Send *string `json:"send,omitempty"`
-	// Filter by `pkg_path`.
+	// the gno package path.
 	PkgPath *string `json:"pkg_path,omitempty"`
-	// Filter by `func`.
+	// the function name being invoked.
 	Func *string `json:"func,omitempty"`
-	// Filter by `args`, Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+	// `args` are the arguments passed to the executed function.
+	// Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
 	Args []string `json:"args,omitempty"`
 }
 
+// `MsgRun` is a message with a message router of `vm` and a message type of `run`.
+// `MsgRun is the execute arbitrary Gno code tx message`.
 type MsgRun struct {
-	Caller  string      `json:"caller"`
-	Send    string      `json:"send"`
+	// the bech32 address of the caller.
+	Caller string `json:"caller"`
+	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+	Send string `json:"send"`
+	// the package being executed.
 	Package *MemPackage `json:"package"`
 }
 
 func (MsgRun) IsMessageValue() {}
 
-// Input parameters required when the message type is `run`.
+// `MsgRunInput` represents input parameters required when the message type is `run`.
 type MsgRunInput struct {
-	// Filter by `caller`.
+	// the bech32 address of the caller.
 	Caller *string `json:"caller,omitempty"`
-	// Filter by `send`.
+	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
 	Send *string `json:"send,omitempty"`
-	// Filter by `package`.
+	// the package being executed.
 	Package *MemPackageInput `json:"package,omitempty"`
 }
 
@@ -134,9 +166,9 @@ type Query struct {
 type Subscription struct {
 }
 
-// Input parameters required when the message router is `bank`.
+// `TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
 type TransactionBankMessageInput struct {
-	// Input parameters required when the message type is `send`.
+	// send represents input parameters required when the message type is `send`.
 	Send *BankMsgSendInput `json:"send,omitempty"`
 }
 
@@ -172,25 +204,27 @@ type TransactionMessageInput struct {
 	TypeURL *MessageType `json:"type_url,omitempty"`
 	// The route of transaction message.
 	Route *MessageRoute `json:"route,omitempty"`
-	// Input parameters required when the message router type is `bank`.
+	// `TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
 	BankParam *TransactionBankMessageInput `json:"bank_param,omitempty"`
-	// Input parameters required when the message router type is `vm`.
+	// `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
 	VMParam *TransactionVMMessageInput `json:"vm_param,omitempty"`
 }
 
-// Input parameters required when the message router is `vm`.
+// `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
 type TransactionVMMessageInput struct {
-	// Input parameters required when the message type is `exec`.
+	// `MsgCallInput` represents input parameters required when the message type is `exec`.
 	MCall *MsgCallInput `json:"m_call,omitempty"`
-	// Input parameters required when the message type is `add_package`.
+	// `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
 	MAddpkg *MsgAddPackageInput `json:"m_addpkg,omitempty"`
-	// Input parameters required when the message type is `run`.
+	// `MsgRunInput` represents input parameters required when the message type is `run`.
 	MRun *MsgRunInput `json:"m_run,omitempty"`
 }
 
 type TxFee struct {
+	// gas limit
 	GasWanted int `json:"gas_wanted"`
-	GasFee    int `json:"gas_fee"`
+	// gas fee details (<value><denomination>)
+	GasFee int `json:"gas_fee"`
 }
 
 type MessageRoute string
