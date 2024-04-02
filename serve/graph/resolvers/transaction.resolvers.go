@@ -124,7 +124,10 @@ func (r *TransactionResolver) filteredByMessageType(messageType *model.MessageTy
 	return false
 }
 
-func (r *TransactionResolver) filteredByTransactionMessage(messageInput *model.TransactionMessageInput, tm *model.TransactionMessage) bool {
+func (r *TransactionResolver) filteredByTransactionMessage(
+	messageInput *model.TransactionMessageInput,
+	tm *model.TransactionMessage,
+) bool {
 	if messageInput.TypeURL != nil && messageInput.TypeURL.String() != tm.TypeURL.String() {
 		return false
 	}
@@ -166,7 +169,10 @@ func (r *TransactionResolver) filteredByTransactionMessage(messageInput *model.T
 	return true
 }
 
-func checkMessageOfBankMsgSend(bankMessageInput *model.TransactionBankMessageInput, messageValue model.BankMsgSend) bool {
+func checkMessageOfBankMsgSend(
+	bankMessageInput *model.TransactionBankMessageInput,
+	messageValue model.BankMsgSend,
+) bool {
 	params := bankMessageInput
 	if params == nil || params.Send == nil {
 		return true
@@ -187,7 +193,10 @@ func checkMessageOfBankMsgSend(bankMessageInput *model.TransactionBankMessageInp
 	return true
 }
 
-func checkByMessageOfMsgCall(vmMessageInput *model.TransactionVMMessageInput, messageValue model.MsgCall) bool {
+func checkByMessageOfMsgCall(
+	vmMessageInput *model.TransactionVMMessageInput,
+	messageValue model.MsgCall,
+) bool {
 	params := vmMessageInput
 	if params == nil {
 		return true
@@ -232,7 +241,10 @@ func checkByMessageOfMsgCall(vmMessageInput *model.TransactionVMMessageInput, me
 	return true
 }
 
-func checkMessageOfMsgAddPackage(vmMessageInput *model.TransactionVMMessageInput, messageValue model.MsgAddPackage) bool {
+func checkMessageOfMsgAddPackage(
+	vmMessageInput *model.TransactionVMMessageInput,
+	messageValue model.MsgAddPackage,
+) bool {
 	params := vmMessageInput
 	if params == nil {
 		return true
