@@ -90,9 +90,3 @@ models:
   TransactionMessage:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.TransactionMessage
-  BlockFilter:
-    model:
-      - github.com/gnolang/tx-indexer/serve/graph/model.BlockFilter
-  TransactionFilter:
-    model:
-      - github.com/gnolang/tx-indexer/serve/graph/model.TransactionFilter
