@@ -479,6 +479,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputAmountInput,
 		ec.unmarshalInputBankMsgSendInput,
 		ec.unmarshalInputBlockFilter,
 		ec.unmarshalInputMemFileInput,
@@ -4627,6 +4628,47 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(ctx context.Conte
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputAmountInput(ctx context.Context, obj interface{}) (model.AmountInput, error) {
+	var it model.AmountInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"from", "to", "denomination"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		case "to":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("to"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.To = data
+		case "denomination":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("denomination"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Denomination = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputBankMsgSendInput(ctx context.Context, obj interface{}) (model.BankMsgSendInput, error) {
 	var it model.BankMsgSendInput
 	asMap := map[string]interface{}{}
@@ -4657,7 +4699,7 @@ func (ec *executionContext) unmarshalInputBankMsgSendInput(ctx context.Context, 
 			it.ToAddress = data
 		case "amount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4821,7 +4863,7 @@ func (ec *executionContext) unmarshalInputMsgAddPackageInput(ctx context.Context
 			it.Package = data
 		case "deposit":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("deposit"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4855,7 +4897,7 @@ func (ec *executionContext) unmarshalInputMsgCallInput(ctx context.Context, obj 
 			it.Caller = data
 		case "send":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("send"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4910,7 +4952,7 @@ func (ec *executionContext) unmarshalInputMsgRunInput(ctx context.Context, obj i
 			it.Caller = data
 		case "send":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("send"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -6615,6 +6657,14 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx context.Context, v interface{}) (*model.AmountInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputAmountInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOBankMsgSendInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBankMsgSendInput(ctx context.Context, v interface{}) (*model.BankMsgSendInput, error) {

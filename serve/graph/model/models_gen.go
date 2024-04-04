@@ -13,6 +13,17 @@ type MessageValue interface {
 	IsMessageValue()
 }
 
+// `AmountInput` is a range of token quantities to filter by.
+type AmountInput struct {
+	// The minimum quantity of tokens to check for.
+	From *int `json:"from,omitempty"`
+	// The maximum quantity of tokens to check for.
+	To *int `json:"to,omitempty"`
+	// Filter by token's denomination.
+	// If set to an empty string, it will get an empty value.
+	Denomination *string `json:"denomination,omitempty"`
+}
+
 // `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
 // `BankMsgSend` is the fund transfer tx message.
 type BankMsgSend struct {
@@ -38,7 +49,7 @@ type BankMsgSendInput struct {
 	ToAddress *string `json:"to_address,omitempty"`
 	// the denomination and amount of fund sent ("<amount><denomination>").
 	// ex) `1000000ugnot`
-	Amount *string `json:"amount,omitempty"`
+	Amount *AmountInput `json:"amount,omitempty"`
 }
 
 // Filters for querying Blocks within specified criteria related to their attributes.
@@ -112,7 +123,7 @@ type MsgAddPackageInput struct {
 	Package *MemPackageInput `json:"package,omitempty"`
 	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
-	Deposit *string `json:"deposit,omitempty"`
+	Deposit *AmountInput `json:"deposit,omitempty"`
 }
 
 // `MsgCall` is a message with a message router of `vm` and a message type of `exec`.
@@ -135,7 +146,7 @@ type MsgCallInput struct {
 	Caller *string `json:"caller,omitempty"`
 	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
-	Send *string `json:"send,omitempty"`
+	Send *AmountInput `json:"send,omitempty"`
 	// the gno package path.
 	PkgPath *string `json:"pkg_path,omitempty"`
 	// the function name being invoked.
@@ -168,7 +179,7 @@ type MsgRunInput struct {
 	Caller *string `json:"caller,omitempty"`
 	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
-	Send *string `json:"send,omitempty"`
+	Send *AmountInput `json:"send,omitempty"`
 	// the package being executed.
 	Package *MemPackageInput `json:"package,omitempty"`
 }

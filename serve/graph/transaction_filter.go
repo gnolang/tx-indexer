@@ -3,6 +3,7 @@ package graph
 import (
 	"math"
 
+	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 )
 
@@ -34,6 +35,40 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 	}
 
 	return true
+}
+
+func filteredAmountBy(amountStr string, amountInput *model.AmountInput) bool {
+	if amountInput == nil {
+		return true
+	}
+
+	coins, err := std.ParseCoins(amountStr)
+	if err != nil {
+		return false
+	}
+
+	if amountInput.Denomination != nil {
+		if deref(amountInput.Denomination) == "" && coins.Empty() {
+			return true
+		}
+	}
+
+	for _, coin := range coins {
+		if amountInput.Denomination == nil || coin.Denom == deref(amountInput.Denomination) {
+			fromAmount := int64(deref(amountInput.From))
+			toAmount := int64(deref(amountInput.To))
+
+			if toAmount == 0 {
+				toAmount = math.MaxInt
+			}
+
+			if coin.Amount >= fromAmount && coin.Amount <= toAmount {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func filteredTransactionByGasUsed(tx *model.Transaction, filterFromGasUsed, filterToGasUsed *int) bool {
@@ -163,7 +198,7 @@ func checkMessageOfBankMsgSend(
 		return true
 	}
 
-	if params.Send.Amount != nil && deref(params.Send.Amount) != messageValue.Amount {
+	if params.Send.Amount != nil && !filteredAmountBy(messageValue.Amount, params.Send.Amount) {
 		return false
 	}
 
@@ -203,7 +238,7 @@ func checkByMessageOfMsgCall(
 		return false
 	}
 
-	if params.Exec.Send != nil && deref(params.Exec.Send) != messageValue.Send {
+	if params.Exec.Send != nil && filteredAmountBy(messageValue.Send, params.Exec.Send) {
 		return false
 	}
 
@@ -243,7 +278,7 @@ func checkMessageOfMsgAddPackage(
 		return false
 	}
 
-	if params.AddPackage.Deposit != nil && deref(params.AddPackage.Deposit) != messageValue.Deposit {
+	if params.AddPackage.Deposit != nil && filteredAmountBy(messageValue.Deposit, params.AddPackage.Deposit) {
 		return false
 	}
 
@@ -274,7 +309,7 @@ func checkMessageOfMsgRun(messageValue model.MsgRun, vmMessageInput *model.Trans
 		return false
 	}
 
-	if params.Run.Send != nil && deref(params.Run.Send) != messageValue.Send {
+	if params.Run.Send != nil && filteredAmountBy(messageValue.Send, params.Run.Send) {
 		return false
 	}
 

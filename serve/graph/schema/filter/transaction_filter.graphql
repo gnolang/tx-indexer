@@ -115,7 +115,7 @@ input BankMsgSendInput {
   the denomination and amount of fund sent ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  amount: String
+  amount: AmountInput
 }
 
 """
@@ -153,7 +153,7 @@ input MsgCallInput {
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  send: String
+  send: AmountInput
 
   """
   the gno package path.
@@ -194,7 +194,7 @@ input MsgAddPackageInput {
   the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  deposit: String
+  deposit: AmountInput
 }
 
 """
@@ -212,7 +212,7 @@ input MsgRunInput {
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  send: String
+  send: AmountInput
 
   """
   the package being executed.
@@ -253,4 +253,25 @@ input MemFileInput {
   the content of the source file.
   """
   Body: String
+}
+
+"""
+`AmountInput` is a range of token quantities to filter by.
+"""
+input AmountInput {
+  """
+  The minimum quantity of tokens to check for.
+  """
+  from: Int
+
+  """
+  The maximum quantity of tokens to check for.
+  """
+  to: Int
+
+  """
+  Filter by token's denomination.
+  If set to an empty string, it will get an empty value.
+  """
+  denomination: String
 }
