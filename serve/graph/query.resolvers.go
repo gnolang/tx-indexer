@@ -58,11 +58,11 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 				return out, nil
 			}
 
-			transactionResolver := NewTransactionResolver(model.NewTransaction(t))
-			if !transactionResolver.FilteredBy(filter) {
+			transaction := model.NewTransaction(t)
+			if !FilteredTransactionBy(transaction, filter) {
 				continue
 			}
-			out = append(out, transactionResolver.GetTransaction())
+			out = append(out, transaction)
 			i++
 		}
 	}
@@ -105,12 +105,12 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 				return out, nil
 			}
 
-			blockResolver := NewBlockResolver(model.NewBlock(b))
-			if !blockResolver.FilteredBy(filter) {
+			block := model.NewBlock(b)
+			if !FilteredBlockBy(block, filter) {
 				continue
 			}
 
-			out = append(out, blockResolver.GetBlock())
+			out = append(out, block)
 			i++
 		}
 	}

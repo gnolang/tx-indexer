@@ -125,17 +125,17 @@ input TransactionVmMessageInput {
   """
   `MsgCallInput` represents input parameters required when the message type is `exec`.
   """
-  m_call: MsgCallInput
+  exec: MsgCallInput
 
   """
   `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
   """
-  m_addpkg: MsgAddPackageInput
+  add_package: MsgAddPackageInput
 
   """
   `MsgRunInput` represents input parameters required when the message type is `run`.
   """
-  m_run: MsgRunInput
+  run: MsgRunInput
 }
 
 """

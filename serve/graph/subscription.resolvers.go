@@ -15,9 +15,9 @@ import (
 func (r *subscriptionResolver) Transactions(ctx context.Context, filter model.TransactionFilter) (<-chan *model.Transaction, error) {
 	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Transaction) {
 		for _, tx := range nb.Results {
-			transactionResolver := NewTransactionResolver(model.NewTransaction(tx))
-			if transactionResolver.FilteredBy(filter) {
-				c <- transactionResolver.GetTransaction()
+			transaction := model.NewTransaction(tx)
+			if FilteredTransactionBy(transaction, filter) {
+				c <- transaction
 			}
 		}
 	}), nil
@@ -26,9 +26,9 @@ func (r *subscriptionResolver) Transactions(ctx context.Context, filter model.Tr
 // Blocks is the resolver for the blocks field.
 func (r *subscriptionResolver) Blocks(ctx context.Context, filter model.BlockFilter) (<-chan *model.Block, error) {
 	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Block) {
-		blockResolver := NewBlockResolver(model.NewBlock(nb.Block))
-		if blockResolver.FilteredBy(filter) {
-			c <- blockResolver.GetBlock()
+		block := model.NewBlock(nb.Block)
+		if FilteredBlockBy(block, filter) {
+			c <- block
 		}
 	}), nil
 }

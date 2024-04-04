@@ -5107,34 +5107,34 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"m_call", "m_addpkg", "m_run"}
+	fieldsInOrder := [...]string{"exec", "add_package", "run"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "m_call":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("m_call"))
+		case "exec":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("exec"))
 			data, err := ec.unmarshalOMsgCallInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgCallInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.MCall = data
-		case "m_addpkg":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("m_addpkg"))
+			it.Exec = data
+		case "add_package":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("add_package"))
 			data, err := ec.unmarshalOMsgAddPackageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgAddPackageInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.MAddpkg = data
-		case "m_run":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("m_run"))
+			it.AddPackage = data
+		case "run":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("run"))
 			data, err := ec.unmarshalOMsgRunInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRunInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.MRun = data
+			it.Run = data
 		}
 	}
 

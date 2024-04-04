@@ -229,11 +229,11 @@ type TransactionMessageInput struct {
 // `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
 type TransactionVMMessageInput struct {
 	// `MsgCallInput` represents input parameters required when the message type is `exec`.
-	MCall *MsgCallInput `json:"m_call,omitempty"`
+	Exec *MsgCallInput `json:"exec,omitempty"`
 	// `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
-	MAddpkg *MsgAddPackageInput `json:"m_addpkg,omitempty"`
+	AddPackage *MsgAddPackageInput `json:"add_package,omitempty"`
 	// `MsgRunInput` represents input parameters required when the message type is `run`.
-	MRun *MsgRunInput `json:"m_run,omitempty"`
+	Run *MsgRunInput `json:"run,omitempty"`
 }
 
 type TxFee struct {
