@@ -7,6 +7,8 @@ import (
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 )
 
+// `FilteredTransactionBy` checks for conditions in GasUsed, GasWanted, Memo, and Message.
+// By default, the condition is only checked if the input parameter exists.
 func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter) bool {
 	if !filteredTransactionByGasUsed(tx, filter.FromGasUsed, filter.ToGasUsed) {
 		return false
@@ -37,6 +39,8 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 	return true
 }
 
+// `filteredAmountBy` checks a token represented as a string(<value><denomination>)
+// against a range of amount and a denomination.
 func filteredAmountBy(amountStr string, amountInput *model.AmountInput) bool {
 	if amountInput == nil {
 		return true
@@ -47,14 +51,17 @@ func filteredAmountBy(amountStr string, amountInput *model.AmountInput) bool {
 		return false
 	}
 
-	if amountInput.Denomination != nil {
+	// If the input parameter for denomination is not used, all denominations are checked.
+	isAllDenomination := amountInput.Denomination == nil
+	if !isAllDenomination {
 		if deref(amountInput.Denomination) == "" && coins.Empty() {
 			return true
 		}
 	}
 
 	for _, coin := range coins {
-		if amountInput.Denomination == nil || coin.Denom == deref(amountInput.Denomination) {
+		isSameDenomination := coin.Denom == deref(amountInput.Denomination)
+		if isAllDenomination || isSameDenomination {
 			fromAmount := int64(deref(amountInput.From))
 			toAmount := int64(deref(amountInput.To))
 
@@ -71,30 +78,33 @@ func filteredAmountBy(amountStr string, amountInput *model.AmountInput) bool {
 	return false
 }
 
+// `filteredTransactionByGasUsed` checks transactions based on gasUsed.
 func filteredTransactionByGasUsed(tx *model.Transaction, filterFromGasUsed, filterToGasUsed *int) bool {
+	gasUsed := tx.GasUsed()
 	fromGasUsed := deref(filterFromGasUsed)
 	toGasUsed := deref(filterToGasUsed)
-	transactionGasUsed := tx.GasUsed()
 
 	if toGasUsed == 0 {
 		toGasUsed = math.MaxInt
 	}
 
-	return transactionGasUsed >= fromGasUsed && transactionGasUsed <= toGasUsed
+	return gasUsed >= fromGasUsed && gasUsed <= toGasUsed
 }
 
+// `filteredTransactionByGasWanted` checks transactions based on gasWanted.
 func filteredTransactionByGasWanted(tx *model.Transaction, filterFromGasWanted, filterToGasWanted *int) bool {
+	gasWanted := tx.GasWanted()
 	fromGasWanted := deref(filterFromGasWanted)
 	toGasWanted := deref(filterToGasWanted)
-	transactionGasUsed := tx.GasWanted()
 
 	if toGasWanted == 0 {
 		toGasWanted = math.MaxInt
 	}
 
-	return transactionGasUsed >= fromGasWanted && transactionGasUsed <= toGasWanted
+	return gasWanted >= fromGasWanted && gasWanted <= toGasWanted
 }
 
+// `filteredTransactionByMemo` checks transactions based on memo.
 func filteredTransactionByMemo(tx *model.Transaction, filterMemo *string) bool {
 	if filterMemo == nil {
 		return true
@@ -103,6 +113,7 @@ func filteredTransactionByMemo(tx *model.Transaction, filterMemo *string) bool {
 	return deref(filterMemo) == tx.Memo()
 }
 
+// `filteredTransactionByMessages` checks transaction's messages.
 func filteredTransactionByMessages(tx *model.Transaction, messageInput *model.TransactionMessageInput) bool {
 	messages := tx.Messages()
 	for _, message := range messages {
@@ -114,6 +125,7 @@ func filteredTransactionByMessages(tx *model.Transaction, messageInput *model.Tr
 	return true
 }
 
+// `filteredTransactionByMessageRoute` checks if the transaction message contains the route value.
 func filteredTransactionByMessageRoute(tx *model.Transaction, messageRoute *model.MessageRoute) bool {
 	if messageRoute == nil {
 		return true
@@ -129,6 +141,7 @@ func filteredTransactionByMessageRoute(tx *model.Transaction, messageRoute *mode
 	return false
 }
 
+// `filteredTransactionByMessageType` checks if the transaction message contains the type value.
 func filteredTransactionByMessageType(tx *model.Transaction, messageType *model.MessageType) bool {
 	if messageType == nil {
 		return true
@@ -144,6 +157,7 @@ func filteredTransactionByMessageType(tx *model.Transaction, messageType *model.
 	return false
 }
 
+// `filteredTransactionMessageBy` checks for conditions based on the transaction message type.
 func filteredTransactionMessageBy(
 	tm *model.TransactionMessage,
 	messageInput *model.TransactionMessageInput,
@@ -165,31 +179,36 @@ func filteredTransactionMessageBy(
 		if messageInput.VMParam == nil {
 			return false
 		}
+	default:
+		return false
 	}
 
 	switch tm.TypeURL {
 	case model.MessageTypeSend.String():
-		if !checkMessageOfBankMsgSend(tm.BankMsgSend(), messageInput.BankParam) {
+		if !filteredMessageOfBankMsgSendBy(tm.BankMsgSend(), messageInput.BankParam) {
 			return false
 		}
 	case model.MessageTypeExec.String():
-		if !checkByMessageOfMsgCall(tm.VMMsgCall(), messageInput.VMParam) {
+		if !filteredMessageOfMsgCallBy(tm.VMMsgCall(), messageInput.VMParam) {
 			return false
 		}
 	case model.MessageTypeAddPackage.String():
-		if !checkMessageOfMsgAddPackage(tm.VMAddPackage(), messageInput.VMParam) {
+		if !filteredMessageOfMsgAddPackageBy(tm.VMAddPackage(), messageInput.VMParam) {
 			return false
 		}
 	case model.MessageTypeRun.String():
-		if !checkMessageOfMsgRun(tm.VMMsgRun(), messageInput.VMParam) {
+		if !filteredMessageOfMsgRunBy(tm.VMMsgRun(), messageInput.VMParam) {
 			return false
 		}
+	default:
+		return false
 	}
 
 	return true
 }
 
-func checkMessageOfBankMsgSend(
+// `filteredMessageOfBankMsgSendBy` checks the conditions of a message of type BankMsgSend
+func filteredMessageOfBankMsgSendBy(
 	messageValue model.BankMsgSend,
 	bankMessageInput *model.TransactionBankMessageInput,
 ) bool {
@@ -213,7 +232,8 @@ func checkMessageOfBankMsgSend(
 	return true
 }
 
-func checkByMessageOfMsgCall(
+// `filteredMessageOfMsgCallBy` checks the conditions of a message of type MsgCall
+func filteredMessageOfMsgCallBy(
 	messageValue model.MsgCall,
 	vmMessageInput *model.TransactionVMMessageInput,
 ) bool {
@@ -261,7 +281,8 @@ func checkByMessageOfMsgCall(
 	return true
 }
 
-func checkMessageOfMsgAddPackage(
+// `filteredMessageOfMsgAddPackageBy` checks the conditions of a message of type MsgAddPackage
+func filteredMessageOfMsgAddPackageBy(
 	messageValue model.MsgAddPackage,
 	vmMessageInput *model.TransactionVMMessageInput,
 ) bool {
@@ -295,7 +316,8 @@ func checkMessageOfMsgAddPackage(
 	return true
 }
 
-func checkMessageOfMsgRun(messageValue model.MsgRun, vmMessageInput *model.TransactionVMMessageInput) bool {
+// `filteredMessageOfMsgRunBy` checks the conditions of a message of type MsgRun
+func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.TransactionVMMessageInput) bool {
 	params := vmMessageInput
 	if params == nil {
 		return true
