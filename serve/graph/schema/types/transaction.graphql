@@ -33,12 +33,15 @@ type Transaction {
   content_raw: String!
 
   """
-  The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+  The payload of a message shows the contents of the messages in a transaction.
+  A message consists of `router`, `type`, and `value` (whose form depends on the `router` and `type`).
   """
   messages: [TransactionMessage]!
 
   """
-  The memo of the Transaction.
+  Notes are string information stored within a transaction.
+  Notes can be utilized to find or distinguish transactions.
+  For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String!
 }
@@ -49,26 +52,47 @@ enum MessageRoute {
 }
 
 enum MessageType {
+  """
+  The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
+  This is a transaction message used when sending native tokens.
+  """
   send
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
+  This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
+  """
   exec
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgAddPackage`.
+  This is a transactional message that adds a package to the GNO chain.
+  """
   add_package
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
+  This is a transactional message that executes an arbitrary Gno-coded TX message.
+  """
   run
 }
 
 type TransactionMessage {
   """
   The type of transaction message.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
   """
   typeUrl: MessageType!
 
   """
   The route of transaction message.
+  The value of `route` can be `bank`, `vm`.
   """
   route: MessageRoute!
 
   """
   MessageValue is the content of the transaction.
-  The content can be of type `BankMsgSend` or `MsgCall` or `MsgAddPackage` or `MsgRun`.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`.
   """
   value: MessageValue!
 }

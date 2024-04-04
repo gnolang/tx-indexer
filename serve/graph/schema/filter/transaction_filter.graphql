@@ -99,16 +99,21 @@ input TransactionBankMessageInput {
 input BankMsgSendInput {
   """
   the bech32 address of the fund sender.
+  You can filter by the fund sender address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   from_address: String
 
   """
   the bech32 address of the fund receiver.
+  You can filter by the fund receiver address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   to_address: String
 
   """
   the denomination and amount of fund sent ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   amount: String
 }
@@ -138,12 +143,15 @@ input TransactionVmMessageInput {
 """
 input MsgCallInput {
   """
-  the bech32 address of the caller.
+  the bech32 address of the function caller.
+  You can filter by the function caller's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   caller: String
 
   """
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   send: String
 
@@ -159,7 +167,9 @@ input MsgCallInput {
 
   """
   `args` are the arguments passed to the executed function.
-  Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+  The arguments are checked in the order of the argument array and
+  if they are empty strings, they are excluded from the filtering criteria.
+  ex) `["", "", "1"]` <- Empty strings skip the condition.
   """
   args: [String!]
 }
@@ -169,7 +179,9 @@ input MsgCallInput {
 """
 input MsgAddPackageInput {
   """
-  the package deployer.
+  the bech32 address of the package deployer.
+  You can filter by the package deployer's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   creator: String
 
@@ -180,6 +192,7 @@ input MsgAddPackageInput {
 
   """
   the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   deposit: String
 }
@@ -189,12 +202,15 @@ input MsgAddPackageInput {
 """
 input MsgRunInput {
   """
-  the bech32 address of the caller.
+  the bech32 address of the function caller.
+  You can filter by the function caller's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   caller: String
 
   """
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   send: String
 

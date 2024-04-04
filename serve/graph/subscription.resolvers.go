@@ -33,7 +33,7 @@ func (r *subscriptionResolver) Blocks(ctx context.Context, filter model.BlockFil
 	}), nil
 }
 
-// Subscription returns generated.SubscriptionResolver implementation.
+// Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
 
 type subscriptionResolver struct{ *Resolver }

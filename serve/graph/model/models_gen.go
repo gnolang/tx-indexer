@@ -29,10 +29,15 @@ func (BankMsgSend) IsMessageValue() {}
 // `BankMsgSendInput` represents input parameters required when the message type is `send`.
 type BankMsgSendInput struct {
 	// the bech32 address of the fund sender.
+	// You can filter by the fund sender address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	FromAddress *string `json:"from_address,omitempty"`
 	// the bech32 address of the fund receiver.
+	// You can filter by the fund receiver address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	ToAddress *string `json:"to_address,omitempty"`
 	// the denomination and amount of fund sent ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Amount *string `json:"amount,omitempty"`
 }
 
@@ -99,11 +104,14 @@ func (MsgAddPackage) IsMessageValue() {}
 
 // `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
 type MsgAddPackageInput struct {
-	// the package deployer.
+	// the bech32 address of the package deployer.
+	// You can filter by the package deployer's address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	Creator *string `json:"creator,omitempty"`
 	// the package being deployed.
 	Package *MemPackageInput `json:"package,omitempty"`
 	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Deposit *string `json:"deposit,omitempty"`
 }
 
@@ -121,16 +129,21 @@ func (MsgCall) IsMessageValue() {}
 
 // `MsgCallInput` represents input parameters required when the message type is `exec`.
 type MsgCallInput struct {
-	// the bech32 address of the caller.
+	// the bech32 address of the function caller.
+	// You can filter by the function caller's address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	Caller *string `json:"caller,omitempty"`
 	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Send *string `json:"send,omitempty"`
 	// the gno package path.
 	PkgPath *string `json:"pkg_path,omitempty"`
 	// the function name being invoked.
 	Func *string `json:"func,omitempty"`
 	// `args` are the arguments passed to the executed function.
-	// Arguments are checked in the order of the argument array, and arguments that are not checked are left blank.
+	// The arguments are checked in the order of the argument array and
+	// if they are empty strings, they are excluded from the filtering criteria.
+	// ex) `["", "", "1"]` <- Empty strings skip the condition.
 	Args []string `json:"args,omitempty"`
 }
 
@@ -149,9 +162,12 @@ func (MsgRun) IsMessageValue() {}
 
 // `MsgRunInput` represents input parameters required when the message type is `run`.
 type MsgRunInput struct {
-	// the bech32 address of the caller.
+	// the bech32 address of the function caller.
+	// You can filter by the function caller's address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	Caller *string `json:"caller,omitempty"`
 	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Send *string `json:"send,omitempty"`
 	// the package being executed.
 	Package *MemPackageInput `json:"package,omitempty"`
@@ -271,10 +287,18 @@ func (e MessageRoute) MarshalGQL(w io.Writer) {
 type MessageType string
 
 const (
-	MessageTypeSend       MessageType = "send"
-	MessageTypeExec       MessageType = "exec"
+	// The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
+	// This is a transaction message used when sending native tokens.
+	MessageTypeSend MessageType = "send"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
+	// This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
+	MessageTypeExec MessageType = "exec"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgAddPackage`.
+	// This is a transactional message that adds a package to the GNO chain.
 	MessageTypeAddPackage MessageType = "add_package"
-	MessageTypeRun        MessageType = "run"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
+	// This is a transactional message that executes an arbitrary Gno-coded TX message.
+	MessageTypeRun MessageType = "run"
 )
 
 var AllMessageType = []MessageType{

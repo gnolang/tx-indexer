@@ -122,7 +122,7 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 	return int(h), err
 }
 
-// Query returns generated.QueryResolver implementation.
+// Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type queryResolver struct{ *Resolver }
