@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
 	"github.com/gnolang/gno/tm2/pkg/amino"
@@ -13,24 +14,21 @@ import (
 )
 
 type Transaction struct {
-	memo     string
+	stdTx    *std.Tx
 	txResult *types.TxResult
 	messages []*TransactionMessage
+
+	mu           sync.Mutex
+	onceTx       sync.Once
+	onceMessages sync.Once
 }
 
 func NewTransaction(txResult *types.TxResult) *Transaction {
-	var stdTx std.Tx
-
-	if err := amino.Unmarshal(txResult.Tx, &stdTx); err != nil {
-		return nil
+	return &Transaction{
+		txResult: txResult,
+		messages: make([]*TransactionMessage, 0),
+		stdTx:    nil,
 	}
-
-	messages := make([]*TransactionMessage, 0)
-	for _, message := range stdTx.GetMsgs() {
-		messages = append(messages, NewTransactionMessage(message))
-	}
-
-	return &Transaction{txResult: txResult, messages: messages, memo: stdTx.GetMemo()}
 }
 
 func (t *Transaction) ID() string {
@@ -62,11 +60,15 @@ func (t *Transaction) ContentRaw() string {
 }
 
 func (t *Transaction) Memo() string {
-	return t.memo
+	if t.getStdTx() == nil {
+		return ""
+	}
+
+	return t.getStdTx().GetMemo()
 }
 
 func (t *Transaction) Messages() []*TransactionMessage {
-	return t.messages
+	return t.getMessages()
 }
 
 func (t *Transaction) Fee() *TxFee {
@@ -76,10 +78,48 @@ func (t *Transaction) Fee() *TxFee {
 	}
 }
 
+func (t *Transaction) getStdTx() *std.Tx {
+	// The function to unmarshal a `std.Tx` is executed once.
+	unmarshalTx := func() {
+		var stdTx std.Tx
+		if err := amino.Unmarshal(t.txResult.Tx, &stdTx); err != nil {
+			t.stdTx = nil
+		}
+
+		t.mu.Lock()
+		t.stdTx = &stdTx
+		t.mu.Unlock()
+	}
+
+	t.onceTx.Do(unmarshalTx)
+
+	return t.stdTx
+}
+
+func (t *Transaction) getMessages() []*TransactionMessage {
+	// Functions that unmarshal transaction messages are executed once.
+	unmarshalMessages := func() {
+		stdTx := t.getStdTx()
+		messages := make([]*TransactionMessage, 0)
+
+		for _, message := range stdTx.GetMsgs() {
+			messages = append(messages, NewTransactionMessage(message))
+		}
+
+		t.mu.Lock()
+		t.messages = messages
+		t.mu.Unlock()
+	}
+
+	t.onceMessages.Do(unmarshalMessages)
+
+	return t.messages
+}
+
 type TransactionMessage struct {
 	Value   MessageValue
-	TypeURL MessageType
-	Route   MessageRoute
+	Route   string
+	TypeURL string
 }
 
 func NewTransactionMessage(message std.Msg) *TransactionMessage {
@@ -89,8 +129,8 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 	case bank.RouterKey:
 		if message.Type() == MessageTypeSend.String() {
 			contentMessage = &TransactionMessage{
-				Route:   MessageRouteBank,
-				TypeURL: MessageTypeSend,
+				Route:   MessageRouteBank.String(),
+				TypeURL: MessageTypeSend.String(),
 				Value:   makeBankMsgSend(message),
 			}
 		}
@@ -98,22 +138,30 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 		switch message.Type() {
 		case MessageTypeExec.String():
 			contentMessage = &TransactionMessage{
-				Route:   MessageRouteVM,
-				TypeURL: MessageTypeExec,
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeExec.String(),
 				Value:   makeVMMsgCall(message),
 			}
 		case MessageTypeAddPackage.String():
 			contentMessage = &TransactionMessage{
-				Route:   MessageRouteVM,
-				TypeURL: MessageTypeAddPackage,
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeAddPackage.String(),
 				Value:   makeVMAddPackage(message),
 			}
 		case MessageTypeRun.String():
 			contentMessage = &TransactionMessage{
-				Route:   MessageRouteVM,
-				TypeURL: MessageTypeRun,
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeRun.String(),
 				Value:   makeVMMsgRun(message),
 			}
+		}
+	}
+
+	if contentMessage == nil {
+		contentMessage = &TransactionMessage{
+			Route:   message.Route(),
+			TypeURL: message.Type(),
+			Value:   makeUnexpectedMessage(message),
 		}
 	}
 
@@ -211,6 +259,18 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
+	}
+}
+
+func makeUnexpectedMessage(value std.Msg) UnexpectedMessage {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return UnexpectedMessage{
+			Raw: "",
+		}
+	}
+	return UnexpectedMessage{
+		Raw: string(raw),
 	}
 }
 

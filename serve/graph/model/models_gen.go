@@ -254,6 +254,13 @@ type TxFee struct {
 	GasFee int `json:"gas_fee"`
 }
 
+// `UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
+type UnexpectedMessage struct {
+	Raw string `json:"raw"`
+}
+
+func (UnexpectedMessage) IsMessageValue() {}
+
 type MessageRoute string
 
 const (

@@ -126,6 +126,10 @@ type ComplexityRoot struct {
 		GasFee    func(childComplexity int) int
 		GasWanted func(childComplexity int) int
 	}
+
+	UnexpectedMessage struct {
+		Raw func(childComplexity int) int
+	}
 }
 
 type QueryResolver interface {
@@ -470,6 +474,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.TxFee.GasWanted(childComplexity), true
+
+	case "UnexpectedMessage.raw":
+		if e.complexity.UnexpectedMessage.Raw == nil {
+			break
+		}
+
+		return e.complexity.UnexpectedMessage.Raw(childComplexity), true
 
 	}
 	return 0, false
@@ -2661,9 +2672,9 @@ func (ec *executionContext) _TransactionMessage_typeUrl(ctx context.Context, fie
 		}
 		return graphql.Null
 	}
-	res := resTmp.(model.MessageType)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNMessageType2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageType(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TransactionMessage_typeUrl(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2673,7 +2684,7 @@ func (ec *executionContext) fieldContext_TransactionMessage_typeUrl(ctx context.
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type MessageType does not have child fields")
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2705,9 +2716,9 @@ func (ec *executionContext) _TransactionMessage_route(ctx context.Context, field
 		}
 		return graphql.Null
 	}
-	res := resTmp.(model.MessageRoute)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNMessageRoute2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageRoute(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TransactionMessage_route(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2717,7 +2728,7 @@ func (ec *executionContext) fieldContext_TransactionMessage_route(ctx context.Co
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type MessageRoute does not have child fields")
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2850,6 +2861,50 @@ func (ec *executionContext) fieldContext_TxFee_gas_fee(ctx context.Context, fiel
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UnexpectedMessage_raw(ctx context.Context, field graphql.CollectedField, obj *model.UnexpectedMessage) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UnexpectedMessage_raw(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Raw, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UnexpectedMessage_raw(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UnexpectedMessage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5219,6 +5274,13 @@ func (ec *executionContext) _MessageValue(ctx context.Context, sel ast.Selection
 			return graphql.Null
 		}
 		return ec._MsgRun(ctx, sel, obj)
+	case model.UnexpectedMessage:
+		return ec._UnexpectedMessage(ctx, sel, &obj)
+	case *model.UnexpectedMessage:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UnexpectedMessage(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -5879,6 +5941,45 @@ func (ec *executionContext) _TxFee(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var unexpectedMessageImplementors = []string{"UnexpectedMessage", "MessageValue"}
+
+func (ec *executionContext) _UnexpectedMessage(ctx context.Context, sel ast.SelectionSet, obj *model.UnexpectedMessage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unexpectedMessageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnexpectedMessage")
+		case "raw":
+			out.Values[i] = ec._UnexpectedMessage_raw(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
@@ -6287,26 +6388,6 @@ func (ec *executionContext) marshalNMemPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑ
 		return graphql.Null
 	}
 	return ec._MemPackage(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNMessageRoute2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageRoute(ctx context.Context, v interface{}) (model.MessageRoute, error) {
-	var res model.MessageRoute
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNMessageRoute2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageRoute(ctx context.Context, sel ast.SelectionSet, v model.MessageRoute) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) unmarshalNMessageType2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageType(ctx context.Context, v interface{}) (model.MessageType, error) {
-	var res model.MessageType
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNMessageType2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageType(ctx context.Context, sel ast.SelectionSet, v model.MessageType) graphql.Marshaler {
-	return v
 }
 
 func (ec *executionContext) marshalNMessageValue2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMessageValue(ctx context.Context, sel ast.SelectionSet, v model.MessageValue) graphql.Marshaler {

@@ -82,13 +82,13 @@ type TransactionMessage {
   The type of transaction message.
   The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
   """
-  typeUrl: MessageType!
+  typeUrl: String!
 
   """
   The route of transaction message.
   The value of `route` can be `bank`, `vm`.
   """
-  route: MessageRoute!
+  route: String!
 
   """
   MessageValue is the content of the transaction.
@@ -97,7 +97,7 @@ type TransactionMessage {
   value: MessageValue!
 }
 
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
@@ -172,6 +172,13 @@ type MsgRun {
   the package being executed.
   """
   package: MemPackage!
+}
+
+"""
+`UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
+"""
+type UnexpectedMessage {
+  raw: String!
 }
 
 """

@@ -121,7 +121,7 @@ func filteredTransactionByMessageRoute(tx *model.Transaction, messageRoute *mode
 
 	messages := tx.Messages()
 	for _, message := range messages {
-		if message.Route.String() == messageRoute.String() {
+		if message.Route == messageRoute.String() {
 			return true
 		}
 	}
@@ -136,7 +136,7 @@ func filteredTransactionByMessageType(tx *model.Transaction, messageType *model.
 
 	messages := tx.Messages()
 	for _, message := range messages {
-		if message.TypeURL.String() == messageType.String() {
+		if message.TypeURL == messageType.String() {
 			return true
 		}
 	}
@@ -148,7 +148,7 @@ func filteredTransactionMessageBy(
 	tm *model.TransactionMessage,
 	messageInput *model.TransactionMessageInput,
 ) bool {
-	if messageInput.TypeURL != nil && messageInput.TypeURL.String() != tm.TypeURL.String() {
+	if messageInput.TypeURL != nil && messageInput.TypeURL.String() != tm.TypeURL {
 		return false
 	}
 
@@ -157,30 +157,30 @@ func filteredTransactionMessageBy(
 	}
 
 	switch tm.Route {
-	case model.MessageRouteBank:
+	case model.MessageRouteBank.String():
 		if messageInput.BankParam == nil {
 			return false
 		}
-	case model.MessageRouteVM:
+	case model.MessageRouteVM.String():
 		if messageInput.VMParam == nil {
 			return false
 		}
 	}
 
 	switch tm.TypeURL {
-	case model.MessageTypeSend:
+	case model.MessageTypeSend.String():
 		if !checkMessageOfBankMsgSend(tm.BankMsgSend(), messageInput.BankParam) {
 			return false
 		}
-	case model.MessageTypeExec:
+	case model.MessageTypeExec.String():
 		if !checkByMessageOfMsgCall(tm.VMMsgCall(), messageInput.VMParam) {
 			return false
 		}
-	case model.MessageTypeAddPackage:
+	case model.MessageTypeAddPackage.String():
 		if !checkMessageOfMsgAddPackage(tm.VMAddPackage(), messageInput.VMParam) {
 			return false
 		}
-	case model.MessageTypeRun:
+	case model.MessageTypeRun.String():
 		if !checkMessageOfMsgRun(tm.VMMsgRun(), messageInput.VMParam) {
 			return false
 		}
