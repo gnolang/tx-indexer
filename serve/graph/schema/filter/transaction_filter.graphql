@@ -63,7 +63,7 @@ input TransactionFilter {
 
 """
 Transaction's message to filter Transactions.
-`message` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`.
+`TransactionMessageInput` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
 """
 input TransactionMessageInput {
   """
