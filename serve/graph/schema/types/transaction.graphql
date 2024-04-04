@@ -39,18 +39,26 @@ type Transaction {
   messages: [TransactionMessage]!
 
   """
-  Notes are string information stored within a transaction.
-  Notes can be utilized to find or distinguish transactions.
+  `memo` are string information stored within a transaction.
+  `memo` can be utilized to find or distinguish transactions.
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String!
 }
 
+"""
+`MessageRoute` is route type of the transactional message.
+`MessageRoute` has the values of vm and bank.
+"""
 enum MessageRoute {
   vm
   bank
 }
 
+"""
+`MessageType` is message type of the transaction.
+`MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+"""
 enum MessageType {
   """
   The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
@@ -92,7 +100,7 @@ type TransactionMessage {
 
   """
   MessageValue is the content of the transaction.
-  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
   """
   value: MessageValue!
 }
@@ -106,16 +114,19 @@ union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | Unexpected
 type BankMsgSend {
   """
   the bech32 address of the fund sender.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   from_address: String!
 
   """
   the bech32 address of the fund receiver.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   to_address: String!
 
   """
   the denomination and amount of fund sent ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   amount: String!
 }
@@ -125,10 +136,31 @@ type BankMsgSend {
 `MsgCall` is the method invocation tx message.
 """
 type MsgCall {
+  """
+  the bech32 address of the function caller.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
   caller: String!
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
   send: String!
+
+  """
+  the gno package path.
+  """
   pkg_path: String!
+
+  """
+  the function name being invoked.
+  """
   func: String!
+
+  """
+  `args` are the arguments passed to the executed function.
+  """
   args: [String!]
 }
 
@@ -138,7 +170,8 @@ type MsgCall {
 """
 type MsgAddPackage {
   """
-  the package deployer.
+  the bech32 address of the package deployer.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   creator: String!
 
@@ -149,6 +182,7 @@ type MsgAddPackage {
 
   """
   the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   deposit: String!
 }
@@ -159,12 +193,14 @@ type MsgAddPackage {
 """
 type MsgRun {
   """
-  the bech32 address of the caller.
+  the bech32 address of the function caller.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
   caller: String!
 
   """
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
   """
   send: String!
 

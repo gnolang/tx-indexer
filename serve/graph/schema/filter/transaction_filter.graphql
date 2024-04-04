@@ -49,26 +49,32 @@ input TransactionFilter {
 
   """
   Transaction's message to filter Transactions.
+  `message` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
   """
   message: TransactionMessageInput
 
   """
-  `memo` value to filter Transaction's memo.
+  `memo` are string information stored within a transaction.
+  `memo` can be utilized to find or distinguish transactions.
+  For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String
 }
 
 """
-Input for filters by transaction message.
+Transaction's message to filter Transactions.
+`message` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`.
 """
 input TransactionMessageInput {
   """
   The type of transaction message.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
   """
   type_url: MessageType
 
   """
   The route of transaction message.
+  The value of `route` can be `bank`, `vm`.
   """
   route: MessageRoute
 
