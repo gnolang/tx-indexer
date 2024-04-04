@@ -269,6 +269,7 @@ func makeUnexpectedMessage(value std.Msg) UnexpectedMessage {
 			Raw: "",
 		}
 	}
+
 	return UnexpectedMessage{
 		Raw: string(raw),
 	}
