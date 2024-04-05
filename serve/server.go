@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	DefaultListenAddress = "0.0.0.0:8545"
+	DefaultListenAddress = "0.0.0.0:8546"
 )
 
 type HTTPServer struct {
