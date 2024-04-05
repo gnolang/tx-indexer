@@ -58,7 +58,7 @@ Starts the indexer service, which includes the fetcher and JSON-RPC server
 FLAGS
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
-  -listen-address 0.0.0.0:8545    the IP:PORT URL for the indexer JSON-RPC server
+  -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-level info                 the log level for the CLI output
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
