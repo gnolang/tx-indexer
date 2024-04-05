@@ -5,8 +5,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 
@@ -31,6 +34,8 @@ type startCfg struct {
 
 	maxSlots     int
 	maxChunkSize int64
+
+	rateLimit int
 }
 
 // newStartCmd creates the indexer start command
@@ -95,6 +100,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		fetch.DefaultMaxChunkSize,
 		"the range for fetching blockchain data by a single worker",
 	)
+
+	fs.IntVar(
+		&c.rateLimit,
+		"http-rate-limit",
+		0,
+		"the maximum HTTP requests allowed per minute per IP, unlimited by default",
+	)
 }
 
 // exec executes the indexer start command
@@ -149,6 +161,24 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 
 	mux := chi.NewMux()
+
+	if c.rateLimit != 0 {
+		logger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
+		mux.Use(httprate.Limit(
+			c.rateLimit,
+			1*time.Minute,
+			httprate.WithKeyFuncs(httprate.KeyByRealIP),
+			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+				//nolint:errcheck // no need to handle error here, it had been checked before
+				ip, _ := httprate.KeyByRealIP(r)
+				logger.Debug("too many requests", zap.String("from", ip))
+
+				// send a json response to give more info when using the graphQL explorer
+				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
+			}),
+		))
+	}
+
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, mux)
 

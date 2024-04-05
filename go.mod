@@ -80,6 +80,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/gnolang/gno v0.0.0-20231215125729-9262c1a8f949
 	github.com/gnolang/overflow v0.0.0-20170615021017-4d914c927216 // indirect
+	github.com/go-chi/httprate v0.9.0
 	golang.org/x/crypto v0.21.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
