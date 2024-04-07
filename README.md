@@ -22,7 +22,7 @@ This section guides you through setting up and running the `tx-indexer`.
 1. **Clone the Repository**
 
 ```shell
-git clone github.com/gnolang/tx-indexer
+git clone https://github.com/gnolang/tx-indexer.git
 ```
 
 2. **Build the binary**
