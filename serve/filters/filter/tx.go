@@ -5,10 +5,10 @@ import (
 )
 
 type Options struct {
-	Height    int64
-	Index     uint32
-	GasUsed   struct{ Min, Max int64 }
-	GasWanted struct{ Min, Max int64 }
+	Height    *int64
+	Index     *uint32
+	GasUsed   struct{ Min, Max *int64 }
+	GasWanted struct{ Min, Max *int64 }
 }
 
 // TxFilter holds a slice of transaction results.
@@ -70,27 +70,27 @@ func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
 	filtered := make([]*types.TxResult, 0, len(txs))
 
 	for _, tx := range txs {
-		if opts.Height != 0 && tx.Height != opts.Height {
+		if opts.Height != nil && tx.Height != *opts.Height {
 			continue
 		}
 
-		if opts.Index != 0 && tx.Index != opts.Index {
+		if opts.Index != nil && tx.Index != *opts.Index {
 			continue
 		}
 
-		if opts.GasUsed.Max != 0 && tx.Response.GasUsed > opts.GasUsed.Max {
+		if opts.GasUsed.Max != nil && tx.Response.GasUsed > *opts.GasUsed.Max {
 			continue
 		}
 
-		if opts.GasUsed.Min != 0 && tx.Response.GasUsed < opts.GasUsed.Min {
+		if opts.GasUsed.Min != nil && tx.Response.GasUsed < *opts.GasUsed.Min {
 			continue
 		}
 
-		if opts.GasWanted.Max != 0 && tx.Response.GasWanted > opts.GasWanted.Max {
+		if opts.GasWanted.Max != nil && tx.Response.GasWanted > *opts.GasWanted.Max {
 			continue
 		}
 
-		if opts.GasWanted.Min != 0 && tx.Response.GasWanted < opts.GasWanted.Min {
+		if opts.GasWanted.Min != nil && tx.Response.GasWanted < *opts.GasWanted.Min {
 			continue
 		}
 

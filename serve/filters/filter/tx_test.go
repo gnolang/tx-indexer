@@ -123,63 +123,98 @@ func TestApplyFilters(t *testing.T) {
 		{
 			name: "filter by index",
 			options: Options{
-				Index: 1,
+				Index: uint32Ptr(1),
 			},
 			expected: []*types.TxResult{txs[1]},
 		},
 		{
-			name: "filter by height and gas used",
+			name: "min gas used is 0",
 			options: Options{
-				Height:  100,
-				GasUsed: struct{ Min, Max int64 }{900, 1000},
-			},
-			expected: []*types.TxResult{txs[0]},
-		},
-		{
-			name: "filter by gas wanted 1",
-			options: Options{
-				GasWanted: struct{ Min, Max int64 }{1100, 1200},
-			},
-			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
-		},
-		{
-			name: "filter by gas used 2",
-			options: Options{
-				GasUsed: struct{ Min, Max int64 }{900, 1000},
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(0), int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
+			name: "filter by height and gas used",
+			options: Options{
+				Height:  int64Ptr(100),
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+			},
+			expected: []*types.TxResult{txs[0]},
+		},
+		{
+			name: "invalid gas used",
+			options: Options{
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(900)},
+			},
+			expected: []*types.TxResult{},
+		},
+		{
+			name: "filter by gas wanted 1",
+			options: Options{
+				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1100), int64Ptr(1200)},
+			},
+			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
+		},
+		{
+			name: "gas wanted min, max is same value",
+			options: Options{
+				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1000)},
+			},
+			expected: []*types.TxResult{txs[0], txs[2]},
+		},
+		{
+			name: "filter by gas used 2",
+			options: Options{
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+			},
+			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
+		},
+		{
+			name: "gas used min, max is same value",
+			options: Options{
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1000)},
+			},
+			expected: []*types.TxResult{txs[4]},
+		},
+		{
 			name: "filter by gas wanted is invalid",
 			options: Options{
-				GasWanted: struct{ Min, Max int64 }{1200, 1100},
+				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1200), int64Ptr(1100)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "gas used filter is invalid",
 			options: Options{
-				GasUsed: struct{ Min, Max int64 }{1000, 900},
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(900)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
+			name: "gas used min is nil",
+			options: Options{
+				GasUsed: struct{ Min, Max *int64 }{nil, int64Ptr(1000)},
+			},
+			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
+		},
+		{
 			name: "use all filters",
 			options: Options{
-				Height:    100,
-				Index:     0,
-				GasUsed:   struct{ Min, Max int64 }{900, 1000},
-				GasWanted: struct{ Min, Max int64 }{1000, 1100},
+				Height:    int64Ptr(100),
+				Index:     uint32Ptr(0),
+				GasUsed:   struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1100)},
 			},
 			expected: []*types.TxResult{txs[0]},
 		},
 		{
 			name: "use all filters but sequence is flipped",
 			options: Options{
-				GasWanted: struct{ Min, Max int64 }{1000, 1100},
-				GasUsed:   struct{ Min, Max int64 }{900, 1000},
-				Index:     0,
-				Height:    100,
+				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1100)},
+				GasUsed:   struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+				Index:     uint32Ptr(0),
+				Height:    int64Ptr(100),
 			},
 			expected: []*types.TxResult{txs[0]},
 		},
@@ -253,14 +288,14 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 		{
 			name: "filter by height",
 			options: Options{
-				Height: 5,
+				Height: int64Ptr(5),
 			},
 			expected: txCount / 10,
 		},
 		{
 			name: "filter by gas used",
 			options: Options{
-				GasUsed: struct{ Min, Max int64 }{950, 1000},
+				GasUsed: struct{ Min, Max *int64 }{int64Ptr(950), int64Ptr(1000)},
 			},
 			expected: txCount / 2,
 		},
@@ -288,3 +323,6 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 		})
 	}
 }
+
+func int64Ptr(i int64) *int64    { return &i }
+func uint32Ptr(i uint32) *uint32 { return &i }
