@@ -28,10 +28,13 @@ type AmountInput struct {
 // `BankMsgSend` is the fund transfer tx message.
 type BankMsgSend struct {
 	// the bech32 address of the fund sender.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	FromAddress string `json:"from_address"`
 	// the bech32 address of the fund receiver.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	ToAddress string `json:"to_address"`
 	// the denomination and amount of fund sent ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Amount string `json:"amount"`
 }
 
@@ -67,47 +70,49 @@ type BlockFilter struct {
 // `MemFile` is the metadata information tied to a single gno package / realm file
 type MemFile struct {
 	// the name of the source file.
-	Name string `json:"Name"`
+	Name string `json:"name"`
 	// the content of the source file.
-	Body string `json:"Body"`
+	Body string `json:"body"`
 }
 
 // `MemFileInput` is the metadata information tied to a single gno package / realm file.
 type MemFileInput struct {
 	// the name of the source file.
-	Name *string `json:"Name,omitempty"`
+	Name *string `json:"name,omitempty"`
 	// the content of the source file.
-	Body *string `json:"Body,omitempty"`
+	Body *string `json:"body,omitempty"`
 }
 
 // `MemPackage` is the metadata information tied to package / realm deployment.
 type MemPackage struct {
 	// the name of the package.
-	Name string `json:"Name"`
+	Name string `json:"name"`
 	// the gno path of the package.
-	Path string `json:"Path"`
+	Path string `json:"path"`
 	// the associated package gno source.
-	Files []*MemFile `json:"Files,omitempty"`
+	Files []*MemFile `json:"files,omitempty"`
 }
 
 // `MemPackageInput` represents a package stored in memory.
 type MemPackageInput struct {
 	// the name of the package.
-	Name *string `json:"Name,omitempty"`
+	Name *string `json:"name,omitempty"`
 	// the gno path of the package.
-	Path *string `json:"Path,omitempty"`
+	Path *string `json:"path,omitempty"`
 	// the associated package gno source.
-	Files []*MemFileInput `json:"Files,omitempty"`
+	Files []*MemFileInput `json:"files,omitempty"`
 }
 
 // `MsgAddPackage` is a message with a message router of `vm` and a message type of `add_package`.
 // `MsgAddPackage` is the package deployment tx message.
 type MsgAddPackage struct {
-	// the package deployer.
+	// the bech32 address of the package deployer.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	Creator string `json:"creator"`
 	// the package being deployed.
 	Package *MemPackage `json:"package"`
 	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Deposit string `json:"deposit"`
 }
 
@@ -129,11 +134,18 @@ type MsgAddPackageInput struct {
 // `MsgCall` is a message with a message router of `vm` and a message type of `exec`.
 // `MsgCall` is the method invocation tx message.
 type MsgCall struct {
-	Caller  string   `json:"caller"`
-	Send    string   `json:"send"`
-	PkgPath string   `json:"pkg_path"`
-	Func    string   `json:"func"`
-	Args    []string `json:"args,omitempty"`
+	// the bech32 address of the function caller.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Caller string `json:"caller"`
+	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	Send string `json:"send"`
+	// the gno package path.
+	PkgPath string `json:"pkg_path"`
+	// the function name being invoked.
+	Func string `json:"func"`
+	// `args` are the arguments passed to the executed function.
+	Args []string `json:"args,omitempty"`
 }
 
 func (MsgCall) IsMessageValue() {}
@@ -161,9 +173,11 @@ type MsgCallInput struct {
 // `MsgRun` is a message with a message router of `vm` and a message type of `run`.
 // `MsgRun is the execute arbitrary Gno code tx message`.
 type MsgRun struct {
-	// the bech32 address of the caller.
+	// the bech32 address of the function caller.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
 	Caller string `json:"caller"`
 	// the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
 	Send string `json:"send"`
 	// the package being executed.
 	Package *MemPackage `json:"package"`
@@ -220,16 +234,22 @@ type TransactionFilter struct {
 	// Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
 	Hash *string `json:"hash,omitempty"`
 	// Transaction's message to filter Transactions.
+	// `message` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
 	Message *TransactionMessageInput `json:"message,omitempty"`
-	// `memo` value to filter Transaction's memo.
+	// `memo` are string information stored within a transaction.
+	// `memo` can be utilized to find or distinguish transactions.
+	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
 	Memo *string `json:"memo,omitempty"`
 }
 
-// Input for filters by transaction message.
+// Transaction's message to filter Transactions.
+// `TransactionMessageInput` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
 type TransactionMessageInput struct {
 	// The type of transaction message.
+	// The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
 	TypeURL *MessageType `json:"type_url,omitempty"`
 	// The route of transaction message.
+	// The value of `route` can be `bank`, `vm`.
 	Route *MessageRoute `json:"route,omitempty"`
 	// `TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
 	BankParam *TransactionBankMessageInput `json:"bank_param,omitempty"`
@@ -261,6 +281,8 @@ type UnexpectedMessage struct {
 
 func (UnexpectedMessage) IsMessageValue() {}
 
+// `MessageRoute` is route type of the transactional message.
+// `MessageRoute` has the values of vm and bank.
 type MessageRoute string
 
 const (
@@ -302,6 +324,8 @@ func (e MessageRoute) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
+// `MessageType` is message type of the transaction.
+// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
 type MessageType string
 
 const (

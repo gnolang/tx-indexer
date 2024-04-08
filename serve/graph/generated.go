@@ -217,35 +217,35 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Block.Version(childComplexity), true
 
-	case "MemFile.Body":
+	case "MemFile.body":
 		if e.complexity.MemFile.Body == nil {
 			break
 		}
 
 		return e.complexity.MemFile.Body(childComplexity), true
 
-	case "MemFile.Name":
+	case "MemFile.name":
 		if e.complexity.MemFile.Name == nil {
 			break
 		}
 
 		return e.complexity.MemFile.Name(childComplexity), true
 
-	case "MemPackage.Files":
+	case "MemPackage.files":
 		if e.complexity.MemPackage.Files == nil {
 			break
 		}
 
 		return e.complexity.MemPackage.Files(childComplexity), true
 
-	case "MemPackage.Name":
+	case "MemPackage.name":
 		if e.complexity.MemPackage.Name == nil {
 			break
 		}
 
 		return e.complexity.MemPackage.Name(childComplexity), true
 
-	case "MemPackage.Path":
+	case "MemPackage.path":
 		if e.complexity.MemPackage.Path == nil {
 			break
 		}
@@ -1091,8 +1091,8 @@ func (ec *executionContext) fieldContext_Block_proposer_address_raw(ctx context.
 	return fc, nil
 }
 
-func (ec *executionContext) _MemFile_Name(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MemFile_Name(ctx, field)
+func (ec *executionContext) _MemFile_name(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MemFile_name(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1122,7 +1122,7 @@ func (ec *executionContext) _MemFile_Name(ctx context.Context, field graphql.Col
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_MemFile_Name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MemFile_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MemFile",
 		Field:      field,
@@ -1135,8 +1135,8 @@ func (ec *executionContext) fieldContext_MemFile_Name(ctx context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _MemFile_Body(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MemFile_Body(ctx, field)
+func (ec *executionContext) _MemFile_body(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MemFile_body(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1166,7 +1166,7 @@ func (ec *executionContext) _MemFile_Body(ctx context.Context, field graphql.Col
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_MemFile_Body(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MemFile_body(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MemFile",
 		Field:      field,
@@ -1179,8 +1179,8 @@ func (ec *executionContext) fieldContext_MemFile_Body(ctx context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _MemPackage_Name(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MemPackage_Name(ctx, field)
+func (ec *executionContext) _MemPackage_name(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MemPackage_name(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1210,7 +1210,7 @@ func (ec *executionContext) _MemPackage_Name(ctx context.Context, field graphql.
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_MemPackage_Name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MemPackage_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MemPackage",
 		Field:      field,
@@ -1223,8 +1223,8 @@ func (ec *executionContext) fieldContext_MemPackage_Name(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _MemPackage_Path(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MemPackage_Path(ctx, field)
+func (ec *executionContext) _MemPackage_path(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MemPackage_path(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1254,7 +1254,7 @@ func (ec *executionContext) _MemPackage_Path(ctx context.Context, field graphql.
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_MemPackage_Path(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MemPackage_path(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MemPackage",
 		Field:      field,
@@ -1267,8 +1267,8 @@ func (ec *executionContext) fieldContext_MemPackage_Path(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _MemPackage_Files(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MemPackage_Files(ctx, field)
+func (ec *executionContext) _MemPackage_files(ctx context.Context, field graphql.CollectedField, obj *model.MemPackage) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MemPackage_files(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1295,7 +1295,7 @@ func (ec *executionContext) _MemPackage_Files(ctx context.Context, field graphql
 	return ec.marshalOMemFile2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMemFileᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_MemPackage_Files(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MemPackage_files(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MemPackage",
 		Field:      field,
@@ -1303,10 +1303,10 @@ func (ec *executionContext) fieldContext_MemPackage_Files(ctx context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "Name":
-				return ec.fieldContext_MemFile_Name(ctx, field)
-			case "Body":
-				return ec.fieldContext_MemFile_Body(ctx, field)
+			case "name":
+				return ec.fieldContext_MemFile_name(ctx, field)
+			case "body":
+				return ec.fieldContext_MemFile_body(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type MemFile", field.Name)
 		},
@@ -1397,12 +1397,12 @@ func (ec *executionContext) fieldContext_MsgAddPackage_package(ctx context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "Name":
-				return ec.fieldContext_MemPackage_Name(ctx, field)
-			case "Path":
-				return ec.fieldContext_MemPackage_Path(ctx, field)
-			case "Files":
-				return ec.fieldContext_MemPackage_Files(ctx, field)
+			case "name":
+				return ec.fieldContext_MemPackage_name(ctx, field)
+			case "path":
+				return ec.fieldContext_MemPackage_path(ctx, field)
+			case "files":
+				return ec.fieldContext_MemPackage_files(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type MemPackage", field.Name)
 		},
@@ -1798,12 +1798,12 @@ func (ec *executionContext) fieldContext_MsgRun_package(ctx context.Context, fie
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "Name":
-				return ec.fieldContext_MemPackage_Name(ctx, field)
-			case "Path":
-				return ec.fieldContext_MemPackage_Path(ctx, field)
-			case "Files":
-				return ec.fieldContext_MemPackage_Files(ctx, field)
+			case "name":
+				return ec.fieldContext_MemPackage_name(ctx, field)
+			case "path":
+				return ec.fieldContext_MemPackage_path(ctx, field)
+			case "files":
+				return ec.fieldContext_MemPackage_files(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type MemPackage", field.Name)
 		},
@@ -4820,22 +4820,22 @@ func (ec *executionContext) unmarshalInputMemFileInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"Name", "Body"}
+	fieldsInOrder := [...]string{"name", "body"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "Name":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("Name"))
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Name = data
-		case "Body":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("Body"))
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
@@ -4854,29 +4854,29 @@ func (ec *executionContext) unmarshalInputMemPackageInput(ctx context.Context, o
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"Name", "Path", "Files"}
+	fieldsInOrder := [...]string{"name", "path", "files"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "Name":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("Name"))
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Name = data
-		case "Path":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("Path"))
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Path = data
-		case "Files":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("Files"))
+		case "files":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("files"))
 			data, err := ec.unmarshalOMemFileInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMemFileInput(ctx, v)
 			if err != nil {
 				return it, err
@@ -5409,13 +5409,13 @@ func (ec *executionContext) _MemFile(ctx context.Context, sel ast.SelectionSet, 
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("MemFile")
-		case "Name":
-			out.Values[i] = ec._MemFile_Name(ctx, field, obj)
+		case "name":
+			out.Values[i] = ec._MemFile_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "Body":
-			out.Values[i] = ec._MemFile_Body(ctx, field, obj)
+		case "body":
+			out.Values[i] = ec._MemFile_body(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5453,18 +5453,18 @@ func (ec *executionContext) _MemPackage(ctx context.Context, sel ast.SelectionSe
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("MemPackage")
-		case "Name":
-			out.Values[i] = ec._MemPackage_Name(ctx, field, obj)
+		case "name":
+			out.Values[i] = ec._MemPackage_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "Path":
-			out.Values[i] = ec._MemPackage_Path(ctx, field, obj)
+		case "path":
+			out.Values[i] = ec._MemPackage_path(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "Files":
-			out.Values[i] = ec._MemPackage_Files(ctx, field, obj)
+		case "files":
+			out.Values[i] = ec._MemPackage_files(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
