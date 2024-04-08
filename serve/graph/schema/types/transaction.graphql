@@ -1,0 +1,265 @@
+"""
+Defines a transaction within a block, detailing its execution specifics and content.
+"""
+type Transaction {
+  """
+  A sequential index representing the order of this Transaction within its Block. Unique within the context of its Block.
+  """
+  index: Int!
+
+  """
+  Hash from Transaction content in base64 encoding.
+  """
+  hash: String!
+
+  """
+  The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
+  """
+  block_height: Int!
+
+  """
+  The declared amount of computational effort the sender is willing to pay for executing this Transaction.
+  """
+  gas_wanted: Int!
+
+  """
+  The actual amount of computational effort consumed to execute this Transaction. It could be less or equal to `gas_wanted`.
+  """
+  gas_used: Int!
+
+  """
+  The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+  """
+  content_raw: String!
+
+  """
+  The payload of a message shows the contents of the messages in a transaction.
+  A message consists of `router`, `type`, and `value` (whose form depends on the `router` and `type`).
+  """
+  messages: [TransactionMessage]!
+
+  """
+  `memo` are string information stored within a transaction.
+  `memo` can be utilized to find or distinguish transactions.
+  For example, when trading a specific exchange, you would utilize the memo field of the transaction.
+  """
+  memo: String!
+}
+
+"""
+`MessageRoute` is route type of the transactional message.
+`MessageRoute` has the values of vm and bank.
+"""
+enum MessageRoute {
+  vm
+  bank
+}
+
+"""
+`MessageType` is message type of the transaction.
+`MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+"""
+enum MessageType {
+  """
+  The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
+  This is a transaction message used when sending native tokens.
+  """
+  send
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
+  This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
+  """
+  exec
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgAddPackage`.
+  This is a transactional message that adds a package to the GNO chain.
+  """
+  add_package
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
+  This is a transactional message that executes an arbitrary Gno-coded TX message.
+  """
+  run
+}
+
+type TransactionMessage {
+  """
+  The type of transaction message.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+  """
+  typeUrl: String!
+
+  """
+  The route of transaction message.
+  The value of `route` can be `bank`, `vm`.
+  """
+  route: String!
+
+  """
+  MessageValue is the content of the transaction.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
+  """
+  value: MessageValue!
+}
+
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+
+"""
+`BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
+`BankMsgSend` is the fund transfer tx message.
+"""
+type BankMsgSend {
+  """
+  the bech32 address of the fund sender.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  from_address: String!
+
+  """
+  the bech32 address of the fund receiver.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  to_address: String!
+
+  """
+  the denomination and amount of fund sent ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  amount: String!
+}
+
+"""
+`MsgCall` is a message with a message router of `vm` and a message type of `exec`.
+`MsgCall` is the method invocation tx message.
+"""
+type MsgCall {
+  """
+  the bech32 address of the function caller.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String!
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  send: String!
+
+  """
+  the gno package path.
+  """
+  pkg_path: String!
+
+  """
+  the function name being invoked.
+  """
+  func: String!
+
+  """
+  `args` are the arguments passed to the executed function.
+  """
+  args: [String!]
+}
+
+"""
+`MsgAddPackage` is a message with a message router of `vm` and a message type of `add_package`.
+`MsgAddPackage` is the package deployment tx message.
+"""
+type MsgAddPackage {
+  """
+  the bech32 address of the package deployer.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String!
+
+  """
+  the package being deployed.
+  """
+  package: MemPackage!
+
+  """
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  deposit: String!
+}
+
+"""
+`MsgRun` is a message with a message router of `vm` and a message type of `run`.
+`MsgRun is the execute arbitrary Gno code tx message`.
+"""
+type MsgRun {
+  """
+  the bech32 address of the function caller.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String!
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  send: String!
+
+  """
+  the package being executed.
+  """
+  package: MemPackage!
+}
+
+"""
+`UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
+"""
+type UnexpectedMessage {
+  raw: String!
+}
+
+"""
+`MemPackage` is the metadata information tied to package / realm deployment.
+"""
+type MemPackage {
+  """
+  the name of the package.
+  """
+  name: String!
+
+  """
+  the gno path of the package.
+  """
+  path: String!
+
+  """
+  the associated package gno source.
+  """
+  files: [MemFile!]
+}
+
+"""
+`MemFile` is the metadata information tied to a single gno package / realm file
+"""
+type MemFile {
+  """
+  the name of the source file.
+  """
+  name: String!
+
+  """
+  the content of the source file.
+  """
+  body: String!
+}
+
+type TxFee {
+  """
+  gas limit
+  """
+  gas_wanted: Int!
+
+  """
+  gas fee details (<value><denomination>)
+  """
+  gas_fee: Int!
+}

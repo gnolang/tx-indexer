@@ -1,6 +1,7 @@
 # Where are all the schema files located? globs are supported eg  src/**/*.graphql
 schema:
-  - serve/graph/*.graphql
+  - serve/graph/schema/*.graphql
+  - serve/graph/schema/**/*.graphql
 
 # Where should the generated server code go?
 exec:
@@ -86,3 +87,6 @@ models:
   Transaction:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Transaction
+  TransactionMessage:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.TransactionMessage

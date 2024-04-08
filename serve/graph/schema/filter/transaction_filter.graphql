@@ -1,0 +1,283 @@
+"""
+Filters for querying Transactions within specified criteria related to their execution and placement within Blocks.
+"""
+input TransactionFilter {
+  """
+  Minimum block height from which to start fetching Transactions, inclusive. Aids in scoping the search to recent Transactions.
+  """
+  from_block_height: Int
+
+  """
+  Maximum block height up to which Transactions should be fetched, exclusive. Helps in limiting the search to older Transactions.
+  """
+  to_block_height: Int
+
+  """
+  Minimum Transaction index from which to start fetching, inclusive. Facilitates ordering in Transaction queries.
+  """
+  from_index: Int
+
+  """
+  Maximum Transaction index up to which to fetch, exclusive. Ensures a limit on the ordering range for Transaction queries.
+  """
+  to_index: Int
+
+  """
+  Minimum `gas_wanted` value to filter Transactions by, inclusive. Filters Transactions based on the minimum computational effort declared.
+  """
+  from_gas_wanted: Int
+
+  """
+  Maximum `gas_wanted` value for filtering Transactions, exclusive. Limits Transactions based on the declared computational effort.
+  """
+  to_gas_wanted: Int
+
+  """
+  Minimum `gas_used` value to filter Transactions by, inclusive. Selects Transactions based on the minimum computational effort actually used.
+  """
+  from_gas_used: Int
+
+  """
+  Maximum `gas_used` value for filtering Transactions, exclusive. Refines selection based on the computational effort actually consumed.
+  """
+  to_gas_used: Int
+
+  """
+  Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
+  """
+  hash: String
+
+  """
+  Transaction's message to filter Transactions.
+  `message` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
+  """
+  message: TransactionMessageInput
+
+  """
+  `memo` are string information stored within a transaction.
+  `memo` can be utilized to find or distinguish transactions.
+  For example, when trading a specific exchange, you would utilize the memo field of the transaction.
+  """
+  memo: String
+}
+
+"""
+Transaction's message to filter Transactions.
+`TransactionMessageInput` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
+"""
+input TransactionMessageInput {
+  """
+  The type of transaction message.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+  """
+  type_url: MessageType
+
+  """
+  The route of transaction message.
+  The value of `route` can be `bank`, `vm`.
+  """
+  route: MessageRoute
+
+  """
+  `TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
+  """
+  bank_param: TransactionBankMessageInput
+
+  """
+  `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
+  """
+  vm_param: TransactionVmMessageInput
+}
+
+"""
+`TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
+"""
+input TransactionBankMessageInput {
+  """
+  send represents input parameters required when the message type is `send`.
+  """
+  send: BankMsgSendInput
+}
+
+"""
+`BankMsgSendInput` represents input parameters required when the message type is `send`.
+"""
+input BankMsgSendInput {
+  """
+  the bech32 address of the fund sender.
+  You can filter by the fund sender address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  from_address: String
+
+  """
+  the bech32 address of the fund receiver.
+  You can filter by the fund receiver address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  to_address: String
+
+  """
+  the denomination and amount of fund sent ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  amount: AmountInput
+}
+
+"""
+`TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
+"""
+input TransactionVmMessageInput {
+  """
+  `MsgCallInput` represents input parameters required when the message type is `exec`.
+  """
+  exec: MsgCallInput
+
+  """
+  `MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
+  """
+  add_package: MsgAddPackageInput
+
+  """
+  `MsgRunInput` represents input parameters required when the message type is `run`.
+  """
+  run: MsgRunInput
+}
+
+"""
+`MsgCallInput` represents input parameters required when the message type is `exec`.
+"""
+input MsgCallInput {
+  """
+  the bech32 address of the function caller.
+  You can filter by the function caller's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  send: AmountInput
+
+  """
+  the gno package path.
+  """
+  pkg_path: String
+
+  """
+  the function name being invoked.
+  """
+  func: String
+
+  """
+  `args` are the arguments passed to the executed function.
+  The arguments are checked in the order of the argument array and
+  if they are empty strings, they are excluded from the filtering criteria.
+  ex) `["", "", "1"]` <- Empty strings skip the condition.
+  """
+  args: [String!]
+}
+
+"""
+`MsgAddPackageInput` represents input parameters required when the message type is `add_package`.
+"""
+input MsgAddPackageInput {
+  """
+  the bech32 address of the package deployer.
+  You can filter by the package deployer's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String
+
+  """
+  the package being deployed.
+  """
+  package: MemPackageInput
+
+  """
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  deposit: AmountInput
+}
+
+"""
+`MsgRunInput` represents input parameters required when the message type is `run`.
+"""
+input MsgRunInput {
+  """
+  the bech32 address of the function caller.
+  You can filter by the function caller's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String
+
+  """
+  the amount of funds to be deposited to the package, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  send: AmountInput
+
+  """
+  the package being executed.
+  """
+  package: MemPackageInput
+}
+
+"""
+`MemPackageInput` represents a package stored in memory.
+"""
+input MemPackageInput {
+  """
+  the name of the package.
+  """
+  name: String
+
+  """
+  the gno path of the package.
+  """
+  path: String
+
+  """
+  the associated package gno source.
+  """
+  files: [MemFileInput]
+}
+
+"""
+`MemFileInput` is the metadata information tied to a single gno package / realm file.
+"""
+input MemFileInput {
+  """
+  the name of the source file.
+  """
+  name: String
+
+  """
+  the content of the source file.
+  """
+  body: String
+}
+
+"""
+`AmountInput` is a range of token quantities to filter by.
+"""
+input AmountInput {
+  """
+  The minimum quantity of tokens to check for.
+  """
+  from: Int
+
+  """
+  The maximum quantity of tokens to check for.
+  """
+  to: Int
+
+  """
+  Filter by token's denomination.
+  If set to an empty string, it will get an empty value.
+  """
+  denomination: String
+}
