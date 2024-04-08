@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/google/uuid v1.6.0
 	github.com/madz-lab/insertion-queue v0.0.0-20230520191346-295d3348f63a
-	github.com/olahol/melody v1.1.4
+	github.com/olahol/melody v1.2.0
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
@@ -80,6 +80,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/gnolang/gno v0.0.0-20231215125729-9262c1a8f949
 	github.com/gnolang/overflow v0.0.0-20170615021017-4d914c927216 // indirect
+	github.com/go-chi/httprate v0.9.0
 	golang.org/x/crypto v0.21.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
