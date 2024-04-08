@@ -233,17 +233,17 @@ input MemPackageInput {
   """
   the name of the package.
   """
-  Name: String
+  name: String
 
   """
   the gno path of the package.
   """
-  Path: String
+  path: String
 
   """
   the associated package gno source.
   """
-  Files: [MemFileInput]
+  files: [MemFileInput]
 }
 
 """
