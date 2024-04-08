@@ -111,9 +111,9 @@ func TestApplyFilters(t *testing.T) {
 	}
 
 	tests := []struct {
+		options  Options
 		name     string
 		expected []*types.TxResult
-		options  Options
 	}{
 		{
 			name:     "no filter",
@@ -276,8 +276,8 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
 		options  Options
+		name     string
 		expected int
 	}{
 		{

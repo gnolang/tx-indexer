@@ -13,9 +13,9 @@ type Options struct {
 // TxFilter holds a slice of transaction results.
 // It provides methods to manipulate and query the transactions.
 type TxFilter struct {
-	*baseFilter
-	txs  []*types.TxResult
 	opts Options
+	*baseFilter
+	txs []*types.TxResult
 }
 
 // NewTxFilter creates a new TxFilter object.
