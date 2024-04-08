@@ -5,10 +5,9 @@ import (
 )
 
 type Options struct {
-	Height    *int64
-	Index     *uint32
 	GasUsed   struct{ Min, Max *int64 }
 	GasWanted struct{ Min, Max *int64 }
+	GasLimit  struct{ Min, Max *int64 }
 }
 
 // TxFilter holds a slice of transaction results.
@@ -58,7 +57,8 @@ func (tf *TxFilter) UpdateWithTx(tx *types.TxResult) {
 // Apply applies all added conditions to the transactions in the filter.
 //
 // It returns a slice of `TxResult` that satisfy all the conditions. If no conditions are set,
-// it returns all transactions in the filter.
+// it returns all transactions in the filter. Also, if the filter value is invalid filter will not
+// be applied.
 func (tf *TxFilter) Apply() []*types.TxResult {
 	tf.Lock()
 	defer tf.Unlock()
@@ -70,32 +70,38 @@ func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
 	filtered := make([]*types.TxResult, 0, len(txs))
 
 	for _, tx := range txs {
-		if opts.Height != nil && tx.Height != *opts.Height {
-			continue
+		if checkFilterCondition(tx, opts) {
+			filtered = append(filtered, tx)
 		}
-
-		if opts.Index != nil && tx.Index != *opts.Index {
-			continue
-		}
-
-		if opts.GasUsed.Max != nil && tx.Response.GasUsed > *opts.GasUsed.Max {
-			continue
-		}
-
-		if opts.GasUsed.Min != nil && tx.Response.GasUsed < *opts.GasUsed.Min {
-			continue
-		}
-
-		if opts.GasWanted.Max != nil && tx.Response.GasWanted > *opts.GasWanted.Max {
-			continue
-		}
-
-		if opts.GasWanted.Min != nil && tx.Response.GasWanted < *opts.GasWanted.Min {
-			continue
-		}
-
-		filtered = append(filtered, tx)
 	}
 
 	return filtered
+}
+
+func checkFilterCondition(tx *types.TxResult, opts Options) bool {
+	if opts.GasLimit.Max != nil && tx.Response.GasUsed > *opts.GasLimit.Max {
+		return false
+	}
+
+	if opts.GasLimit.Min != nil && tx.Response.GasUsed < *opts.GasLimit.Min {
+		return false
+	}
+
+	if opts.GasUsed.Max != nil && tx.Response.GasUsed > *opts.GasUsed.Max {
+		return false
+	}
+
+	if opts.GasUsed.Min != nil && tx.Response.GasUsed < *opts.GasUsed.Min {
+		return false
+	}
+
+	if opts.GasWanted.Max != nil && tx.Response.GasWanted > *opts.GasWanted.Max {
+		return false
+	}
+
+	if opts.GasWanted.Min != nil && tx.Response.GasWanted < *opts.GasWanted.Min {
+		return false
+	}
+
+	return true
 }
