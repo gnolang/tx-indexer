@@ -244,12 +244,12 @@ type MemFile {
   """
   the name of the source file.
   """
-  Name: String!
+  name: String!
 
   """
   the content of the source file.
   """
-  Body: String!
+  body: String!
 }
 
 type TxFee {
