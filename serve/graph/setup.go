@@ -16,8 +16,8 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 
 	srv.AddTransport(&transport.Websocket{})
 
-	m.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	m.Handle("/query", srv)
+	m.Handle("/graphql", playground.Handler("GraphQL playground", "/query"))
+	m.Handle("/graphql/query", srv)
 
 	return m
 }

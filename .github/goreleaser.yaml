@@ -1,0 +1,88 @@
+project_name: tx-indexer
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd
+    binary: tx-indexer
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+gomod:
+  proxy: true
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - '--output-certificate=${certificate}'
+      - '--output-signature=${signature}'
+      - '${artifact}'
+      - "--yes" # needed on cosign 2.0.0+
+    artifacts: checksum
+    output: true
+
+dockers:
+  - image_templates:
+      - "ghcr.io/gnolang/tx-indexer:latest"
+      - "ghcr.io/gnolang/tx-indexer:{{ .Tag }}"
+    dockerfile: Dockerfile.release
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    artifacts: images
+    output: true
+    args:
+      - 'sign'
+      - '${artifact}'
+      - "--yes" # needed on cosign 2.0.0+
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+
+source:
+  enabled: true
+
+sboms:
+  - artifacts: archive
+  - id: source # Two different sbom configurations need two different IDs
+    artifacts: source
+
+release:
+  draft: true
+  replace_existing_draft: true
+  prerelease: true
+  footer: |
+    ### Container Images
+
+    https://ghcr.io/gnolang/tx-indexer:{{ .Tag }}
+
+    For example:
+    ```
+    docker pull ghcr.io/gnolang/tx-indexer:{{ .Tag }}
+    ```
+
