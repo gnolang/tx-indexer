@@ -3,7 +3,7 @@ all: build
 .PHONY: build
 build:
 	@echo "Building indexer binary"
-	go build -o build/indexer ./cmd
+	go build -o build/tx-indexer ./cmd
 
 .PHONY: lint
 lint:
