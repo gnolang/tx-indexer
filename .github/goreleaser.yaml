@@ -38,7 +38,7 @@ dockers:
   - image_templates:
       - "ghcr.io/gnolang/tx-indexer:latest"
       - "ghcr.io/gnolang/tx-indexer:{{ .Tag }}"
-    dockerfile: Dockerfile.release
+    dockerfile: Dockerfile
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
