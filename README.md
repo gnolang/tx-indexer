@@ -1,5 +1,25 @@
 <h2 align="center">⚛️ Tendermint2 Indexer ⚛️</h2>
 
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+- [GraphQL Endpoint](#graphql-endpoint)
+  - [Examples](#examples)
+    - [Get all Transactions with add\_package messages. Show the creator, package name and path.](#get-all-transactions-with-add_package-messages-show-the-creator-package-name-and-path)
+    - [Subscribe to get all new blocks in real-time](#subscribe-to-get-all-new-blocks-in-real-time)
+- [RPC Endpoints](#rpc-endpoints)
+  - [Block Endpoints](#block-endpoints)
+    - [`getBlock`](#getblock)
+  - [Transaction Endpoints](#transaction-endpoints)
+    - [`getTxResult`](#gettxresult)
+  - [Filter Endpoints](#filter-endpoints)
+    - [`newBlockFilter`](#newblockfilter)
+    - [`getFilterChanges`](#getfilterchanges)
+    - [`uninstallFilter`](#uninstallfilter)
+    - [`subscribe`](#subscribe)
+    - [`unsubscribe`](#unsubscribe)
+
+
 ## Overview
 
 `tx-indexer` is a tool designed to index TM2 chain data and serve it over RPC, facilitating efficient data retrieval and
@@ -37,6 +57,12 @@ make build
 ./build/indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
 ```
 
+or:
+
+```bash
+go run cmd/main.go cmd/start.go cmd/waiter.go start --remote http://test3.gno.land:36657 --db-path indexer-db
+```
+
 The `--remote` flag specifies the JSON-RPC URL of the chain the indexer should index, and the `--db-path` specifies the
 on-disk location for the indexed data.
 
@@ -65,7 +91,57 @@ FLAGS
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
 ```
 
-## Endpoints
+## GraphQL Endpoint
+
+A GraphQL endpoint is available at `/graphql/query`. It supports standard queries for transactions and blocks and subscriptions for real-time events.
+
+A GrapQL playground is available at `/graphql`. There you have all the documentation needed explaining the different fields and available filters.
+
+### Examples
+
+#### Get all Transactions with add_package messages. Show the creator, package name and path.
+
+```graphql
+{
+  transactions(
+    filter: { message: {vm_param: {add_package: {}}}}
+  ) {
+    index
+    hash
+    block_height
+    gas_used
+    messages {
+      route
+      typeUrl
+      value {
+        __typename
+        ... on MsgAddPackage {
+          creator
+          package {
+            name
+            path
+          }
+        }
+      }
+    }
+  }
+}
+```
+#### Subscribe to get all new blocks in real-time
+
+```graphql
+subscription {
+  blocks(filter: {}) {
+    height
+    version
+    chain_id
+    time
+    proposer_address_raw
+  }
+}
+```
+
+## RPC Endpoints
 
 Please take note that the indexer JSON-RPC server adheres to the JSON-RPC 2.0 standard for request and response
 processing.
