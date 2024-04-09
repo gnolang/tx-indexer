@@ -4,9 +4,10 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/go-chi/chi/v5"
+
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/storage"
-	"github.com/go-chi/chi/v5"
 )
 
 func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
@@ -16,8 +17,8 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 
 	srv.AddTransport(&transport.Websocket{})
 
-	m.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	m.Handle("/query", srv)
+	m.Handle("/graphql", playground.Handler("Gno Indexer: GraphQL playground", "/graphql/query"))
+	m.Handle("/graphql/query", srv)
 
 	return m
 }
