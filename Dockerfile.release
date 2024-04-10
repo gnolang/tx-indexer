@@ -1,3 +1,4 @@
 FROM scratch
-ENTRYPOINT ["/tx-indexer"]
 COPY tx-indexer /
+ENTRYPOINT [ "/tx-indexer" ]
+CMD [ "start" ]

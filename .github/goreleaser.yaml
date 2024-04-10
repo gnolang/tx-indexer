@@ -7,18 +7,28 @@ before:
 builds:
   - main: ./cmd
     binary: tx-indexer
+    env:
+      - CGO_ENABLED=0
     goos:
       - linux
       - darwin
     goarch:
       - amd64
       - arm64
+      - arm
+    goarm:
+      - 6
+      - 7
 
 gomod:
   proxy: true
 
 archives:
-  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+   # https://goreleaser.com/customization/archive/
+  - files:
+      # Standard Release Files
+      - LICENSE.md
+      - README.md
 
 signs:
   - cmd: cosign
@@ -35,40 +45,75 @@ signs:
     output: true
 
 dockers:
-  - image_templates:
-      - "ghcr.io/gnolang/tx-indexer:{{ .Tag }}-amd64"
-    use: buildx
+  # https://goreleaser.com/customization/docker/
+  - use: buildx
     dockerfile: Dockerfile.release
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/gnolang/{{ .ProjectName }}:latest-amd64"
     build_flag_templates:
-      - "--pull"
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-  - image_templates:
-      - "ghcr.io/gnolang/tx-indexer:{{ .Tag }}-arm64"
-    use: buildx
+  - use: buildx
     dockerfile: Dockerfile.release
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-arm64v8"
+      - "ghcr.io/gnolang/{{ .ProjectName }}:latest-arm64v8"
     build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
+      - "--platform=linux/arm64/v8"
       - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-
+  - use: buildx
+    dockerfile: Dockerfile.release
+    goos: linux
+    goarch: arm
+    goarm: 6
+    image_templates:
+      - "ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv6"
+      - "ghcr.io/gnolang/{{ .ProjectName }}:latest-armv6"
+    build_flag_templates:
+      - "--platform=linux/arm/v6"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+  - use: buildx
+    dockerfile: Dockerfile.release
+    goos: linux
+    goarch: arm
+    goarm: 7
+    image_templates:
+      - "ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv7"
+      - "ghcr.io/gnolang/{{ .ProjectName }}:latest-armv7"
+    build_flag_templates:
+      - "--platform=linux/arm/v7"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
 docker_manifests:
-  - name_template: 'ghcr.io/gnolang/tx-indexer:{{ .Tag }}'
+  # https://goreleaser.com/customization/docker_manifest/
+  - name_template: ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}
     image_templates:
-    - 'ghcr.io/gnolang/tx-indexer:{{ .Tag }}-arm64'
-    - 'ghcr.io/gnolang/tx-indexer:{{ .Tag }}-amd64'
-  - name_template: 'ghcr.io/gnolang/tx-indexer:latest'
+      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-amd64
+      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-arm64v8
+      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv6
+      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv7
+  - name_template: ghcr.io/gnolang/{{ .ProjectName }}:latest
     image_templates:
-    - 'ghcr.io/gnolang/tx-indexer:{{ .Tag }}-arm64'
-    - 'ghcr.io/gnolang/tx-indexer:{{ .Tag }}-amd64'
+      - ghcr.io/gnolang/{{ .ProjectName }}:latest-amd64
+      - ghcr.io/gnolang/{{ .ProjectName }}:latest-arm64v8
+      - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv6
+      - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv7
     
 docker_signs:
   - cmd: cosign
