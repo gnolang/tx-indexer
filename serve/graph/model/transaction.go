@@ -47,6 +47,26 @@ func (t *Transaction) BlockHeight() int {
 	return int(t.txResult.Height)
 }
 
+func (t *Transaction) ResponseError() string {
+	if t.txResult.Response.Error == nil {
+		return ""
+	}
+
+	return t.txResult.Response.Error.Error()
+}
+
+func (t *Transaction) ResponseLog() string {
+	return t.txResult.Response.Log
+}
+
+func (t *Transaction) ResponseInfo() string {
+	return t.txResult.Response.Info
+}
+
+func (t *Transaction) ResponseData() []byte {
+	return t.txResult.Response.Data
+}
+
 func (t *Transaction) GasWanted() int {
 	return int(t.txResult.Response.GasWanted)
 }

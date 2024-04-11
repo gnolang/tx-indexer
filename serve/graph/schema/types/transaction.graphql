@@ -18,6 +18,26 @@ type Transaction {
   block_height: Int!
 
   """
+  The error value associated with the Transaction execution, if any.
+  """
+  response_error: String!
+
+  """
+  The log value associated with the Transaction execution, if any.
+  """
+  response_log: String!
+
+  """
+  The Info associated with the Transaction execution, if any.
+  """
+  response_info: String!
+
+  """
+  The response data associated with the Transaction execution, if any.
+  """
+  response_data: String!
+
+  """
   The declared amount of computational effort the sender is willing to pay for executing this Transaction.
   """
   gas_wanted: Int!
