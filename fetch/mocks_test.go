@@ -39,6 +39,10 @@ func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) 
 	return nil, nil
 }
 
+func (m *mockClient) GetGenesisBlock() (*core_types.ResultGenesis, error) {
+	return nil, nil
+}
+
 func (m *mockClient) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
 	if m.getBlockResultsFn != nil {
 		return m.getBlockResultsFn(blockNum)
