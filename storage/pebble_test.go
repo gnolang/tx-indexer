@@ -145,7 +145,7 @@ func TestStorageIters(t *testing.T) {
 		txCount++
 	}
 
-	require.Equal(t, 2, txCount)
+	require.Equal(t, 3, txCount)
 
 	defer require.NoError(t, it.Close())
 
