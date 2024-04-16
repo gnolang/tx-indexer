@@ -240,6 +240,9 @@ type TransactionFilter struct {
 	// `memo` can be utilized to find or distinguish transactions.
 	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
 	Memo *string `json:"memo,omitempty"`
+	// `success` is whether the transaction was successful or not.
+	// `success` enables you to filter between successful and unsuccessful transactions.
+	Success *bool `json:"success,omitempty"`
 }
 
 // Transaction's message to filter Transactions.

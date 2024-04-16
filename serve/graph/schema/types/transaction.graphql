@@ -13,6 +13,11 @@ type Transaction {
   hash: String!
 
   """
+  The success can determine whether the transaction succeeded or failed.
+  """
+  success: Boolean!
+
+  """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
   block_height: Int!
