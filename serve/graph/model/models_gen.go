@@ -239,7 +239,8 @@ type TransactionFilter struct {
 	// `memo` are string information stored within a transaction.
 	// `memo` can be utilized to find or distinguish transactions.
 	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
-	Memo *string `json:"memo,omitempty"`
+	Memo  *string `json:"memo,omitempty"`
+	Limit *int    `json:"limit,omitempty"`
 }
 
 // Transaction's message to filter Transactions.

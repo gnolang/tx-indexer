@@ -44,6 +44,16 @@ type Transaction {
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String!
+
+  """
+  `code` is the status code of the transaction.
+  """
+  code: Int!
+
+  """
+  `log` log of tx result
+  """
+  log: String!
 }
 
 """

@@ -59,6 +59,8 @@ input TransactionFilter {
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String
+
+  limit: Int
 }
 
 """

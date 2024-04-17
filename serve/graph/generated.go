@@ -107,11 +107,13 @@ type ComplexityRoot struct {
 
 	Transaction struct {
 		BlockHeight func(childComplexity int) int
+		Code        func(childComplexity int) int
 		ContentRaw  func(childComplexity int) int
 		GasUsed     func(childComplexity int) int
 		GasWanted   func(childComplexity int) int
 		Hash        func(childComplexity int) int
 		Index       func(childComplexity int) int
+		Log         func(childComplexity int) int
 		Memo        func(childComplexity int) int
 		Messages    func(childComplexity int) int
 	}
@@ -391,6 +393,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Transaction.BlockHeight(childComplexity), true
 
+	case "Transaction.code":
+		if e.complexity.Transaction.Code == nil {
+			break
+		}
+
+		return e.complexity.Transaction.Code(childComplexity), true
+
 	case "Transaction.content_raw":
 		if e.complexity.Transaction.ContentRaw == nil {
 			break
@@ -425,6 +434,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Transaction.Index(childComplexity), true
+
+	case "Transaction.log":
+		if e.complexity.Transaction.Log == nil {
+			break
+		}
+
+		return e.complexity.Transaction.Log(childComplexity), true
 
 	case "Transaction.memo":
 		if e.complexity.Transaction.Memo == nil {
@@ -1863,6 +1879,10 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_messages(ctx, field)
 			case "memo":
 				return ec.fieldContext_Transaction_memo(ctx, field)
+			case "code":
+				return ec.fieldContext_Transaction_code(ctx, field)
+			case "log":
+				return ec.fieldContext_Transaction_log(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -2187,6 +2207,10 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_messages(ctx, field)
 			case "memo":
 				return ec.fieldContext_Transaction_memo(ctx, field)
+			case "code":
+				return ec.fieldContext_Transaction_code(ctx, field)
+			case "log":
+				return ec.fieldContext_Transaction_log(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -2634,6 +2658,94 @@ func (ec *executionContext) _Transaction_memo(ctx context.Context, field graphql
 }
 
 func (ec *executionContext) fieldContext_Transaction_memo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_code(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_code(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Code(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_code(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_log(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_log(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Log(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_log(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Transaction",
 		Field:      field,
@@ -5059,7 +5171,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo"}
+	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo", "limit"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5143,6 +5255,13 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 				return it, err
 			}
 			it.Memo = data
+		case "limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Limit = data
 		}
 	}
 
@@ -5822,6 +5941,16 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			}
 		case "memo":
 			out.Values[i] = ec._Transaction_memo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "code":
+			out.Values[i] = ec._Transaction_code(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "log":
+			out.Values[i] = ec._Transaction_log(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -59,6 +59,20 @@ func (t *Transaction) ContentRaw() string {
 	return t.txResult.Tx.String()
 }
 
+func (t *Transaction) Code() int {
+	if t.txResult.Response.Error == nil {
+		return 0
+	}
+	return 1
+}
+
+func (t *Transaction) Log() string {
+	if t.txResult == nil {
+		return ""
+	}
+	return t.txResult.Response.Log
+}
+
 func (t *Transaction) Memo() string {
 	if t.getStdTx() == nil {
 		return ""

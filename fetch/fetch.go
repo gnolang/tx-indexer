@@ -238,10 +238,12 @@ func (f *Fetcher) maybeFetchGenesis() error {
 
 	txResults := make([]*bftTypes.TxResult, len(bftTxs))
 	for i, tx := range bftTxs {
+		r := iGenesisBlock.Response.TxResponses[i]
 		txResults[i] = &bftTypes.TxResult{
-			Height: 0,
-			Index:  uint32(i),
-			Tx:     tx,
+			Height:   0,
+			Index:    uint32(i),
+			Tx:       tx,
+			Response: r,
 		}
 	}
 

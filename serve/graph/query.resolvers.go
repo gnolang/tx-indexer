@@ -22,6 +22,11 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 		return []*model.Transaction{model.NewTransaction(tx)}, nil
 	}
 
+	limit := maxElementsPerQuery
+	if filter.Limit != nil {
+		limit = *filter.Limit
+	}
+
 	it, err := r.
 		store.
 		TxIterator(
@@ -64,6 +69,9 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 			}
 			out = append(out, transaction)
 			i++
+			if i >= limit {
+				return out, nil
+			}
 		}
 	}
 }
