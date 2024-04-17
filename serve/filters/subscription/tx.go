@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -23,6 +24,10 @@ func NewTransactionSubscription(conn conns.WSConnection) *TransactionSubscriptio
 	return &TransactionSubscription{
 		baseSubscription: newBaseSubscription(conn),
 	}
+}
+
+func (b *TransactionSubscription) GetType() events.Type {
+	return NewTransactionsEvent
 }
 
 func (b *TransactionSubscription) WriteResponse(id string, data any) error {

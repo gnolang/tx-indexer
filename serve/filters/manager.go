@@ -121,8 +121,8 @@ func (f *Manager) subscribeToEvents() {
 					// Apply block to filters
 					f.updateFiltersWithBlock(newBlock.Block)
 
-					// send events to all matching subscriptions
-					f.subscriptions.sendBlockEvent(newBlock.Block)
+					// send events to all `newHeads` subscriptions
+					f.subscriptions.sendEvent(commonTypes.NewBlockEvent, newBlock.Block)
 				}
 			case commonTypes.NewTransactionsEvent:
 				if !more {
@@ -134,8 +134,8 @@ func (f *Manager) subscribeToEvents() {
 					// Apply block to filters
 					f.updateFiltersWithTxResult(newTransaction.TxResult)
 
-					// send events to all matching subscriptions
-					f.subscriptions.sendTransactionEvent(newTransaction.TxResult)
+					// Send events to all `newTransactions` subscriptions
+					f.subscriptions.sendEvent(commonTypes.NewTransactionsEvent, newTransaction.TxResult)
 				}
 			}
 		}
