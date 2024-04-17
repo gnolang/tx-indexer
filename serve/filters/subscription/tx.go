@@ -14,7 +14,7 @@ const (
 	NewTransactionsEvent = "newTransactions"
 )
 
-// TransactionSubscription is the new-heads type
+// TransactionSubscription is the new-transactions type
 // subscription
 type TransactionSubscription struct {
 	*baseSubscription

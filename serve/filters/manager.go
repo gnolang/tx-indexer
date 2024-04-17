@@ -80,7 +80,7 @@ func (f *Manager) NewBlockSubscription(conn conns.WSConnection) string {
 	return f.newSubscription(filterSubscription.NewBlockSubscription(conn))
 }
 
-// NewTransactionSubscription creates a new transaction (new heads) subscription (over WS)
+// NewTransactionSubscription creates a new transaction (new transactions) subscription (over WS)
 func (f *Manager) NewTransactionSubscription(conn conns.WSConnection) string {
 	return f.newSubscription(filterSubscription.NewTransactionSubscription(conn))
 }
@@ -121,7 +121,7 @@ func (f *Manager) subscribeToEvents() {
 					// Apply block to filters
 					f.updateFiltersWithBlock(newBlock.Block)
 
-					// send events to all `newHeads` subscriptions
+					// Send events to all `newHeads` subscriptions
 					f.subscriptions.sendEvent(commonTypes.NewBlockEvent, newBlock.Block)
 				}
 			case commonTypes.NewTransactionsEvent:
@@ -131,7 +131,7 @@ func (f *Manager) subscribeToEvents() {
 
 				newTransaction, ok := event.(*commonTypes.NewTransaction)
 				if ok {
-					// Apply block to filters
+					// Apply transaction to filters
 					f.updateFiltersWithTxResult(newTransaction.TxResult)
 
 					// Send events to all `newTransactions` subscriptions

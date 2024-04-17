@@ -33,6 +33,6 @@ type Filter interface {
 	// GetChanges returns any filter changes (specific to the filter type)
 	GetChanges() any
 
-	// UpdateWithBlock updates the specific filter type with a new block
+	// UpdateWith updates the specific filter type with a event's data
 	UpdateWith(data any)
 }
