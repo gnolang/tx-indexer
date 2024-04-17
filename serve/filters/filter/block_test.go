@@ -40,7 +40,7 @@ func TestBlockFilter_GetChanges(t *testing.T) {
 	for _, block := range blocks {
 		block := block
 
-		f.UpdateWithBlock(block)
+		f.UpdateWith(block)
 	}
 
 	// Get changes

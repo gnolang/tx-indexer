@@ -27,7 +27,7 @@ func TestGetHashes(t *testing.T) {
 	f := NewTxFilter(Options{})
 
 	for _, tx := range txs {
-		f.UpdateWithTx(tx)
+		f.UpdateWith(tx)
 	}
 
 	hashes := f.GetHashes()
@@ -228,7 +228,7 @@ func TestApplyFilters(t *testing.T) {
 			f := NewTxFilter(tt.options)
 
 			for _, tx := range txs {
-				f.UpdateWithTx(tx)
+				f.UpdateWith(tx)
 			}
 
 			filtered := f.Apply()
@@ -242,7 +242,7 @@ func TestApplyFilters(t *testing.T) {
 
 			for i, tx := range filtered {
 				assert.Equal(
-					t, tt.expected[i], tx,
+					t, *tt.expected[i], tx,
 					fmt.Sprintf(
 						"The filtered transaction should match the expected transaction: %v",
 						tt.expected[i],
@@ -302,7 +302,7 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 			f := NewTxFilter(tt.options)
 
 			for _, tx := range txs {
-				f.UpdateWithTx(tx)
+				f.UpdateWith(tx)
 			}
 
 			filtered := f.Apply()

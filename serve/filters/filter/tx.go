@@ -15,15 +15,26 @@ type Options struct {
 type TxFilter struct {
 	opts Options
 	*baseFilter
-	txs []*types.TxResult
+	txs []types.TxResult
 }
 
 // NewTxFilter creates a new TxFilter object.
 func NewTxFilter(opts Options) *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
-		txs:        make([]*types.TxResult, 0),
+		txs:        make([]types.TxResult, 0),
 		opts:       opts,
+	}
+}
+
+// GetChanges returns all new transactions from the last query
+func (tf *TxFilter) GetChanges() any {
+	return tf.getTxChanges()
+}
+
+func (tf *TxFilter) UpdateWith(data any) {
+	if tx, ok := data.(*types.TxResult); ok {
+		tf.updateWithTx(tx)
 	}
 }
 
@@ -37,7 +48,7 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	for _, txr := range tf.txs {
 		var hash []byte
 
-		if txr != nil && txr.Tx != nil {
+		if txr.Tx != nil {
 			hash = txr.Tx.Hash()
 		}
 
@@ -47,27 +58,20 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	return hashes
 }
 
-func (tf *TxFilter) UpdateWithTx(tx *types.TxResult) {
-	tf.Lock()
-	defer tf.Unlock()
-
-	tf.txs = append(tf.txs, tx)
-}
-
 // Apply applies all added conditions to the transactions in the filter.
 //
 // It returns a slice of `TxResult` that satisfy all the conditions. If no conditions are set,
 // it returns all transactions in the filter. Also, if the filter value is invalid filter will not
 // be applied.
-func (tf *TxFilter) Apply() []*types.TxResult {
+func (tf *TxFilter) Apply() []types.TxResult {
 	tf.Lock()
 	defer tf.Unlock()
 
 	return checkOpts(tf.txs, tf.opts)
 }
 
-func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
-	filtered := make([]*types.TxResult, 0, len(txs))
+func checkOpts(txs []types.TxResult, opts Options) []types.TxResult {
+	filtered := make([]types.TxResult, 0, len(txs))
 
 	for _, tx := range txs {
 		if checkFilterCondition(tx, opts) {
@@ -78,7 +82,7 @@ func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
 	return filtered
 }
 
-func checkFilterCondition(tx *types.TxResult, opts Options) bool {
+func checkFilterCondition(tx types.TxResult, opts Options) bool {
 	if opts.GasLimit.Max != nil && tx.Response.GasUsed > *opts.GasLimit.Max {
 		return false
 	}
@@ -104,4 +108,26 @@ func checkFilterCondition(tx *types.TxResult, opts Options) bool {
 	}
 
 	return true
+}
+
+// getTxChanges returns all new transactions from the last query
+func (tf *TxFilter) getTxChanges() []types.TxResult {
+	tf.Lock()
+	defer tf.Unlock()
+
+	// Get newTxs
+	newTxs := make([]types.TxResult, len(tf.txs))
+	copy(newTxs, tf.txs)
+
+	// Empty headers
+	tf.txs = tf.txs[:0]
+
+	return newTxs
+}
+
+func (tf *TxFilter) updateWithTx(tx *types.TxResult) {
+	tf.Lock()
+	defer tf.Unlock()
+
+	tf.txs = append(tf.txs, *tx)
 }

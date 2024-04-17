@@ -8,7 +8,7 @@ import (
 )
 
 type subscription interface {
-	WriteResponse(id string, block *types.Block) error
+	WriteResponse(id string, data any) error
 }
 
 // subscriptionMap keeps track of ongoing data subscriptions
@@ -68,6 +68,48 @@ func (sm *subscriptionMap) sendBlockEvent(block *types.Block) {
 			defer wg.Done()
 
 			if err := sub.WriteResponse(id, block); err != nil {
+				markInvalid(id)
+			}
+		}(id)
+	}
+
+	wg.Wait()
+
+	// Prune out the invalid subscriptions
+	for _, invalidID := range invalidSends {
+		delete(sm.subscriptions, invalidID)
+	}
+}
+
+// sendBlockEvent alerts all active subscriptions of a block event.
+// In case there was an error during writing, the subscription is removed
+func (sm *subscriptionMap) sendTransactionEvent(txResult *types.TxResult) {
+	sm.Lock()
+	defer sm.Unlock()
+
+	var (
+		invalidSends = make([]string, 0, len(sm.subscriptions))
+
+		invalidSendsMux sync.Mutex
+		wg              sync.WaitGroup
+	)
+
+	markInvalid := func(id string) {
+		invalidSendsMux.Lock()
+		defer invalidSendsMux.Unlock()
+
+		invalidSends = append(invalidSends, id)
+	}
+
+	for id, sub := range sm.subscriptions {
+		sub := sub
+
+		wg.Add(1)
+
+		go func(id string) {
+			defer wg.Done()
+
+			if err := sub.WriteResponse(id, txResult); err != nil {
 				markInvalid(id)
 			}
 		}(id)

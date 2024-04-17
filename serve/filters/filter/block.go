@@ -34,7 +34,13 @@ func (b *BlockFilter) GetChanges() any {
 	return hashes
 }
 
-func (b *BlockFilter) UpdateWithBlock(block *types.Block) {
+func (b *BlockFilter) UpdateWith(data any) {
+	if block, ok := data.(*types.Block); ok {
+		b.updateWithBlock(block)
+	}
+}
+
+func (b *BlockFilter) updateWithBlock(block *types.Block) {
 	b.Lock()
 	defer b.Unlock()
 

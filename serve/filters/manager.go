@@ -46,8 +46,8 @@ func NewFilterManager(
 		opt(filterManager)
 	}
 
-	// Subscribe to new block events
-	go filterManager.subscribeToNewBlockEvent()
+	// Subscribe to new events
+	go filterManager.subscribeToEvents()
 
 	// Start cleanup routine
 	go filterManager.cleanupRoutine()
@@ -62,6 +62,13 @@ func (f *Manager) NewBlockFilter() string {
 	return f.filters.newFilter(blockFilter)
 }
 
+// NewTransactionFilter creates a new Transaction filter, and returns the corresponding ID
+func (f *Manager) NewTxFilter() string {
+	txFilter := filter.NewTxFilter(filter.Options{})
+
+	return f.filters.newFilter(txFilter)
+}
+
 // UninstallFilter removes a filter from the filter map using its ID.
 // Returns a flag indicating if the filter was removed
 func (f *Manager) UninstallFilter(id string) bool {
@@ -71,6 +78,11 @@ func (f *Manager) UninstallFilter(id string) bool {
 // NewBlockSubscription creates a new block (new heads) subscription (over WS)
 func (f *Manager) NewBlockSubscription(conn conns.WSConnection) string {
 	return f.newSubscription(filterSubscription.NewBlockSubscription(conn))
+}
+
+// NewTransactionSubscription creates a new transaction (new heads) subscription (over WS)
+func (f *Manager) NewTransactionSubscription(conn conns.WSConnection) string {
+	return f.newSubscription(filterSubscription.NewTransactionSubscription(conn))
 }
 
 // newSubscription adds new subscription to the subscription map
@@ -84,31 +96,48 @@ func (f *Manager) UninstallSubscription(id string) bool {
 	return f.subscriptions.deleteSubscription(id)
 }
 
-// subscribeToNewBlockEvent subscribes to new block events
-func (f *Manager) subscribeToNewBlockEvent() {
-	blockSub := f.events.Subscribe([]events.Type{commonTypes.NewBlockEvent})
-	defer f.events.CancelSubscription(blockSub.ID)
+// subscribeToEvents subscribes to new events
+func (f *Manager) subscribeToEvents() {
+	subscription := f.events.Subscribe([]events.Type{commonTypes.NewBlockEvent, commonTypes.NewTransactionsEvent})
+	defer f.events.CancelSubscription(subscription.ID)
 
 	for {
 		select {
 		case <-f.ctx.Done():
 			return
-		case blockRaw, more := <-blockSub.SubCh:
+		case event, more := <-subscription.SubCh:
 			if !more {
 				return
 			}
 
-			// The following code segments
-			// cannot be executed in parallel (go routines)
-			// because data sequencing should be persisted
-			// (info about block X comes before info on block X + 1)
-			newBlock := blockRaw.(*commonTypes.NewBlock)
+			switch event.GetType() {
+			case commonTypes.NewBlockEvent:
+				// The following code segments
+				// cannot be executed in parallel (go routines)
+				// because data sequencing should be persisted
+				// (info about block X comes before info on block X + 1)
+				newBlock, ok := event.(*commonTypes.NewBlock)
+				if ok {
+					// Apply block to filters
+					f.updateFiltersWithBlock(newBlock.Block)
 
-			// Apply block to filters
-			f.updateFiltersWithBlock(newBlock.Block)
+					// send events to all matching subscriptions
+					f.subscriptions.sendBlockEvent(newBlock.Block)
+				}
+			case commonTypes.NewTransactionsEvent:
+				if !more {
+					return
+				}
 
-			// send events to all matching subscriptions
-			f.subscriptions.sendBlockEvent(newBlock.Block)
+				newTransaction, ok := event.(*commonTypes.NewTransaction)
+				if ok {
+					// Apply block to filters
+					f.updateFiltersWithTxResult(newTransaction.TxResult)
+
+					// send events to all matching subscriptions
+					f.subscriptions.sendTransactionEvent(newTransaction.TxResult)
+				}
+			}
 		}
 	}
 }
@@ -116,7 +145,14 @@ func (f *Manager) subscribeToNewBlockEvent() {
 // updateFiltersWithBlock updates all filters with the incoming block
 func (f *Manager) updateFiltersWithBlock(block *types.Block) {
 	f.filters.rangeItems(func(filter Filter) {
-		filter.UpdateWithBlock(block)
+		filter.UpdateWith(block)
+	})
+}
+
+// updateFiltersWithTxResult updates all filters with the incoming transactions
+func (f *Manager) updateFiltersWithTxResult(txResult *types.TxResult) {
+	f.filters.rangeItems(func(filter Filter) {
+		filter.UpdateWith(txResult)
 	})
 }
 
