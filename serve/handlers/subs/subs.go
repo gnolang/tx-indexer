@@ -2,8 +2,8 @@ package subs
 
 import (
 	"fmt"
+	"reflect"
 
-	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/filters"
 	"github.com/gnolang/tx-indexer/serve/filters/subscription"
@@ -42,6 +42,23 @@ func (h *Handler) NewBlockFilterHandler(
 
 func (h *Handler) newBlockFilter() string {
 	return h.filterManager.NewBlockFilter()
+}
+
+// NewTransactionFilterHandler creates a transaction filter object
+func (h *Handler) NewTransactionFilterHandler(
+	_ *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
+	// Check the params
+	if len(params) != 0 {
+		return nil, spec.GenerateInvalidParamCountError()
+	}
+
+	return h.newTxFilter(), nil
+}
+
+func (h *Handler) newTxFilter() string {
+	return h.filterManager.NewTxFilter()
 }
 
 // UninstallFilterHandler uninstalls a filter with given id
@@ -110,6 +127,8 @@ func (h *Handler) subscribe(connID, eventType string) (string, error) {
 	switch eventType {
 	case subscription.NewHeadsEvent:
 		return h.filterManager.NewBlockSubscription(conn), nil
+	case subscription.NewTransactionsEvent:
+		return h.filterManager.NewTransactionSubscription(conn), nil
 	default:
 		return "", fmt.Errorf("invalid event type: %s", eventType)
 	}
@@ -164,27 +183,45 @@ func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (a
 		return nil, spec.GenerateResponseError(err)
 	}
 
-	// Handle block filter changes
-	changes := h.getBlockChanges(f)
+	// Handle filter changes
+	changes, err := h.getFilterChanges(f)
+	if err != nil {
+		return nil, spec.GenerateResponseError(err)
+	}
 
-	// Encode the response
-	encodedResponses := make([]string, len(changes))
+	results := make([]string, len(changes))
 
-	for index, change := range changes {
-		encodedResponse, encodeErr := encode.PrepareValue(change)
+	for index, changed := range changes {
+		encodedResponse, encodeErr := encode.PrepareValue(changed)
 		if encodeErr != nil {
 			return nil, spec.GenerateResponseError(encodeErr)
 		}
 
-		encodedResponses[index] = encodedResponse
+		results[index] = encodedResponse
 	}
 
-	return encodedResponses, nil
+	return results, nil
 }
 
-func (h *Handler) getBlockChanges(filter filters.Filter) []types.Header {
+func (h *Handler) getFilterChanges(filter filters.Filter) ([]any, error) {
 	// Get updates
-	blockHeaders, _ := filter.GetChanges().([]types.Header)
+	changes := filter.GetChanges()
+	value := reflect.ValueOf(changes)
 
-	return blockHeaders
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	if value.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("forEachValue: expected slice type, found %q", value.Kind().String())
+	}
+
+	results := make([]any, value.Len())
+
+	for i := 0; i < value.Len(); i++ {
+		val := value.Index(i).Interface()
+		results[i] = val
+	}
+
+	return results, nil
 }
