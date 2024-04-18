@@ -114,6 +114,7 @@ type ComplexityRoot struct {
 		Index       func(childComplexity int) int
 		Memo        func(childComplexity int) int
 		Messages    func(childComplexity int) int
+		Success     func(childComplexity int) int
 	}
 
 	TransactionMessage struct {
@@ -439,6 +440,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Transaction.Messages(childComplexity), true
+
+	case "Transaction.success":
+		if e.complexity.Transaction.Success == nil {
+			break
+		}
+
+		return e.complexity.Transaction.Success(childComplexity), true
 
 	case "TransactionMessage.route":
 		if e.complexity.TransactionMessage.Route == nil {
@@ -1851,6 +1859,8 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_index(ctx, field)
 			case "hash":
 				return ec.fieldContext_Transaction_hash(ctx, field)
+			case "success":
+				return ec.fieldContext_Transaction_success(ctx, field)
 			case "block_height":
 				return ec.fieldContext_Transaction_block_height(ctx, field)
 			case "gas_wanted":
@@ -2175,6 +2185,8 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_index(ctx, field)
 			case "hash":
 				return ec.fieldContext_Transaction_hash(ctx, field)
+			case "success":
+				return ec.fieldContext_Transaction_success(ctx, field)
 			case "block_height":
 				return ec.fieldContext_Transaction_block_height(ctx, field)
 			case "gas_wanted":
@@ -2369,6 +2381,50 @@ func (ec *executionContext) fieldContext_Transaction_hash(ctx context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_success(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_success(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Success(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_success(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5059,7 +5115,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo"}
+	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo", "success"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5143,6 +5199,13 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 				return it, err
 			}
 			it.Memo = data
+		case "success":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("success"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Success = data
 		}
 	}
 
@@ -5792,6 +5855,11 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			}
 		case "hash":
 			out.Values[i] = ec._Transaction_hash(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "success":
+			out.Values[i] = ec._Transaction_success(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
