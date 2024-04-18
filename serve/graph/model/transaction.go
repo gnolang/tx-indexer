@@ -47,10 +47,8 @@ func (t *Transaction) BlockHeight() int {
 	return int(t.txResult.Height)
 }
 
-func (t *Transaction) Response() TransactionResponse {
-	return TransactionResponse{
-		response: t.txResult.Response,
-	}
+func (t *Transaction) Success() bool {
+	return t.txResult.Response.IsOK()
 }
 
 func (t *Transaction) GasWanted() int {

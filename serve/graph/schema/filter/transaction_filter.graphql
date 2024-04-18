@@ -59,6 +59,12 @@ input TransactionFilter {
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String
+
+  """
+  `success` is whether the transaction was successful or not.
+  `success` enables you to filter between successful and unsuccessful transactions.
+  """
+  success: Boolean
 }
 
 """
