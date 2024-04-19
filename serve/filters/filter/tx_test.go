@@ -24,7 +24,7 @@ func TestGetHashes(t *testing.T) {
 		{Tx: []byte(`c1dfd96eea8cc2b62785275bca38ac261256e278`)},
 	}
 
-	f := NewTxFilter(Options{})
+	f := NewTxFilter(TxFilterOption{})
 
 	for _, tx := range txs {
 		f.UpdateWith(tx)
@@ -111,110 +111,110 @@ func TestApplyFilters(t *testing.T) {
 	}
 
 	tests := []struct {
-		options  Options
+		options  TxFilterOption
 		name     string
 		expected []*types.TxResult
 	}{
 		{
 			name:     "no filter",
-			options:  Options{},
+			options:  TxFilterOption{},
 			expected: txs,
 		},
 		{
 			name: "min gas used is 0",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(0), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(0), Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
 			name: "invalid gas used",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(900)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(1000), Max: int64Ptr(900)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "filter by gas wanted 1",
-			options: Options{
-				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1100), int64Ptr(1200)},
+			options: TxFilterOption{
+				GasWanted: &RangeFilterOption{Min: int64Ptr(1100), Max: int64Ptr(1200)},
 			},
 			expected: []*types.TxResult{txs[1], txs[3], txs[4]},
 		},
 		{
 			name: "gas wanted min, max is same value",
-			options: Options{
-				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasWanted: &RangeFilterOption{Min: int64Ptr(1000), Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[2]},
 		},
 		{
 			name: "filter by gas used 2",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(900), Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
 			name: "gas used min, max is same value",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(1000), Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[4]},
 		},
 		{
 			name: "filter by gas wanted is invalid",
-			options: Options{
-				GasWanted: struct{ Min, Max *int64 }{int64Ptr(1200), int64Ptr(1100)},
+			options: TxFilterOption{
+				GasWanted: &RangeFilterOption{Min: int64Ptr(1200), Max: int64Ptr(1100)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "gas used filter is invalid",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(900)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(1000), Max: int64Ptr(900)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "gas limit min value is nil",
-			options: Options{
-				GasLimit: struct{ Min, Max *int64 }{nil, int64Ptr(1000)},
+			options: TxFilterOption{
+				GasLimit: &RangeFilterOption{Min: nil, Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
 			name: "gas limit max value is nil",
-			options: Options{
-				GasLimit: struct{ Min, Max *int64 }{int64Ptr(1100), nil},
+			options: TxFilterOption{
+				GasLimit: &RangeFilterOption{Min: int64Ptr(1100), Max: nil},
 			},
 			expected: []*types.TxResult{txs[1], txs[2]},
 		},
 		{
 			name: "gas limit range is valid",
-			options: Options{
-				GasLimit: struct{ Min, Max *int64 }{int64Ptr(900), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasLimit: &RangeFilterOption{Min: int64Ptr(900), Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
 		{
 			name: "gas limit both min and max are nil",
-			options: Options{
-				GasLimit: struct{ Min, Max *int64 }{nil, nil},
+			options: TxFilterOption{
+				GasLimit: &RangeFilterOption{Min: nil, Max: nil},
 			},
 			expected: txs,
 		},
 		{
 			name: "gas limit min is larger than max",
-			options: Options{
-				GasLimit: struct{ Min, Max *int64 }{int64Ptr(1000), int64Ptr(900)},
+			options: TxFilterOption{
+				GasLimit: &RangeFilterOption{Min: int64Ptr(1000), Max: int64Ptr(900)},
 			},
 			expected: []*types.TxResult{},
 		},
 		{
 			name: "gas used min is nil",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{nil, int64Ptr(1000)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: nil, Max: int64Ptr(1000)},
 			},
 			expected: []*types.TxResult{txs[0], txs[3], txs[4]},
 		},
@@ -231,7 +231,8 @@ func TestApplyFilters(t *testing.T) {
 				f.UpdateWith(tx)
 			}
 
-			filtered := f.Apply()
+			changes := f.GetChanges()
+			filtered := changes.([]types.TxResult)
 			require.Len(
 				t, filtered, len(tt.expected),
 				fmt.Sprintf(
@@ -276,19 +277,19 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 	}
 
 	tests := []struct {
-		options  Options
+		options  TxFilterOption
 		name     string
 		expected int
 	}{
 		{
 			name:     "no filter",
-			options:  Options{},
+			options:  TxFilterOption{},
 			expected: txCount,
 		},
 		{
 			name: "filter by gas used",
-			options: Options{
-				GasUsed: struct{ Min, Max *int64 }{int64Ptr(950), int64Ptr(1000)},
+			options: TxFilterOption{
+				GasUsed: &RangeFilterOption{Min: int64Ptr(950), Max: int64Ptr(1000)},
 			},
 			expected: txCount / 2,
 		},
@@ -305,7 +306,8 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 				f.UpdateWith(tx)
 			}
 
-			filtered := f.Apply()
+			changes := f.GetChanges()
+			filtered := changes.([]types.TxResult)
 			require.Len(
 				t, filtered, tt.expected,
 				fmt.Sprintf(

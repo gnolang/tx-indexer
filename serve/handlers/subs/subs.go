@@ -6,6 +6,7 @@ import (
 
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/filters"
+	"github.com/gnolang/tx-indexer/serve/filters/filter"
 	"github.com/gnolang/tx-indexer/serve/filters/subscription"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -50,15 +51,22 @@ func (h *Handler) NewTransactionFilterHandler(
 	params []any,
 ) (any, *spec.BaseJSONError) {
 	// Check the params
-	if len(params) != 0 {
+	if len(params) < 1 {
 		return nil, spec.GenerateInvalidParamCountError()
 	}
 
-	return h.newTxFilter(), nil
+	var options filter.TxFilterOption
+
+	err := spec.ParseObjectParameter(params[0], &options)
+	if err != nil {
+		return nil, spec.GenerateInvalidParamError(1)
+	}
+
+	return h.newTxFilter(options), nil
 }
 
-func (h *Handler) newTxFilter() string {
-	return h.filterManager.NewTxFilter()
+func (h *Handler) newTxFilter(options filter.TxFilterOption) string {
+	return h.filterManager.NewTxFilter(options)
 }
 
 // UninstallFilterHandler uninstalls a filter with given id

@@ -63,8 +63,8 @@ func (f *Manager) NewBlockFilter() string {
 }
 
 // NewTransactionFilter creates a new Transaction filter, and returns the corresponding ID
-func (f *Manager) NewTxFilter() string {
-	txFilter := filter.NewTxFilter(filter.Options{})
+func (f *Manager) NewTxFilter(options filter.TxFilterOption) string {
+	txFilter := filter.NewTxFilter(options)
 
 	return f.filters.newFilter(txFilter)
 }
