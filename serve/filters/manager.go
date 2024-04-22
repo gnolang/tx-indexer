@@ -98,7 +98,7 @@ func (f *Manager) UninstallSubscription(id string) bool {
 
 // subscribeToEvents subscribes to new events
 func (f *Manager) subscribeToEvents() {
-	subscription := f.events.Subscribe([]events.Type{commonTypes.NewBlockEvent, commonTypes.NewTransactionsEvent})
+	subscription := f.events.Subscribe([]events.Type{commonTypes.NewBlockEvent})
 	defer f.events.CancelSubscription(subscription.ID)
 
 	for {
@@ -110,8 +110,7 @@ func (f *Manager) subscribeToEvents() {
 				return
 			}
 
-			switch event.GetType() {
-			case commonTypes.NewBlockEvent:
+			if event.GetType() == commonTypes.NewBlockEvent {
 				// The following code segments
 				// cannot be executed in parallel (go routines)
 				// because data sequencing should be persisted
@@ -122,20 +121,15 @@ func (f *Manager) subscribeToEvents() {
 					f.updateFiltersWithBlock(newBlock.Block)
 
 					// Send events to all `newHeads` subscriptions
-					f.subscriptions.sendEvent(commonTypes.NewBlockEvent, newBlock.Block)
-				}
-			case commonTypes.NewTransactionsEvent:
-				if !more {
-					return
-				}
+					f.subscriptions.sendEvent(filterSubscription.NewHeadsEvent, newBlock.Block)
 
-				newTransaction, ok := event.(*commonTypes.NewTransaction)
-				if ok {
-					// Apply transaction to filters
-					f.updateFiltersWithTxResult(newTransaction.TxResult)
+					for _, txResult := range newBlock.Results {
+						// Apply transaction to filters
+						f.updateFiltersWithTxResult(txResult)
 
-					// Send events to all `newTransactions` subscriptions
-					f.subscriptions.sendEvent(commonTypes.NewTransactionsEvent, newTransaction.TxResult)
+						// Send events to all `newHeads` subscriptions
+						f.subscriptions.sendEvent(filterSubscription.NewTransactionsEvent, txResult)
+					}
 				}
 			}
 		}

@@ -7,8 +7,7 @@ import (
 
 // NewBlockEvent is the event for when new blocks appear
 var (
-	NewBlockEvent        events.Type = "newHeads"
-	NewTransactionsEvent events.Type = "newTransactions"
+	NewBlockEvent events.Type = "newHeads"
 )
 
 type NewBlock struct {
@@ -21,17 +20,5 @@ func (n *NewBlock) GetType() events.Type {
 }
 
 func (n *NewBlock) GetData() any {
-	return n
-}
-
-type NewTransaction struct {
-	TxResult *types.TxResult
-}
-
-func (n *NewTransaction) GetType() events.Type {
-	return NewTransactionsEvent
-}
-
-func (n *NewTransaction) GetData() any {
 	return n
 }

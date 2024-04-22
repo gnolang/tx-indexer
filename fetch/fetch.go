@@ -219,13 +219,6 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 					}
 
 					f.events.SignalEvent(event)
-
-					for _, txResult := range txResults {
-						event := &types.NewTransaction{
-							TxResult: txResult,
-						}
-						f.events.SignalEvent(event)
-					}
 				}
 
 				f.logger.Info(

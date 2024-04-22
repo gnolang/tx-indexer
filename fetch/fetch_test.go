@@ -202,25 +202,23 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		require.Len(t, capturedEvents, len(blocks)-1)
 
 		for index, event := range capturedEvents {
-			switch event.GetType() {
-			case indexerTypes.NewBlockEvent:
-				eventData, ok := event.(*indexerTypes.NewBlock)
-				require.True(t, ok)
+			if event.GetType() != indexerTypes.NewBlockEvent {
+				continue
+			}
 
-				// Make sure the block is valid
-				assert.Equal(t, blocks[index+1], eventData.Block)
+			eventData, ok := event.(*indexerTypes.NewBlock)
+			require.True(t, ok)
 
-				// Make sure the transaction results are valid
-				require.Len(t, eventData.Results, txCount)
+			// Make sure the block is valid
+			assert.Equal(t, blocks[index+1], eventData.Block)
 
-				for txIndex, tx := range eventData.Results {
-					assert.EqualValues(t, blocks[index+1].Height, tx.Height)
-					assert.EqualValues(t, txIndex, tx.Index)
-					assert.Equal(t, serializedTxs[txIndex], tx.Tx)
-				}
-			case indexerTypes.NewTransactionsEvent:
-				_, ok := event.(*indexerTypes.NewTransaction)
-				require.True(t, ok)
+			// Make sure the transaction results are valid
+			require.Len(t, eventData.Results, txCount)
+
+			for txIndex, tx := range eventData.Results {
+				assert.EqualValues(t, blocks[index+1].Height, tx.Height)
+				assert.EqualValues(t, txIndex, tx.Index)
+				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
 		}
 	})
@@ -243,14 +241,10 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 
 			mockEvents = &mockEvents{
 				signalEventFn: func(e events.Event) {
-					switch e.GetType() {
-					case indexerTypes.NewBlockEvent:
+					if e.GetType() == indexerTypes.NewBlockEvent {
 						_, ok := e.(*indexerTypes.NewBlock)
 						require.True(t, ok)
 						capturedEvents = append(capturedEvents, e)
-					case indexerTypes.NewTransactionsEvent:
-						_, ok := e.(*indexerTypes.NewTransaction)
-						require.True(t, ok)
 					}
 				},
 			}
@@ -429,8 +423,8 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 
 			mockEvents = &mockEvents{
 				signalEventFn: func(e events.Event) {
-					if e.GetType() == indexerTypes.NewTransactionsEvent {
-						_, ok := e.(*indexerTypes.NewTransaction)
+					if e.GetType() == indexerTypes.NewBlockEvent {
+						_, ok := e.(*indexerTypes.NewBlock)
 						require.True(t, ok)
 						capturedEvents = append(capturedEvents, e)
 					}
@@ -555,36 +549,27 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 
 		// Make sure proper events were emitted
 		// Blocks each have as many transactions as txCount.
-		txEventCount := (len(blocks) - 1) * txCount
+		txEventCount := (len(blocks) - 1)
 		require.Len(t, capturedEvents, txEventCount)
 
 		for index, event := range capturedEvents {
-			switch event.GetType() {
-			case indexerTypes.NewBlockEvent:
-				eventData, ok := event.(*indexerTypes.NewBlock)
-				require.True(t, ok)
+			if event.GetType() != indexerTypes.NewBlockEvent {
+				continue
+			}
 
-				// Make sure the block is valid
-				assert.Equal(t, blocks[index+1], eventData.Block)
+			eventData, ok := event.(*indexerTypes.NewBlock)
+			require.True(t, ok)
 
-				// Make sure the transaction results are valid
-				require.Len(t, eventData.Results, txCount)
+			// Make sure the block is valid
+			assert.Equal(t, blocks[index+1], eventData.Block)
 
-				for txIndex, tx := range eventData.Results {
-					assert.EqualValues(t, blocks[index+1].Height, tx.Height)
-					assert.EqualValues(t, txIndex, tx.Index)
-					assert.Equal(t, serializedTxs[txIndex], tx.Tx)
-				}
-			case indexerTypes.NewTransactionsEvent:
-				eventData, ok := event.(*indexerTypes.NewTransaction)
-				require.True(t, ok)
+			// Make sure the transaction results are valid
+			require.Len(t, eventData.Results, txCount)
 
-				blockIndex := index / txCount
-				txIndex := index % txCount
-
-				// Make sure the tx is valid
-				assert.Equal(t, blocks[blockIndex+1].Txs[txIndex], eventData.TxResult.Tx)
-				assert.Equal(t, blocks[blockIndex+1].Height, eventData.TxResult.Height)
+			for txIndex, tx := range eventData.Results {
+				assert.EqualValues(t, blocks[index+1].Height, tx.Height)
+				assert.EqualValues(t, txIndex, tx.Index)
+				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
 		}
 	})
