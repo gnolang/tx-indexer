@@ -10,6 +10,10 @@ import (
 // `FilteredTransactionBy` checks for conditions in GasUsed, GasWanted, Memo, and Message.
 // By default, the condition is only checked if the input parameter exists.
 func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter) bool {
+	if !filteredTransactionBySuccess(tx, filter.Success) {
+		return false
+	}
+
 	if !filteredTransactionByGasUsed(tx, filter.FromGasUsed, filter.ToGasUsed) {
 		return false
 	}
@@ -37,6 +41,15 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 	}
 
 	return true
+}
+
+// `filteredTransactionBySuccess` will check the success or failure results of the transaction.
+func filteredTransactionBySuccess(tx *model.Transaction, success *bool) bool {
+	if success == nil {
+		return true
+	}
+
+	return deref(success) == tx.Success()
 }
 
 // `filteredAmountBy` checks a token represented as a string(<value><denomination>)
