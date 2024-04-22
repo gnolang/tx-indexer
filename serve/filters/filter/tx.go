@@ -35,7 +35,7 @@ func NewTxFilter(opts TxFilterOption) *TxFilter {
 }
 
 // GetChanges returns all new transactions from the last query
-func (tf *TxFilter) GetChanges() any {
+func (tf *TxFilter) GetChanges() []any {
 	return tf.getTxChanges()
 }
 
@@ -108,13 +108,15 @@ func filteredByRangeFilterOption(value int64, rangeFilterOption *RangeFilterOpti
 }
 
 // getTxChanges returns all new transactions from the last query
-func (tf *TxFilter) getTxChanges() []types.TxResult {
+func (tf *TxFilter) getTxChanges() []any {
 	tf.Lock()
 	defer tf.Unlock()
 
 	// Get newTxs
-	newTxs := make([]types.TxResult, len(tf.txs))
-	copy(newTxs, tf.txs)
+	newTxs := make([]any, len(tf.txs))
+	for index, tx := range tf.txs {
+		newTxs[index] = tx
+	}
 
 	// Empty headers
 	tf.txs = tf.txs[:0]

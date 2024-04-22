@@ -2,7 +2,6 @@ package subs
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/filters"
@@ -192,10 +191,7 @@ func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (a
 	}
 
 	// Handle filter changes
-	changes, err := h.getFilterChanges(f)
-	if err != nil {
-		return nil, spec.GenerateResponseError(err)
-	}
+	changes := f.GetChanges()
 
 	results := make([]string, len(changes))
 
@@ -206,29 +202,6 @@ func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (a
 		}
 
 		results[index] = encodedResponse
-	}
-
-	return results, nil
-}
-
-func (h *Handler) getFilterChanges(filter filters.Filter) ([]any, error) {
-	// Get updates
-	changes := filter.GetChanges()
-	value := reflect.ValueOf(changes)
-
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
-	}
-
-	if value.Kind() != reflect.Slice {
-		return nil, fmt.Errorf("forEachValue: expected slice type, found %q", value.Kind().String())
-	}
-
-	results := make([]any, value.Len())
-
-	for i := 0; i < value.Len(); i++ {
-		val := value.Index(i).Interface()
-		results[i] = val
 	}
 
 	return results, nil

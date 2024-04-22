@@ -44,10 +44,7 @@ func TestBlockFilter_GetChanges(t *testing.T) {
 	}
 
 	// Get changes
-	changesRaw := f.GetChanges()
-
-	changes, ok := changesRaw.([]types.Header)
-	require.True(t, ok)
+	changes := f.GetChanges()
 
 	// Make sure the headers match
 	require.Len(t, changes, len(blocks))

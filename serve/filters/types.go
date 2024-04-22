@@ -31,7 +31,7 @@ type Filter interface {
 	UpdateLastUsed()
 
 	// GetChanges returns any filter changes (specific to the filter type)
-	GetChanges() any
+	GetChanges() []any
 
 	// UpdateWith updates the specific filter type with a event's data
 	UpdateWith(data any)

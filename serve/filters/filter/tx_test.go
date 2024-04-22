@@ -232,16 +232,15 @@ func TestApplyFilters(t *testing.T) {
 			}
 
 			changes := f.GetChanges()
-			filtered := changes.([]types.TxResult)
 			require.Len(
-				t, filtered, len(tt.expected),
+				t, changes, len(tt.expected),
 				fmt.Sprintf(
 					"There should be one transaction after applying filters: %v",
 					len(tt.expected),
 				),
 			)
 
-			for i, tx := range filtered {
+			for i, tx := range changes {
 				assert.Equal(
 					t, *tt.expected[i], tx,
 					fmt.Sprintf(
@@ -307,12 +306,11 @@ func TestApplyFiltersWithLargeData(t *testing.T) {
 			}
 
 			changes := f.GetChanges()
-			filtered := changes.([]types.TxResult)
 			require.Len(
-				t, filtered, tt.expected,
+				t, changes, tt.expected,
 				fmt.Sprintf(
 					"There should be %d transactions after applying filters. got %d",
-					tt.expected, len(filtered),
+					tt.expected, len(changes),
 				),
 			)
 		})
