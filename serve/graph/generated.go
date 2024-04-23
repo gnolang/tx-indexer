@@ -2775,9 +2775,9 @@ func (ec *executionContext) _Transaction_response(ctx context.Context, field gra
 		}
 		return graphql.Null
 	}
-	res := resTmp.(model.TransactionResponse)
+	res := resTmp.(*model.TransactionResponse)
 	fc.Result = res
-	return ec.marshalNTransactionResponse2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx, field.Selections, res)
+	return ec.marshalNTransactionResponse2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_response(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6891,8 +6891,14 @@ func (ec *executionContext) marshalNTransactionMessage2ᚕᚖgithubᚗcomᚋgnol
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionResponse2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v model.TransactionResponse) graphql.Marshaler {
-	return ec._TransactionResponse(ctx, sel, &v)
+func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransactionResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
