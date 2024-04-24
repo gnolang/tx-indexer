@@ -49,6 +49,12 @@ type Transaction {
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
   memo: String!
+
+  """
+  `response` is the processing result of the transaction.
+  It has `log`, `info`, `error`, and `data`.
+  """
+  response: TransactionResponse!
 }
 
 """
@@ -267,4 +273,30 @@ type TxFee {
   gas fee details (<value><denomination>)
   """
   gas_fee: Int!
+}
+
+"""
+`TransactionResponse` is the processing result of the transaction.
+It has `log`, `info`, `error`, and `data`.
+"""
+type TransactionResponse {
+  """
+  The log value associated with the Transaction execution, if any.
+  """
+  log: String!
+
+  """
+  The Info associated with the Transaction execution, if any.
+  """
+  info: String!
+
+  """
+  The error value associated with the Transaction execution, if any.
+  """
+  error: String!
+
+  """
+  The response data associated with the Transaction execution, if any.
+  """
+  data: String!
 }

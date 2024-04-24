@@ -8,6 +8,7 @@ import (
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
 	"github.com/gnolang/gno/tm2/pkg/amino"
+	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/sdk/bank"
 	"github.com/gnolang/gno/tm2/pkg/std"
@@ -27,7 +28,6 @@ func NewTransaction(txResult *types.TxResult) *Transaction {
 	return &Transaction{
 		txResult: txResult,
 		messages: make([]*TransactionMessage, 0),
-		stdTx:    nil,
 	}
 }
 
@@ -49,6 +49,10 @@ func (t *Transaction) BlockHeight() int {
 
 func (t *Transaction) Success() bool {
 	return t.txResult.Response.IsOK()
+}
+
+func (t *Transaction) Response() *TransactionResponse {
+	return &TransactionResponse{response: t.txResult.Response}
 }
 
 func (t *Transaction) GasWanted() int {
@@ -118,6 +122,31 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 	t.onceMessages.Do(unmarshalMessages)
 
 	return t.messages
+}
+
+//nolint:errname // Provide a field named `error` as the GraphQL response value
+type TransactionResponse struct {
+	response abci.ResponseDeliverTx
+}
+
+func (tr *TransactionResponse) Log() string {
+	return tr.response.Log
+}
+
+func (tr *TransactionResponse) Info() string {
+	return tr.response.Info
+}
+
+func (tr *TransactionResponse) Error() string {
+	if tr.response.IsErr() {
+		return tr.response.Error.Error()
+	}
+
+	return ""
+}
+
+func (tr *TransactionResponse) Data() string {
+	return string(tr.response.Data)
 }
 
 type TransactionMessage struct {
