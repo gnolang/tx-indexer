@@ -114,6 +114,7 @@ type ComplexityRoot struct {
 		Index       func(childComplexity int) int
 		Memo        func(childComplexity int) int
 		Messages    func(childComplexity int) int
+		Response    func(childComplexity int) int
 		Success     func(childComplexity int) int
 	}
 
@@ -121,6 +122,13 @@ type ComplexityRoot struct {
 		Route   func(childComplexity int) int
 		TypeURL func(childComplexity int) int
 		Value   func(childComplexity int) int
+	}
+
+	TransactionResponse struct {
+		Data  func(childComplexity int) int
+		Error func(childComplexity int) int
+		Info  func(childComplexity int) int
+		Log   func(childComplexity int) int
 	}
 
 	TxFee struct {
@@ -441,6 +449,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Transaction.Messages(childComplexity), true
 
+	case "Transaction.response":
+		if e.complexity.Transaction.Response == nil {
+			break
+		}
+
+		return e.complexity.Transaction.Response(childComplexity), true
+
 	case "Transaction.success":
 		if e.complexity.Transaction.Success == nil {
 			break
@@ -468,6 +483,34 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.TransactionMessage.Value(childComplexity), true
+
+	case "TransactionResponse.data":
+		if e.complexity.TransactionResponse.Data == nil {
+			break
+		}
+
+		return e.complexity.TransactionResponse.Data(childComplexity), true
+
+	case "TransactionResponse.error":
+		if e.complexity.TransactionResponse.Error == nil {
+			break
+		}
+
+		return e.complexity.TransactionResponse.Error(childComplexity), true
+
+	case "TransactionResponse.info":
+		if e.complexity.TransactionResponse.Info == nil {
+			break
+		}
+
+		return e.complexity.TransactionResponse.Info(childComplexity), true
+
+	case "TransactionResponse.log":
+		if e.complexity.TransactionResponse.Log == nil {
+			break
+		}
+
+		return e.complexity.TransactionResponse.Log(childComplexity), true
 
 	case "TxFee.gas_fee":
 		if e.complexity.TxFee.GasFee == nil {
@@ -1873,6 +1916,8 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_messages(ctx, field)
 			case "memo":
 				return ec.fieldContext_Transaction_memo(ctx, field)
+			case "response":
+				return ec.fieldContext_Transaction_response(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -2199,6 +2244,8 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_messages(ctx, field)
 			case "memo":
 				return ec.fieldContext_Transaction_memo(ctx, field)
+			case "response":
+				return ec.fieldContext_Transaction_response(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -2702,6 +2749,60 @@ func (ec *executionContext) fieldContext_Transaction_memo(ctx context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Transaction_response(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_response(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Response(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.TransactionResponse)
+	fc.Result = res
+	return ec.marshalNTransactionResponse2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_response(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "log":
+				return ec.fieldContext_TransactionResponse_log(ctx, field)
+			case "info":
+				return ec.fieldContext_TransactionResponse_info(ctx, field)
+			case "error":
+				return ec.fieldContext_TransactionResponse_error(ctx, field)
+			case "data":
+				return ec.fieldContext_TransactionResponse_data(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransactionResponse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _TransactionMessage_typeUrl(ctx context.Context, field graphql.CollectedField, obj *model.TransactionMessage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TransactionMessage_typeUrl(ctx, field)
 	if err != nil {
@@ -2829,6 +2930,182 @@ func (ec *executionContext) fieldContext_TransactionMessage_value(ctx context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type MessageValue does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionResponse_log(ctx context.Context, field graphql.CollectedField, obj *model.TransactionResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionResponse_log(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Log(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionResponse_log(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionResponse",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionResponse_info(ctx context.Context, field graphql.CollectedField, obj *model.TransactionResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionResponse_info(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Info(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionResponse_info(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionResponse",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionResponse_error(ctx context.Context, field graphql.CollectedField, obj *model.TransactionResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionResponse_error(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Error(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionResponse_error(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionResponse",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionResponse_data(ctx context.Context, field graphql.CollectedField, obj *model.TransactionResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionResponse_data(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Data(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionResponse_data(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionResponse",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5893,6 +6170,11 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "response":
+			out.Values[i] = ec._Transaction_response(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5939,6 +6221,60 @@ func (ec *executionContext) _TransactionMessage(ctx context.Context, sel ast.Sel
 			}
 		case "value":
 			out.Values[i] = ec._TransactionMessage_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transactionResponseImplementors = []string{"TransactionResponse"}
+
+func (ec *executionContext) _TransactionResponse(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transactionResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransactionResponse")
+		case "log":
+			out.Values[i] = ec._TransactionResponse_log(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "info":
+			out.Values[i] = ec._TransactionResponse_info(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "error":
+			out.Values[i] = ec._TransactionResponse_error(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "data":
+			out.Values[i] = ec._TransactionResponse_data(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6553,6 +6889,16 @@ func (ec *executionContext) marshalNTransactionMessage2ᚕᚖgithubᚗcomᚋgnol
 	wg.Wait()
 
 	return ret
+}
+
+func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransactionResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
