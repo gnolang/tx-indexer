@@ -28,7 +28,7 @@ func (h *Handler) GetTxHandler(
 	params []any,
 ) (any, *spec.BaseJSONError) {
 	// Check the params
-	if len(params) != 2 {
+	if len(params) < 2 {
 		return nil, spec.GenerateInvalidParamCountError()
 	}
 
