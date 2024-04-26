@@ -1,0 +1,5 @@
+2024-04-18T13:18:24.990+0200	INFO	http-server	serve/server.go:46	HTTP server started	{"address": "[::]:8546"}
+2024-04-18T13:18:24.991+0200	INFO	http-server	serve/server.go:61	HTTP server to be shut down
+2024-04-18T13:18:24.991+0200	INFO	http-server	serve/server.go:55	HTTP server shut down
+unable to index genesis block, unable to fetch genesis block, unable to get genesis block, Post "http://127.0.0.1:26657": dial tcp 127.0.0.1:26657: connect: connection refused
+sync /dev/stderr: bad file descriptorexit status 1

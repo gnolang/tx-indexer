@@ -104,4 +104,4 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
-replace github.com/gnolang/gno => github.com/TERITORI/gno v0.0.0-20240417140052-667f8bde8972
+replace github.com/gnolang/gno => /Users/norman/Code/gno
