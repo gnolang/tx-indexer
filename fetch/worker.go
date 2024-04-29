@@ -79,7 +79,7 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 	}
 
 	// Get the block results
-	blocksRaw, err := batch.Execute()
+	blocksRaw, err := batch.Execute(context.Background())
 	if err != nil {
 		// Try to fetch sequentially
 		return getBlocksSequentially(chunkRange, client)
@@ -155,7 +155,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 	}
 
 	// Get the block results
-	blockResultsRaw, err := batch.Execute()
+	blockResultsRaw, err := batch.Execute(context.Background())
 	if err != nil {
 		// Try to fetch sequentially
 		return getTxResultsSequentially(blocks, client)

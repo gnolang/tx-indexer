@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 
 	rpcClient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
@@ -8,13 +9,13 @@ import (
 
 // Batch is the wrapper for HTTP batch requests
 type Batch struct {
-	batch *rpcClient.BatchHTTP
+	batch *rpcClient.RPCBatch
 }
 
 // AddBlockRequest adds a new block request (block fetch) to the batch
 func (b *Batch) AddBlockRequest(blockNum uint64) error {
 	bn := int64(blockNum)
-	if _, err := b.batch.Block(&bn); err != nil {
+	if err := b.batch.Block(&bn); err != nil {
 		return fmt.Errorf("unable to add block request, %w", err)
 	}
 
@@ -24,7 +25,7 @@ func (b *Batch) AddBlockRequest(blockNum uint64) error {
 // AddBlockResultsRequest adds a new block results request (block results fetch) to the batch
 func (b *Batch) AddBlockResultsRequest(blockNum uint64) error {
 	bn := int64(blockNum)
-	if _, err := b.batch.BlockResults(&bn); err != nil {
+	if err := b.batch.BlockResults(&bn); err != nil {
 		return fmt.Errorf("unable to add block results request, %w", err)
 	}
 
@@ -32,8 +33,8 @@ func (b *Batch) AddBlockResultsRequest(blockNum uint64) error {
 }
 
 // Execute sends the batch off for processing by the node
-func (b *Batch) Execute() ([]any, error) {
-	return b.batch.Send()
+func (b *Batch) Execute(ctx context.Context) ([]any, error) {
+	return b.batch.Send(ctx)
 }
 
 // Count returns the number of requests in the batch
