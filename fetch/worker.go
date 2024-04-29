@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -79,7 +80,10 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 	}
 
 	// Get the block results
-	blocksRaw, err := batch.Execute()
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFn()
+
+	blocksRaw, err := batch.Execute(ctx)
 	if err != nil {
 		// Try to fetch sequentially
 		return getBlocksSequentially(chunkRange, client)
@@ -155,7 +159,10 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 	}
 
 	// Get the block results
-	blockResultsRaw, err := batch.Execute()
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFn()
+
+	blockResultsRaw, err := batch.Execute(ctx)
 	if err != nil {
 		// Try to fetch sequentially
 		return getTxResultsSequentially(blocks, client)
