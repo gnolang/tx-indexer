@@ -468,7 +468,7 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 			mockClient = &mockClient{
 				createBatchFn: func() clientTypes.Batch {
 					return &mockBatch{
-						executeFn: func() ([]any, error) {
+						executeFn: func(_ context.Context) ([]any, error) {
 							// Force an error
 							return nil, errors.New("something is flaky")
 						},
