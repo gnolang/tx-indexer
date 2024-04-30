@@ -133,18 +133,24 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	defer func() {
-		if err := db.Close(); err != nil {
-			logger.Error("unable to gracefully close DB", zap.Error(err))
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Error("unable to gracefully close DB", zap.Error(closeErr))
 		}
 	}()
 
 	// Create an Event Manager instance
 	em := events.NewManager()
 
+	// Create a TM2 client
+	tm2Client, err := client.NewClient(c.remote)
+	if err != nil {
+		return fmt.Errorf("unable to create client, %w", err)
+	}
+
 	// Create the fetcher service
 	f := fetch.New(
 		db,
-		client.NewClient(c.remote),
+		tm2Client,
 		em,
 		fetch.WithLogger(
 			logger.Named("fetcher"),

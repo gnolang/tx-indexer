@@ -123,7 +123,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			mockClient = &mockClient{
 				createBatchFn: func() clientTypes.Batch {
 					return &mockBatch{
-						executeFn: func() ([]any, error) {
+						executeFn: func(_ context.Context) ([]any, error) {
 							// Force an error
 							return nil, errors.New("something is flaky")
 						},
@@ -288,7 +288,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			mockClient = &mockClient{
 				createBatchFn: func() clientTypes.Batch {
 					return &mockBatch{
-						executeFn: func() ([]any, error) {
+						executeFn: func(_ context.Context) ([]any, error) {
 							results := make([]any, len(batch))
 							copy(results, batch)
 
@@ -628,7 +628,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			mockClient = &mockClient{
 				createBatchFn: func() clientTypes.Batch {
 					return &mockBatch{
-						executeFn: func() ([]any, error) {
+						executeFn: func(_ context.Context) ([]any, error) {
 							// Force an error
 							return nil, errors.New("something is flaky")
 						},
@@ -736,7 +736,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			mockClient = &mockClient{
 				createBatchFn: func() clientTypes.Batch {
 					return &mockBatch{
-						executeFn: func() ([]any, error) {
+						executeFn: func(_ context.Context) ([]any, error) {
 							results := make([]any, len(batch))
 							copy(results, batch)
 
@@ -854,7 +854,7 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 		mockClient = &mockClient{
 			createBatchFn: func() clientTypes.Batch {
 				return &mockBatch{
-					executeFn: func() ([]any, error) {
+					executeFn: func(_ context.Context) ([]any, error) {
 						// Force an error
 						return nil, errors.New("something is flaky")
 					},
