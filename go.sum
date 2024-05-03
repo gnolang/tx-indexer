@@ -82,8 +82,8 @@ github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMo
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/getsentry/sentry-go v0.27.0 h1:Pv98CIbtB3LkMWmXi4Joa5OOcwbmnX88sF5qbK3r3Ps=
 github.com/getsentry/sentry-go v0.27.0/go.mod h1:lc76E2QywIyW8WuBnwl8Lc4bkmQH4+w1gwTf25trprY=
-github.com/gnolang/gno v0.0.0-20240429120125-3832b1312d7d h1:vD4URFbnv8UL/NG8fX5pjVPRyQ1tvCtqTzU5I996EtA=
-github.com/gnolang/gno v0.0.0-20240429120125-3832b1312d7d/go.mod h1:vbm5sS6KZj2rkwJ9C6AtdpPZB7aZDhfZ3lJUC+qa/to=
+github.com/gnolang/gno v0.0.0-20240502173657-6482c18da2c7 h1:G9dv/bhGj4aWbar1nCD4ckjdb/NrGwqNK5sWaFi+jZA=
+github.com/gnolang/gno v0.0.0-20240502173657-6482c18da2c7/go.mod h1:vbm5sS6KZj2rkwJ9C6AtdpPZB7aZDhfZ3lJUC+qa/to=
 github.com/gnolang/overflow v0.0.0-20170615021017-4d914c927216 h1:GKvsK3oLWG9B1GL7WP/VqwM6C92j5tIvB844oggL9Lk=
 github.com/gnolang/overflow v0.0.0-20170615021017-4d914c927216/go.mod h1:xJhtEL7ahjM1WJipt89gel8tHzfIl/LyMY+lCYh38d8=
 github.com/go-chi/chi/v5 v5.0.12 h1:9euLV5sTrTNTRUU9POmDUvfxyj6LAABLUcEWO+JJb4s=
