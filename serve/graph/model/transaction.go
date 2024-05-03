@@ -149,6 +149,22 @@ func (tr *TransactionResponse) Data() string {
 	return string(tr.response.Data)
 }
 
+func (tr *TransactionResponse) Events() []TransactionEvent {
+	events := make([]TransactionEvent, 0)
+
+	data, err := json.Marshal(tr.response.Events)
+	if err != nil {
+		return events
+	}
+
+	err = json.Unmarshal(data, &events)
+	if err != nil {
+		return events
+	}
+
+	return events
+}
+
 type TransactionMessage struct {
 	Value   MessageValue
 	Route   string

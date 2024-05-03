@@ -299,4 +299,51 @@ type TransactionResponse {
   The response data associated with the Transaction execution, if any.
   """
   data: String!
+
+  """
+  The emitted events associated with the transaction execution, if any.
+  """
+  events: [TransactionEvent!]
+}
+
+"""
+`TransactionEvent' is the event information emitted by the transaction.
+It has `log`, `info`, `error`, and `data`.
+"""
+type TransactionEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String!
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String!
+
+  """
+  `func` is the name of the function that emitted the event.
+  """
+  func: String!
+
+  """
+  `attrs` is the event's attribute information.
+  """
+  attrs: [TransactionEventAttribute!]
+}
+
+"""
+`TransactionEventAttribute` is the attributes that the event has.
+It has `key` and `value`.
+"""
+type TransactionEventAttribute {
+  """
+  The key of the event attribute.
+  """
+  key: String!
+
+  """
+  The value of the event attribute.
+  """
+  value: String!
 }

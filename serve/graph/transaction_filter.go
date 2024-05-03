@@ -26,6 +26,10 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 		return false
 	}
 
+	if !filteredTransactionByEvents(tx, filter.Events) {
+		return false
+	}
+
 	if filter.Message != nil {
 		if !filteredTransactionByMessageRoute(tx, filter.Message.Route) {
 			return false
@@ -50,6 +54,72 @@ func filteredTransactionBySuccess(tx *model.Transaction, success *bool) bool {
 	}
 
 	return deref(success) == tx.Success()
+}
+
+// `filteredTransactionByEvents` checks for events in the transaction's results.
+func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.TransactionEventInput) bool {
+	if len(eventInputs) == 0 {
+		return true
+	}
+
+	events := tx.Response().Events()
+	if len(events) == 0 {
+		return false
+	}
+
+	for _, event := range events {
+		for _, eventInput := range eventInputs {
+			if filteredTransactionEventBy(event, eventInput) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// `filteredTransactionEventBy` checks the conditions of a event.
+func filteredTransactionEventBy(event model.TransactionEvent, eventInput *model.TransactionEventInput) bool {
+	if eventInput.Type != nil && deref(eventInput.Type) != event.Type {
+		return false
+	}
+
+	if eventInput.PkgPath != nil && deref(eventInput.PkgPath) != event.PkgPath {
+		return false
+	}
+
+	if eventInput.Func != nil && deref(eventInput.Func) != event.Func {
+		return false
+	}
+
+	if !filteredEventAttributesBy(event.Attrs, eventInput.Attrs) {
+		return false
+	}
+
+	return true
+}
+
+// `filteredEventAttributesBy` check the conditions of event attributes
+func filteredEventAttributesBy(attrs []*model.TransactionEventAttribute, filterAttrs []*model.TransactionEventAttributeInput) bool {
+	if len(attrs) == 0 {
+		return true
+	}
+
+	for _, attr := range attrs {
+		for _, attributeFilter := range filterAttrs {
+			if attributeFilter.Key != nil && attr.Key != deref(attributeFilter.Key) {
+				continue
+			}
+
+			if attributeFilter.Value != nil && attr.Value != deref(attributeFilter.Value) {
+				continue
+			}
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // `filteredAmountBy` checks a token represented as a string(<value><denomination>)

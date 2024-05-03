@@ -65,6 +65,54 @@ input TransactionFilter {
   `success` enables you to filter between successful and unsuccessful transactions.
   """
   success: Boolean
+
+  """
+  `events` are the events that the transaction has emitted.
+  `events` filters transactions with specific events.
+  """
+  events: [TransactionEventInput!]
+}
+
+"""
+Transaction's event to filter transactions.
+"TransactionEventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+"""
+input TransactionEventInput {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String
+
+  """
+  `func` is the name of the function that emitted the event.
+  """
+  func: String
+
+  """
+  `attrs` filters transactions whose events contain attributes.
+  """
+  attrs: [TransactionEventAttributeInput!]
+}
+
+"""
+Transaction event's attribute to filter transaction.
+"TransactionEventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
+"""
+input TransactionEventAttributeInput {
+  """
+  `key` is the key of the event attribute.
+  """
+  key: String
+
+  """
+  `value` is the value of the event attribute.
+  """
+  value: String
 }
 
 """

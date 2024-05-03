@@ -213,6 +213,50 @@ type TransactionBankMessageInput struct {
 	Send *BankMsgSendInput `json:"send,omitempty"`
 }
 
+// `TransactionEvent' is the event information emitted by the transaction.
+// It has `log`, `info`, `error`, and `data`.
+type TransactionEvent struct {
+	// `type` is the type of transaction event emitted.
+	Type string `json:"type"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath string `json:"pkg_path"`
+	// `func` is the name of the function that emitted the event.
+	Func string `json:"func"`
+	// `attrs` is the event's attribute information.
+	Attrs []*TransactionEventAttribute `json:"attrs,omitempty"`
+}
+
+// `TransactionEventAttribute` is the attributes that the event has.
+// It has `key` and `value`.
+type TransactionEventAttribute struct {
+	// The key of the event attribute.
+	Key string `json:"key"`
+	// The value of the event attribute.
+	Value string `json:"value"`
+}
+
+// Transaction event's attribute to filter transaction.
+// "TransactionEventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
+type TransactionEventAttributeInput struct {
+	// `key` is the key of the event attribute.
+	Key *string `json:"key,omitempty"`
+	// `value` is the value of the event attribute.
+	Value *string `json:"value,omitempty"`
+}
+
+// Transaction's event to filter transactions.
+// "TransactionMessageInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+type TransactionEventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath *string `json:"pkg_path,omitempty"`
+	// `func` is the name of the function that emitted the event.
+	Func *string `json:"func,omitempty"`
+	// `attrs` filters transactions whose events contain attributes.
+	Attrs []*TransactionEventAttributeInput `json:"attrs,omitempty"`
+}
+
 // Filters for querying Transactions within specified criteria related to their execution and placement within Blocks.
 type TransactionFilter struct {
 	// Minimum block height from which to start fetching Transactions, inclusive. Aids in scoping the search to recent Transactions.
@@ -243,6 +287,9 @@ type TransactionFilter struct {
 	// `success` is whether the transaction was successful or not.
 	// `success` enables you to filter between successful and unsuccessful transactions.
 	Success *bool `json:"success,omitempty"`
+	// `events` are the events that the transaction has emitted.
+	// `events` filters transactions with specific events.
+	Events []*TransactionEventInput `json:"events,omitempty"`
 }
 
 // Transaction's message to filter Transactions.
