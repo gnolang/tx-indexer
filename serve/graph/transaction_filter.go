@@ -100,7 +100,10 @@ func filteredTransactionEventBy(event model.TransactionEvent, eventInput *model.
 }
 
 // `filteredEventAttributesBy` check the conditions of event attributes
-func filteredEventAttributesBy(attrs []*model.TransactionEventAttribute, filterAttrs []*model.TransactionEventAttributeInput) bool {
+func filteredEventAttributesBy(
+	attrs []*model.TransactionEventAttribute,
+	filterAttrs []*model.TransactionEventAttributeInput,
+) bool {
 	if len(attrs) == 0 {
 		return true
 	}
