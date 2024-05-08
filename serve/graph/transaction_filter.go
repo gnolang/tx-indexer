@@ -92,7 +92,7 @@ func filteredTransactionEventBy(event model.TransactionEvent, eventInput *model.
 		return false
 	}
 
-	if !filteredEventAttributesBy(event.Attrs, eventInput.Attrs) {
+	if eventInput.Attrs != nil && !filteredEventAttributesBy(event.Attrs, eventInput.Attrs) {
 		return false
 	}
 
