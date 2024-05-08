@@ -1,29 +1,52 @@
 package filter
 
 import (
+	"math"
+
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
 
-type Options struct {
-	GasUsed   struct{ Min, Max *int64 }
-	GasWanted struct{ Min, Max *int64 }
-	GasLimit  struct{ Min, Max *int64 }
+type RangeFilterOption struct {
+	Min *int64 `json:"min,omitempty"`
+	Max *int64 `json:"max,omitempty"`
+}
+
+type TxFilterOption struct {
+	GasUsed   *RangeFilterOption `json:"gasUsed,omitempty"`
+	GasWanted *RangeFilterOption `json:"gasWanted,omitempty"`
+	GasLimit  *RangeFilterOption `json:"gasLimit,omitempty"`
 }
 
 // TxFilter holds a slice of transaction results.
 // It provides methods to manipulate and query the transactions.
 type TxFilter struct {
-	opts Options
+	opts TxFilterOption
 	*baseFilter
-	txs []*types.TxResult
+	txs []types.TxResult
 }
 
 // NewTxFilter creates a new TxFilter object.
-func NewTxFilter(opts Options) *TxFilter {
+func NewTxFilter(opts TxFilterOption) *TxFilter {
 	return &TxFilter{
 		baseFilter: newBaseFilter(TxFilterType),
-		txs:        make([]*types.TxResult, 0),
+		txs:        make([]types.TxResult, 0),
 		opts:       opts,
+	}
+}
+
+// GetChanges returns all new transactions from the last query
+func (tf *TxFilter) GetChanges() []any {
+	return tf.getTxChanges()
+}
+
+func (tf *TxFilter) UpdateWith(data any) {
+	tx, ok := data.(*types.TxResult)
+	if !ok {
+		return
+	}
+
+	if tf.checkFilterOptions(tx) {
+		tf.updateWithTx(tx)
 	}
 }
 
@@ -37,7 +60,7 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	for _, txr := range tf.txs {
 		var hash []byte
 
-		if txr != nil && txr.Tx != nil {
+		if txr.Tx != nil {
 			hash = txr.Tx.Hash()
 		}
 
@@ -47,61 +70,63 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	return hashes
 }
 
-func (tf *TxFilter) UpdateWithTx(tx *types.TxResult) {
-	tf.Lock()
-	defer tf.Unlock()
-
-	tf.txs = append(tf.txs, tx)
-}
-
-// Apply applies all added conditions to the transactions in the filter.
-//
-// It returns a slice of `TxResult` that satisfy all the conditions. If no conditions are set,
-// it returns all transactions in the filter. Also, if the filter value is invalid filter will not
-// be applied.
-func (tf *TxFilter) Apply() []*types.TxResult {
-	tf.Lock()
-	defer tf.Unlock()
-
-	return checkOpts(tf.txs, tf.opts)
-}
-
-func checkOpts(txs []*types.TxResult, opts Options) []*types.TxResult {
-	filtered := make([]*types.TxResult, 0, len(txs))
-
-	for _, tx := range txs {
-		if checkFilterCondition(tx, opts) {
-			filtered = append(filtered, tx)
-		}
-	}
-
-	return filtered
-}
-
-func checkFilterCondition(tx *types.TxResult, opts Options) bool {
-	if opts.GasLimit.Max != nil && tx.Response.GasUsed > *opts.GasLimit.Max {
+// `checkFilterOptions` checks the conditions of the options in the filter.
+func (tf *TxFilter) checkFilterOptions(tx *types.TxResult) bool {
+	if !filteredByRangeFilterOption(tx.Response.GasUsed, tf.opts.GasUsed) {
 		return false
 	}
 
-	if opts.GasLimit.Min != nil && tx.Response.GasUsed < *opts.GasLimit.Min {
+	if !filteredByRangeFilterOption(tx.Response.GasWanted, tf.opts.GasWanted) {
 		return false
 	}
 
-	if opts.GasUsed.Max != nil && tx.Response.GasUsed > *opts.GasUsed.Max {
-		return false
-	}
-
-	if opts.GasUsed.Min != nil && tx.Response.GasUsed < *opts.GasUsed.Min {
-		return false
-	}
-
-	if opts.GasWanted.Max != nil && tx.Response.GasWanted > *opts.GasWanted.Max {
-		return false
-	}
-
-	if opts.GasWanted.Min != nil && tx.Response.GasWanted < *opts.GasWanted.Min {
+	// GasLimit compares GasUsed.
+	if !filteredByRangeFilterOption(tx.Response.GasUsed, tf.opts.GasLimit) {
 		return false
 	}
 
 	return true
+}
+
+// `filteredByRangeFilterOption` checks if the number is in a range.
+func filteredByRangeFilterOption(value int64, rangeFilterOption *RangeFilterOption) bool {
+	if rangeFilterOption == nil {
+		return true
+	}
+
+	min := int64(0)
+	if rangeFilterOption.Min != nil {
+		min = *rangeFilterOption.Min
+	}
+
+	max := int64(math.MaxInt64)
+	if rangeFilterOption.Max != nil {
+		max = *rangeFilterOption.Max
+	}
+
+	return value >= min && value <= max
+}
+
+// getTxChanges returns all new transactions from the last query
+func (tf *TxFilter) getTxChanges() []any {
+	tf.Lock()
+	defer tf.Unlock()
+
+	// Get newTxs
+	newTxs := make([]any, len(tf.txs))
+	for index, tx := range tf.txs {
+		newTxs[index] = tx
+	}
+
+	// Empty headers
+	tf.txs = tf.txs[:0]
+
+	return newTxs
+}
+
+func (tf *TxFilter) updateWithTx(tx *types.TxResult) {
+	tf.Lock()
+	defer tf.Unlock()
+
+	tf.txs = append(tf.txs, *tx)
 }

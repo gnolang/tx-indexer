@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/filters/filter"
 )
@@ -32,8 +31,8 @@ type Filter interface {
 	UpdateLastUsed()
 
 	// GetChanges returns any filter changes (specific to the filter type)
-	GetChanges() any
+	GetChanges() []any
 
-	// UpdateWithBlock updates the specific filter type with a new block
-	UpdateWithBlock(block *types.Block)
+	// UpdateWith updates the specific filter type with a event's data
+	UpdateWith(data any)
 }

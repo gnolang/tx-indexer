@@ -132,16 +132,16 @@ func Test_NewBlockEvents(t *testing.T) {
 				require.Nil(t, err)
 
 				// Get changes
-				blockHeadersRaw := blockFilter.GetChanges()
+				changes := blockFilter.GetChanges()
 
-				blockHeaders, ok := blockHeadersRaw.([]tm2Types.Header)
-				require.True(t, ok)
-
-				if len(blockHeaders) == 0 {
+				if len(changes) == 0 {
 					continue
 				}
 
-				capturedHeaders = blockHeaders
+				capturedHeaders = make([]tm2Types.Header, len(changes))
+				for index, header := range changes {
+					capturedHeaders[index] = header.(tm2Types.Header)
+				}
 
 				return
 			}

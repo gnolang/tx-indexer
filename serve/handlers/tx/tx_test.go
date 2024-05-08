@@ -23,7 +23,7 @@ func TestGetTx_InvalidParams(t *testing.T) {
 	}{
 		{
 			"invalid param length",
-			[]any{1, 2, 3},
+			[]any{1},
 		},
 		{
 			"invalid param type",

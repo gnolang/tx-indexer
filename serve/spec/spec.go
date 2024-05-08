@@ -1,6 +1,9 @@
 package spec
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const (
 	JSONRPCVersion     = "2.0"
@@ -150,4 +153,18 @@ func GenerateInvalidParamCountError() *BaseJSONError {
 		"Invalid number of parameters",
 		InvalidParamsErrorCode,
 	)
+}
+
+func ParseObjectParameter[T any](param any, data *T) error {
+	marshaled, err := json.Marshal(param)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(marshaled, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
