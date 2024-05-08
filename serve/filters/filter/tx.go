@@ -70,7 +70,7 @@ func (tf *TxFilter) GetHashes() [][]byte {
 	return hashes
 }
 
-// `checkFilterOptions` checks the conditions of the options in the filter.
+// checkFilterOptions checks the conditions of the options in the filter.
 func (tf *TxFilter) checkFilterOptions(tx *types.TxResult) bool {
 	if !filteredByRangeFilterOption(tx.Response.GasUsed, tf.opts.GasUsed) {
 		return false
@@ -88,23 +88,26 @@ func (tf *TxFilter) checkFilterOptions(tx *types.TxResult) bool {
 	return true
 }
 
-// `filteredByRangeFilterOption` checks if the number is in a range.
+// filteredByRangeFilterOption checks if the number is in a range.
 func filteredByRangeFilterOption(value int64, rangeFilterOption *RangeFilterOption) bool {
 	if rangeFilterOption == nil {
 		return true
 	}
 
-	min := int64(0)
+	var (
+		leftBound  int64
+		rightBound int64 = math.MaxInt64
+	)
+
 	if rangeFilterOption.Min != nil {
-		min = *rangeFilterOption.Min
+		leftBound = *rangeFilterOption.Min
 	}
 
-	max := int64(math.MaxInt64)
 	if rangeFilterOption.Max != nil {
-		max = *rangeFilterOption.Max
+		rightBound = *rangeFilterOption.Max
 	}
 
-	return value >= min && value <= max
+	return value >= leftBound && value <= rightBound
 }
 
 // getTxChanges returns all new transactions from the last query
