@@ -126,7 +126,17 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 
 //nolint:errname // Provide a field named `error` as the GraphQL response value
 type TransactionResponse struct {
+	events   []TransactionEvent
 	response abci.ResponseDeliverTx
+
+	mu         sync.Mutex
+	onceEvents sync.Once
+}
+
+func NewTransactionResponse(response abci.ResponseDeliverTx) *TransactionResponse {
+	return &TransactionResponse{
+		response: response,
+	}
 }
 
 func (tr *TransactionResponse) Log() string {
@@ -150,19 +160,30 @@ func (tr *TransactionResponse) Data() string {
 }
 
 func (tr *TransactionResponse) Events() []TransactionEvent {
-	events := make([]TransactionEvent, 0)
+	return tr.getEvents()
+}
 
-	data, err := json.Marshal(tr.response.Events)
-	if err != nil {
-		return events
+func (tr *TransactionResponse) getEvents() []TransactionEvent {
+	// This function creates a 'TransactionEvent' with 'abci.Event' interface data.
+	// and executed once.
+	makeEvents := func() {
+		events := make([]TransactionEvent, 0)
+
+		for _, event := range tr.response.Events {
+			transactionEvent, err := makeTransactionEvent(event)
+			if err == nil {
+				events = append(events, transactionEvent)
+			}
+		}
+
+		tr.mu.Lock()
+		tr.events = events
+		tr.mu.Unlock()
 	}
 
-	err = json.Unmarshal(data, &events)
-	if err != nil {
-		return events
-	}
+	tr.onceEvents.Do(makeEvents)
 
-	return events
+	return tr.events
 }
 
 type TransactionMessage struct {
@@ -231,6 +252,22 @@ func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 
 func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
+}
+
+func makeTransactionEvent(abciEvent abci.Event) (TransactionEvent, error) {
+	var event TransactionEvent
+
+	data, err := json.Marshal(abciEvent)
+	if err != nil {
+		return event, err
+	}
+
+	err = json.Unmarshal(data, &event)
+	if err != nil {
+		return event, err
+	}
+
+	return event, nil
 }
 
 func makeBankMsgSend(value std.Msg) BankMsgSend {
