@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/99designs/gqlgen v0.17.45
 	github.com/cockroachdb/pebble v1.1.0
-	github.com/gnolang/gno v0.0.0-20240429120125-3832b1312d7d
+	github.com/gnolang/gno v0.1.0-nightly.20240523
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/httprate v0.9.0
 	github.com/google/uuid v1.6.0
@@ -49,7 +49,6 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/linxGnu/grocksdb v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
