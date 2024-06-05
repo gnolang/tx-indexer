@@ -35,7 +35,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         
-      - uses: goreleaser/goreleaser-action@v5
+      - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean --config ./.github/goreleaser.yaml
