@@ -63,6 +63,18 @@ type ComplexityRoot struct {
 		Version            func(childComplexity int) int
 	}
 
+	GnoEvent struct {
+		Attrs   func(childComplexity int) int
+		Func    func(childComplexity int) int
+		PkgPath func(childComplexity int) int
+		Type    func(childComplexity int) int
+	}
+
+	GnoEventAttribute struct {
+		Key   func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
 	MemFile struct {
 		Body func(childComplexity int) int
 		Name func(childComplexity int) int
@@ -118,18 +130,6 @@ type ComplexityRoot struct {
 		Success     func(childComplexity int) int
 	}
 
-	TransactionEvent struct {
-		Attrs   func(childComplexity int) int
-		Func    func(childComplexity int) int
-		PkgPath func(childComplexity int) int
-		Type    func(childComplexity int) int
-	}
-
-	TransactionEventAttribute struct {
-		Key   func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
 	TransactionMessage struct {
 		Route   func(childComplexity int) int
 		TypeURL func(childComplexity int) int
@@ -151,6 +151,10 @@ type ComplexityRoot struct {
 
 	UnexpectedMessage struct {
 		Raw func(childComplexity int) int
+	}
+
+	UnknownEvent struct {
+		Value func(childComplexity int) int
 	}
 }
 
@@ -238,6 +242,48 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Block.Version(childComplexity), true
+
+	case "GnoEvent.attrs":
+		if e.complexity.GnoEvent.Attrs == nil {
+			break
+		}
+
+		return e.complexity.GnoEvent.Attrs(childComplexity), true
+
+	case "GnoEvent.func":
+		if e.complexity.GnoEvent.Func == nil {
+			break
+		}
+
+		return e.complexity.GnoEvent.Func(childComplexity), true
+
+	case "GnoEvent.pkg_path":
+		if e.complexity.GnoEvent.PkgPath == nil {
+			break
+		}
+
+		return e.complexity.GnoEvent.PkgPath(childComplexity), true
+
+	case "GnoEvent.type":
+		if e.complexity.GnoEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.GnoEvent.Type(childComplexity), true
+
+	case "GnoEventAttribute.key":
+		if e.complexity.GnoEventAttribute.Key == nil {
+			break
+		}
+
+		return e.complexity.GnoEventAttribute.Key(childComplexity), true
+
+	case "GnoEventAttribute.value":
+		if e.complexity.GnoEventAttribute.Value == nil {
+			break
+		}
+
+		return e.complexity.GnoEventAttribute.Value(childComplexity), true
 
 	case "MemFile.body":
 		if e.complexity.MemFile.Body == nil {
@@ -476,48 +522,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Transaction.Success(childComplexity), true
 
-	case "TransactionEvent.attrs":
-		if e.complexity.TransactionEvent.Attrs == nil {
-			break
-		}
-
-		return e.complexity.TransactionEvent.Attrs(childComplexity), true
-
-	case "TransactionEvent.func":
-		if e.complexity.TransactionEvent.Func == nil {
-			break
-		}
-
-		return e.complexity.TransactionEvent.Func(childComplexity), true
-
-	case "TransactionEvent.pkg_path":
-		if e.complexity.TransactionEvent.PkgPath == nil {
-			break
-		}
-
-		return e.complexity.TransactionEvent.PkgPath(childComplexity), true
-
-	case "TransactionEvent.type":
-		if e.complexity.TransactionEvent.Type == nil {
-			break
-		}
-
-		return e.complexity.TransactionEvent.Type(childComplexity), true
-
-	case "TransactionEventAttribute.key":
-		if e.complexity.TransactionEventAttribute.Key == nil {
-			break
-		}
-
-		return e.complexity.TransactionEventAttribute.Key(childComplexity), true
-
-	case "TransactionEventAttribute.value":
-		if e.complexity.TransactionEventAttribute.Value == nil {
-			break
-		}
-
-		return e.complexity.TransactionEventAttribute.Value(childComplexity), true
-
 	case "TransactionMessage.route":
 		if e.complexity.TransactionMessage.Route == nil {
 			break
@@ -595,6 +599,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.UnexpectedMessage.Raw(childComplexity), true
 
+	case "UnknownEvent.value":
+		if e.complexity.UnknownEvent.Value == nil {
+			break
+		}
+
+		return e.complexity.UnknownEvent.Value(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -606,14 +617,14 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputAmountInput,
 		ec.unmarshalInputBankMsgSendInput,
 		ec.unmarshalInputBlockFilter,
+		ec.unmarshalInputEventAttributeInput,
+		ec.unmarshalInputEventInput,
 		ec.unmarshalInputMemFileInput,
 		ec.unmarshalInputMemPackageInput,
 		ec.unmarshalInputMsgAddPackageInput,
 		ec.unmarshalInputMsgCallInput,
 		ec.unmarshalInputMsgRunInput,
 		ec.unmarshalInputTransactionBankMessageInput,
-		ec.unmarshalInputTransactionEventAttributeInput,
-		ec.unmarshalInputTransactionEventInput,
 		ec.unmarshalInputTransactionFilter,
 		ec.unmarshalInputTransactionMessageInput,
 		ec.unmarshalInputTransactionVmMessageInput,
@@ -1198,6 +1209,273 @@ func (ec *executionContext) fieldContext_Block_proposer_address_raw(ctx context.
 		Object:     "Block",
 		Field:      field,
 		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEvent_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Type, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEvent_type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEvent_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEvent_pkg_path(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PkgPath, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEvent_pkg_path(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEvent_func(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEvent_func(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Func, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEvent_func(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEvent_attrs(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEvent_attrs(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Attrs, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.GnoEventAttribute)
+	fc.Result = res
+	return ec.marshalOGnoEventAttribute2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventAttributeᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEvent_attrs(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_GnoEventAttribute_key(ctx, field)
+			case "value":
+				return ec.fieldContext_GnoEventAttribute_value(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GnoEventAttribute", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEventAttribute_key(ctx context.Context, field graphql.CollectedField, obj *model.GnoEventAttribute) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEventAttribute_key(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Key, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEventAttribute_key(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEventAttribute",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GnoEventAttribute_value(ctx context.Context, field graphql.CollectedField, obj *model.GnoEventAttribute) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GnoEventAttribute_value(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Value, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GnoEventAttribute_value(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GnoEventAttribute",
+		Field:      field,
+		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
@@ -2869,273 +3147,6 @@ func (ec *executionContext) fieldContext_Transaction_response(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _TransactionEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEvent) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEvent_type(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Type, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEvent_type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TransactionEvent_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEvent) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEvent_pkg_path(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PkgPath, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEvent_pkg_path(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TransactionEvent_func(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEvent) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEvent_func(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Func, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEvent_func(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TransactionEvent_attrs(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEvent) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEvent_attrs(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Attrs, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.([]*model.TransactionEventAttribute)
-	fc.Result = res
-	return ec.marshalOTransactionEventAttribute2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEvent_attrs(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "key":
-				return ec.fieldContext_TransactionEventAttribute_key(ctx, field)
-			case "value":
-				return ec.fieldContext_TransactionEventAttribute_value(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type TransactionEventAttribute", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TransactionEventAttribute_key(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEventAttribute) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEventAttribute_key(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Key, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEventAttribute_key(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEventAttribute",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TransactionEventAttribute_value(ctx context.Context, field graphql.CollectedField, obj *model.TransactionEventAttribute) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_TransactionEventAttribute_value(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Value, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_TransactionEventAttribute_value(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "TransactionEventAttribute",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _TransactionMessage_typeUrl(ctx context.Context, field graphql.CollectedField, obj *model.TransactionMessage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TransactionMessage_typeUrl(ctx, field)
 	if err != nil {
@@ -3467,9 +3478,9 @@ func (ec *executionContext) _TransactionResponse_events(ctx context.Context, fie
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.([]model.TransactionEvent)
+	res := resTmp.([]model.Event)
 	fc.Result = res
-	return ec.marshalOTransactionEvent2ᚕgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventᚄ(ctx, field.Selections, res)
+	return ec.marshalOEvent2ᚕgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TransactionResponse_events(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3479,17 +3490,7 @@ func (ec *executionContext) fieldContext_TransactionResponse_events(ctx context.
 		IsMethod:   true,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "type":
-				return ec.fieldContext_TransactionEvent_type(ctx, field)
-			case "pkg_path":
-				return ec.fieldContext_TransactionEvent_pkg_path(ctx, field)
-			case "func":
-				return ec.fieldContext_TransactionEvent_func(ctx, field)
-			case "attrs":
-				return ec.fieldContext_TransactionEvent_attrs(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type TransactionEvent", field.Name)
+			return nil, errors.New("field of type Event does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3617,6 +3618,50 @@ func (ec *executionContext) _UnexpectedMessage_raw(ctx context.Context, field gr
 func (ec *executionContext) fieldContext_UnexpectedMessage_raw(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "UnexpectedMessage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UnknownEvent_value(ctx context.Context, field graphql.CollectedField, obj *model.UnknownEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UnknownEvent_value(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Value, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UnknownEvent_value(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UnknownEvent",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -5530,6 +5575,88 @@ func (ec *executionContext) unmarshalInputBlockFilter(ctx context.Context, obj i
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputEventAttributeInput(ctx context.Context, obj interface{}) (model.EventAttributeInput, error) {
+	var it model.EventAttributeInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"key", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("key"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Key = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEventInput(ctx context.Context, obj interface{}) (model.EventInput, error) {
+	var it model.EventInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "pkg_path", "func", "attrs"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		case "func":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Func = data
+		case "attrs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
+			data, err := ec.unmarshalOEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Attrs = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMemFileInput(ctx context.Context, obj interface{}) (model.MemFileInput, error) {
 	var it model.MemFileInput
 	asMap := map[string]interface{}{}
@@ -5769,88 +5896,6 @@ func (ec *executionContext) unmarshalInputTransactionBankMessageInput(ctx contex
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputTransactionEventAttributeInput(ctx context.Context, obj interface{}) (model.TransactionEventAttributeInput, error) {
-	var it model.TransactionEventAttributeInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"key", "value"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "key":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("key"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Key = data
-		case "value":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Value = data
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputTransactionEventInput(ctx context.Context, obj interface{}) (model.TransactionEventInput, error) {
-	var it model.TransactionEventInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"type", "pkg_path", "func", "attrs"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "type":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Type = data
-		case "pkg_path":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.PkgPath = data
-		case "func":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Func = data
-		case "attrs":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
-			data, err := ec.unmarshalOTransactionEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeInputᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Attrs = data
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context, obj interface{}) (model.TransactionFilter, error) {
 	var it model.TransactionFilter
 	asMap := map[string]interface{}{}
@@ -5951,7 +5996,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 			it.Success = data
 		case "events":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("events"))
-			data, err := ec.unmarshalOTransactionEventInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventInputᚄ(ctx, v)
+			data, err := ec.unmarshalOEventInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -6054,6 +6099,29 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
+
+func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, obj model.Event) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.GnoEvent:
+		return ec._GnoEvent(ctx, sel, &obj)
+	case *model.GnoEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._GnoEvent(ctx, sel, obj)
+	case model.UnknownEvent:
+		return ec._UnknownEvent(ctx, sel, &obj)
+	case *model.UnknownEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UnknownEvent(ctx, sel, obj)
+	default:
+		panic(fmt.Errorf("unexpected type %T", obj))
+	}
+}
 
 func (ec *executionContext) _MessageValue(ctx context.Context, sel ast.SelectionSet, obj model.MessageValue) graphql.Marshaler {
 	switch obj := (obj).(type) {
@@ -6185,6 +6253,101 @@ func (ec *executionContext) _Block(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "proposer_address_raw":
 			out.Values[i] = ec._Block_proposer_address_raw(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var gnoEventImplementors = []string{"GnoEvent", "Event"}
+
+func (ec *executionContext) _GnoEvent(ctx context.Context, sel ast.SelectionSet, obj *model.GnoEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gnoEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GnoEvent")
+		case "type":
+			out.Values[i] = ec._GnoEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_path":
+			out.Values[i] = ec._GnoEvent_pkg_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "func":
+			out.Values[i] = ec._GnoEvent_func(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attrs":
+			out.Values[i] = ec._GnoEvent_attrs(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var gnoEventAttributeImplementors = []string{"GnoEventAttribute"}
+
+func (ec *executionContext) _GnoEventAttribute(ctx context.Context, sel ast.SelectionSet, obj *model.GnoEventAttribute) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gnoEventAttributeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GnoEventAttribute")
+		case "key":
+			out.Values[i] = ec._GnoEventAttribute_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._GnoEventAttribute_value(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6671,101 +6834,6 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
-var transactionEventImplementors = []string{"TransactionEvent"}
-
-func (ec *executionContext) _TransactionEvent(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionEvent) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, transactionEventImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TransactionEvent")
-		case "type":
-			out.Values[i] = ec._TransactionEvent_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pkg_path":
-			out.Values[i] = ec._TransactionEvent_pkg_path(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "func":
-			out.Values[i] = ec._TransactionEvent_func(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "attrs":
-			out.Values[i] = ec._TransactionEvent_attrs(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var transactionEventAttributeImplementors = []string{"TransactionEventAttribute"}
-
-func (ec *executionContext) _TransactionEventAttribute(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionEventAttribute) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, transactionEventAttributeImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TransactionEventAttribute")
-		case "key":
-			out.Values[i] = ec._TransactionEventAttribute_key(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._TransactionEventAttribute_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var transactionMessageImplementors = []string{"TransactionMessage"}
 
 func (ec *executionContext) _TransactionMessage(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionMessage) graphql.Marshaler {
@@ -6928,6 +6996,45 @@ func (ec *executionContext) _UnexpectedMessage(ctx context.Context, sel ast.Sele
 			out.Values[i] = graphql.MarshalString("UnexpectedMessage")
 		case "raw":
 			out.Values[i] = ec._UnexpectedMessage_raw(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var unknownEventImplementors = []string{"UnknownEvent", "Event"}
+
+func (ec *executionContext) _UnknownEvent(ctx context.Context, sel ast.SelectionSet, obj *model.UnknownEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unknownEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnknownEvent")
+		case "value":
+			out.Values[i] = ec._UnknownEvent_value(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -7314,6 +7421,26 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) unmarshalNEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInput(ctx context.Context, v interface{}) (*model.EventAttributeInput, error) {
+	res, err := ec.unmarshalInputEventAttributeInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventInput(ctx context.Context, v interface{}) (*model.EventInput, error) {
+	res, err := ec.unmarshalInputEventInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGnoEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventAttribute(ctx context.Context, sel ast.SelectionSet, v *model.GnoEventAttribute) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GnoEventAttribute(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -7416,30 +7543,6 @@ func (ec *executionContext) marshalNTransaction2ᚖgithubᚗcomᚋgnolangᚋtx�
 		return graphql.Null
 	}
 	return ec._Transaction(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNTransactionEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEvent(ctx context.Context, sel ast.SelectionSet, v model.TransactionEvent) graphql.Marshaler {
-	return ec._TransactionEvent(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNTransactionEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttribute(ctx context.Context, sel ast.SelectionSet, v *model.TransactionEventAttribute) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TransactionEventAttribute(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNTransactionEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeInput(ctx context.Context, v interface{}) (*model.TransactionEventAttributeInput, error) {
-	res, err := ec.unmarshalInputTransactionEventAttributeInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNTransactionEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventInput(ctx context.Context, v interface{}) (*model.TransactionEventInput, error) {
-	res, err := ec.unmarshalInputTransactionEventInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNTransactionFilter2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionFilter(ctx context.Context, v interface{}) (model.TransactionFilter, error) {
@@ -7837,6 +7940,141 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalOEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v model.Event) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Event(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOEvent2ᚕgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v []model.Event) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInputᚄ(ctx context.Context, v interface{}) ([]*model.EventAttributeInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.EventAttributeInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOEventInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventInputᚄ(ctx context.Context, v interface{}) ([]*model.EventInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.EventInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOGnoEventAttribute2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventAttributeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.GnoEventAttribute) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNGnoEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventAttribute(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
 	if v == nil {
 		return nil, nil
@@ -8115,140 +8353,6 @@ func (ec *executionContext) unmarshalOTransactionBankMessageInput2ᚖgithubᚗco
 	}
 	res, err := ec.unmarshalInputTransactionBankMessageInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOTransactionEvent2ᚕgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventᚄ(ctx context.Context, sel ast.SelectionSet, v []model.TransactionEvent) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNTransactionEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEvent(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalOTransactionEventAttribute2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionEventAttribute) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNTransactionEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttribute(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) unmarshalOTransactionEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeInputᚄ(ctx context.Context, v interface{}) ([]*model.TransactionEventAttributeInput, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var vSlice []interface{}
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
-	var err error
-	res := make([]*model.TransactionEventAttributeInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNTransactionEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventAttributeInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) unmarshalOTransactionEventInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventInputᚄ(ctx context.Context, v interface{}) ([]*model.TransactionEventInput, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var vSlice []interface{}
-	if v != nil {
-		vSlice = graphql.CoerceList(v)
-	}
-	var err error
-	res := make([]*model.TransactionEventInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNTransactionEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionEventInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
 }
 
 func (ec *executionContext) marshalOTransactionMessage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessage(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMessage) graphql.Marshaler {

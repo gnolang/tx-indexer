@@ -57,7 +57,7 @@ func filteredTransactionBySuccess(tx *model.Transaction, success *bool) bool {
 }
 
 // `filteredTransactionByEvents` checks for events in the transaction's results.
-func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.TransactionEventInput) bool {
+func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.EventInput) bool {
 	if len(eventInputs) == 0 {
 		return true
 	}
@@ -69,7 +69,7 @@ func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.Tra
 
 	for _, event := range events {
 		for _, eventInput := range eventInputs {
-			if filteredTransactionEventBy(event, eventInput) {
+			if filteredEventBy(event, eventInput) {
 				return true
 			}
 		}
@@ -78,31 +78,40 @@ func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.Tra
 	return false
 }
 
-// `filteredTransactionEventBy` checks the conditions of a event.
-func filteredTransactionEventBy(event model.TransactionEvent, eventInput *model.TransactionEventInput) bool {
-	if eventInput.Type != nil && deref(eventInput.Type) != event.Type {
+// `filteredEventBy` checks the conditions of a event.
+func filteredEventBy(event model.Event, eventInput *model.EventInput) bool {
+	if event == nil {
 		return false
 	}
 
-	if eventInput.PkgPath != nil && deref(eventInput.PkgPath) != event.PkgPath {
+	gnoEvent, ok := event.(*model.GnoEvent)
+	if !ok {
 		return false
 	}
 
-	if eventInput.Func != nil && deref(eventInput.Func) != event.Func {
+	if eventInput.Type != nil && deref(eventInput.Type) != gnoEvent.Type {
 		return false
 	}
 
-	if eventInput.Attrs != nil && !filteredEventAttributesBy(event.Attrs, eventInput.Attrs) {
+	if eventInput.PkgPath != nil && deref(eventInput.PkgPath) != gnoEvent.PkgPath {
+		return false
+	}
+
+	if eventInput.Func != nil && deref(eventInput.Func) != gnoEvent.Func {
+		return false
+	}
+
+	if eventInput.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.Attrs) {
 		return false
 	}
 
 	return true
 }
 
-// `filteredEventAttributesBy` check the conditions of event attributes
-func filteredEventAttributesBy(
-	attrs []*model.TransactionEventAttribute,
-	filterAttrs []*model.TransactionEventAttributeInput,
+// `filteredGnoEventAttributesBy` check the conditions of event attributes
+func filteredGnoEventAttributesBy(
+	attrs []*model.GnoEventAttribute,
+	filterAttrs []*model.EventAttributeInput,
 ) bool {
 	if len(attrs) == 0 {
 		return true

@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+type Event interface {
+	IsEvent()
+}
+
 type MessageValue interface {
 	IsMessageValue()
 }
@@ -65,6 +69,54 @@ type BlockFilter struct {
 	FromTime *time.Time `json:"from_time,omitempty"`
 	// Maximum timestamp up to which to fetch Blocks, exclusive. Only Blocks created before this time are included.
 	ToTime *time.Time `json:"to_time,omitempty"`
+}
+
+// Transaction event's attribute to filter transaction.
+// "EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
+type EventAttributeInput struct {
+	// `key` is the key of the event attribute.
+	Key *string `json:"key,omitempty"`
+	// `value` is the value of the event attribute.
+	Value *string `json:"value,omitempty"`
+}
+
+// Transaction's event to filter transactions.
+// "EventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+type EventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath *string `json:"pkg_path,omitempty"`
+	// `func` is the name of the function that emitted the event.
+	Func *string `json:"func,omitempty"`
+	// `attrs` filters transactions whose events contain attributes.
+	// `attrs` is entered as an array and works exclusively.
+	// ex) `attrs[0] || attrs[1] || attrs[2]`
+	Attrs []*EventAttributeInput `json:"attrs,omitempty"`
+}
+
+// `GnoEvent` is the event information exported by the Gno VM.
+// It has `log`, `info`, `error`, and `data`.
+type GnoEvent struct {
+	// `type` is the type of transaction event emitted.
+	Type string `json:"type"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath string `json:"pkg_path"`
+	// `func` is the name of the function that emitted the event.
+	Func string `json:"func"`
+	// `attrs` is the event's attribute information.
+	Attrs []*GnoEventAttribute `json:"attrs,omitempty"`
+}
+
+func (GnoEvent) IsEvent() {}
+
+// `GnoEventAttribute` is the attributes that the event has.
+// It has `key` and `value`.
+type GnoEventAttribute struct {
+	// The key of the event attribute.
+	Key string `json:"key"`
+	// The value of the event attribute.
+	Value string `json:"value"`
 }
 
 // `MemFile` is the metadata information tied to a single gno package / realm file
@@ -213,50 +265,6 @@ type TransactionBankMessageInput struct {
 	Send *BankMsgSendInput `json:"send,omitempty"`
 }
 
-// `TransactionEvent' is the event information emitted by the transaction.
-// It has `log`, `info`, `error`, and `data`.
-type TransactionEvent struct {
-	// `type` is the type of transaction event emitted.
-	Type string `json:"type"`
-	// `pkg_path` is the path to the package that emitted the event.
-	PkgPath string `json:"pkg_path"`
-	// `func` is the name of the function that emitted the event.
-	Func string `json:"func"`
-	// `attrs` is the event's attribute information.
-	Attrs []*TransactionEventAttribute `json:"attrs,omitempty"`
-}
-
-// `TransactionEventAttribute` is the attributes that the event has.
-// It has `key` and `value`.
-type TransactionEventAttribute struct {
-	// The key of the event attribute.
-	Key string `json:"key"`
-	// The value of the event attribute.
-	Value string `json:"value"`
-}
-
-// Transaction event's attribute to filter transaction.
-// "TransactionEventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
-type TransactionEventAttributeInput struct {
-	// `key` is the key of the event attribute.
-	Key *string `json:"key,omitempty"`
-	// `value` is the value of the event attribute.
-	Value *string `json:"value,omitempty"`
-}
-
-// Transaction's event to filter transactions.
-// "TransactionMessageInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
-type TransactionEventInput struct {
-	// `type` is the type of transaction event emitted.
-	Type *string `json:"type,omitempty"`
-	// `pkg_path` is the path to the package that emitted the event.
-	PkgPath *string `json:"pkg_path,omitempty"`
-	// `func` is the name of the function that emitted the event.
-	Func *string `json:"func,omitempty"`
-	// `attrs` filters transactions whose events contain attributes.
-	Attrs []*TransactionEventAttributeInput `json:"attrs,omitempty"`
-}
-
 // Filters for querying Transactions within specified criteria related to their execution and placement within Blocks.
 type TransactionFilter struct {
 	// Minimum block height from which to start fetching Transactions, inclusive. Aids in scoping the search to recent Transactions.
@@ -287,9 +295,11 @@ type TransactionFilter struct {
 	// `success` is whether the transaction was successful or not.
 	// `success` enables you to filter between successful and unsuccessful transactions.
 	Success *bool `json:"success,omitempty"`
-	// `events` are the events that the transaction has emitted.
-	// `events` filters transactions with specific events.
-	Events []*TransactionEventInput `json:"events,omitempty"`
+	// `events` are what the transaction has emitted.
+	// `events` can be filtered with a specific event to query its transactions.
+	// `events` is entered as an array and works exclusively.
+	// ex) `events[0] || events[1] || events[2]`
+	Events []*EventInput `json:"events,omitempty"`
 }
 
 // Transaction's message to filter Transactions.
@@ -330,6 +340,62 @@ type UnexpectedMessage struct {
 }
 
 func (UnexpectedMessage) IsMessageValue() {}
+
+// `UnknownEvent` is an unknown event type.
+// It has `key` and `value`.
+type UnknownEvent struct {
+	// `value` is an event string..
+	Value string `json:"value"`
+}
+
+func (UnknownEvent) IsEvent() {}
+
+// `MessageType` is message type of the transaction.
+// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+type EventType string
+
+const (
+	// The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
+	// This is a transaction message used when sending native tokens.
+	EventTypeGno EventType = "gno"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
+	// This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
+	EventTypeUnknown EventType = "unknown"
+)
+
+var AllEventType = []EventType{
+	EventTypeGno,
+	EventTypeUnknown,
+}
+
+func (e EventType) IsValid() bool {
+	switch e {
+	case EventTypeGno, EventTypeUnknown:
+		return true
+	}
+	return false
+}
+
+func (e EventType) String() string {
+	return string(e)
+}
+
+func (e *EventType) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EventType", str)
+	}
+	return nil
+}
+
+func (e EventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
 
 // `MessageRoute` is route type of the transactional message.
 // `MessageRoute` has the values of vm and bank.

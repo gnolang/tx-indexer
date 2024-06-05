@@ -303,14 +303,16 @@ type TransactionResponse {
   """
   The emitted events associated with the transaction execution, if any.
   """
-  events: [TransactionEvent!]
+  events: [Event]
 }
 
+union Event = GnoEvent | UnknownEvent
+
 """
-`TransactionEvent' is the event information emitted by the transaction.
-It has `log`, `info`, `error`, and `data`.
+`GnoEvent` is the event information exported by the Gno VM.
+It has `type`, `pkg_path`, `func`, and `attrs`.
 """
-type TransactionEvent {
+type GnoEvent {
   """
   `type` is the type of transaction event emitted.
   """
@@ -329,14 +331,14 @@ type TransactionEvent {
   """
   `attrs` is the event's attribute information.
   """
-  attrs: [TransactionEventAttribute!]
+  attrs: [GnoEventAttribute!]
 }
 
 """
-`TransactionEventAttribute` is the attributes that the event has.
+`GnoEventAttribute` is the attributes that the event has.
 It has `key` and `value`.
 """
-type TransactionEventAttribute {
+type GnoEventAttribute {
   """
   The key of the event attribute.
   """
@@ -344,6 +346,17 @@ type TransactionEventAttribute {
 
   """
   The value of the event attribute.
+  """
+  value: String!
+}
+
+"""
+`UnknownEvent` is an unknown event type.
+It has `value`.
+"""
+type UnknownEvent {
+  """
+  `value` is an raw event string.
   """
   value: String!
 }

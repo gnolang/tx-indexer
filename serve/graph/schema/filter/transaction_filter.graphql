@@ -72,14 +72,14 @@ input TransactionFilter {
   `events` is entered as an array and works exclusively.
   ex) `events[0] || events[1] || events[2]`
   """
-  events: [TransactionEventInput!]
+  events: [EventInput!]
 }
 
 """
 Transaction's event to filter transactions.
-"TransactionEventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+"EventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
 """
-input TransactionEventInput {
+input EventInput {
   """
   `type` is the type of transaction event emitted.
   """
@@ -100,14 +100,14 @@ input TransactionEventInput {
   `attrs` is entered as an array and works exclusively.
   ex) `attrs[0] || attrs[1] || attrs[2]`
   """
-  attrs: [TransactionEventAttributeInput!]
+  attrs: [EventAttributeInput!]
 }
 
 """
 Transaction event's attribute to filter transaction.
-"TransactionEventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
+"EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
 """
-input TransactionEventAttributeInput {
+input EventAttributeInput {
   """
   `key` is the key of the event attribute.
   """
