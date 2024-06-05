@@ -20,13 +20,26 @@ func NewBlockFilter() *BlockFilter {
 }
 
 // GetChanges returns all new block headers from the last query
-func (b *BlockFilter) GetChanges() any {
+func (b *BlockFilter) GetChanges() []any {
+	return b.getBlockChanges()
+}
+
+func (b *BlockFilter) UpdateWith(data any) {
+	if block, ok := data.(*types.Block); ok {
+		b.updateWithBlock(block)
+	}
+}
+
+// getBlockChanges returns all new block headers from the last query
+func (b *BlockFilter) getBlockChanges() []any {
 	b.Lock()
 	defer b.Unlock()
 
 	// Get hashes
-	hashes := make([]types.Header, len(b.blockHeaders))
-	copy(hashes, b.blockHeaders)
+	hashes := make([]any, len(b.blockHeaders))
+	for index, blockHeader := range b.blockHeaders {
+		hashes[index] = blockHeader
+	}
 
 	// Empty headers
 	b.blockHeaders = b.blockHeaders[:0]
@@ -34,7 +47,7 @@ func (b *BlockFilter) GetChanges() any {
 	return hashes
 }
 
-func (b *BlockFilter) UpdateWithBlock(block *types.Block) {
+func (b *BlockFilter) updateWithBlock(block *types.Block) {
 	b.Lock()
 	defer b.Unlock()
 

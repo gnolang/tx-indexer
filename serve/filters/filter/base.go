@@ -39,6 +39,6 @@ func (b *baseFilter) UpdateLastUsed() {
 	b.lastUsed = time.Now()
 }
 
-func (b *baseFilter) GetChanges() any {
+func (b *baseFilter) GetChanges() []any {
 	return nil
 }

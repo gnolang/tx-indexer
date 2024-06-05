@@ -2,6 +2,8 @@ package tx
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
@@ -31,18 +33,18 @@ func (h *Handler) GetTxHandler(
 	}
 
 	// Extract the params
-	blockNum, ok := params[0].(uint64)
-	if !ok {
+	blockNum, err := toUint64(params[0])
+	if err != nil {
 		return nil, spec.GenerateInvalidParamError(1)
 	}
 
-	txIndex, ok := params[1].(uint32)
-	if !ok {
-		return nil, spec.GenerateInvalidParamError(1)
+	txIndex, err := toUint64(params[1])
+	if err != nil {
+		return nil, spec.GenerateInvalidParamError(2)
 	}
 
 	// Run the handler
-	response, err := h.getTx(blockNum, txIndex)
+	response, err := h.getTx(blockNum, uint32(txIndex))
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -122,4 +124,8 @@ func (h *Handler) getTxByHash(hash string) (*types.TxResult, error) {
 	}
 
 	return tx, nil
+}
+
+func toUint64(data any) (uint64, error) {
+	return strconv.ParseUint(fmt.Sprintf("%v", data), 10, 64)
 }
