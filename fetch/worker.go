@@ -161,6 +161,12 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 		return getTxResultsSequentially(blocks, client)
 	}
 
+	indexOfBlockHeight := make(map[int64]int)
+
+	for index, block := range blocks {
+		indexOfBlockHeight[block.Height] = index
+	}
+
 	// Extract the results
 	for resultsIndex, resultsRaw := range blockResultsRaw {
 		results, ok := resultsRaw.(*core_types.ResultBlockResults)
@@ -170,10 +176,15 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 
 		height := results.Height
 		deliverTxs := results.Results.DeliverTxs
+		blockIndex, exist := indexOfBlockHeight[height]
 
-		txResults := make([]*types.TxResult, blocks[resultsIndex].NumTxs)
+		if !exist {
+			continue
+		}
 
-		for txIndex, tx := range blocks[resultsIndex].Txs {
+		txResults := make([]*types.TxResult, blocks[blockIndex].NumTxs)
+
+		for txIndex, tx := range blocks[blockIndex].Txs {
 			result := &types.TxResult{
 				Height:   height,
 				Index:    uint32(txIndex),
