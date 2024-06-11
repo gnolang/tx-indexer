@@ -84,6 +84,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		// Fetch the latest saved height
 		latestLocal, err := f.storage.GetLatestHeight()
 		isInit := errors.Is(err, storageErrors.ErrNotFound)
+
 		if err != nil && !isInit {
 			return fmt.Errorf("unable to fetch latest block height, %w", err)
 		}
@@ -108,6 +109,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		} else {
 			start = latestLocal + 1
 		}
+
 		gaps := f.chunkBuffer.reserveChunkRanges(
 			start,
 			latestRemote,

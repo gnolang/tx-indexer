@@ -76,7 +76,9 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 			// Try to fetch sequentially
 			return getBlocksSequentially(chunkRange, client)
 		}
-		batchStart += 1
+
+		batchStart++
+
 		fetchedBlocks = append(fetchedBlocks, block)
 	}
 
@@ -124,10 +126,12 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 			block, err := getGenesisBlock(client)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
+
 				continue
 			}
 
 			blocks = append(blocks, block)
+
 			continue
 		}
 
@@ -135,6 +139,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 		block, err := client.GetBlock(blockNum)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
+
 			continue
 		}
 
