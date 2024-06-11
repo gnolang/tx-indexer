@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
@@ -67,8 +69,19 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 		fetchedBlocks = make([]*types.Block, 0)
 	)
 
+	batchStart := chunkRange.from
+	if batchStart == 0 {
+		block, err := getGenesisBlock(client)
+		if err != nil {
+			// Try to fetch sequentially
+			return getBlocksSequentially(chunkRange, client)
+		}
+		batchStart += 1
+		fetchedBlocks = append(fetchedBlocks, block)
+	}
+
 	// Add block requests to the batch
-	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
+	for blockNum := batchStart; blockNum <= chunkRange.to; blockNum++ {
 		if err := batch.AddBlockRequest(blockNum); err != nil {
 			return nil, fmt.Errorf(
 				"unable to add block request for block %d, %w",
@@ -107,11 +120,20 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 	)
 
 	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
+		if blockNum == 0 {
+			block, err := getGenesisBlock(client)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
+				continue
+			}
+
+			blocks = append(blocks, block)
+		}
+
 		// Get block info from the chain
 		block, err := client.GetBlock(blockNum)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
-
 			continue
 		}
 
@@ -119,6 +141,37 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 	}
 
 	return blocks, errors.Join(errs...)
+}
+
+func getGenesisBlock(client Client) (*types.Block, error) {
+	gblock, err := client.GetGenesisBlock()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get genesis block, %w", err)
+	}
+
+	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
+	if !ok {
+		return nil, fmt.Errorf("unknown genesis state kind")
+	}
+	txs := make([]types.Tx, len(genesisState.Txs))
+	for i, tx := range genesisState.Txs {
+		txs[i], err = amino.MarshalJSON(tx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal genesis tx, %w", err)
+		}
+	}
+	block := &types.Block{
+		Header: types.Header{
+			NumTxs:   int64(len(txs)),
+			TotalTxs: int64(len(txs)),
+			Time:     gblock.Genesis.GenesisTime,
+			ChainID:  gblock.Genesis.ChainID,
+		},
+		Data: types.Data{
+			Txs: txs,
+		},
+	}
+	return block, nil
 }
 
 // getTxResultFromBatch gets the tx results using batch requests.

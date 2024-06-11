@@ -11,10 +11,6 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
-	"github.com/gnolang/gno/gno.land/pkg/gnoland"
-	"github.com/gnolang/gno/tm2/pkg/amino"
-	bftTypes "github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -74,10 +70,6 @@ func New(
 // FetchChainData starts the fetching process that indexes
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
-	if err := f.maybeFetchGenesis(); err != nil {
-		return fmt.Errorf("unable to index genesis block, %w", err)
-	}
-
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state
@@ -91,7 +83,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 
 		// Fetch the latest saved height
 		latestLocal, err := f.storage.GetLatestHeight()
-		if err != nil && !errors.Is(err, storageErrors.ErrNotFound) {
+		isInit := errors.Is(err, storageErrors.ErrNotFound)
+		if err != nil && !isInit {
 			return fmt.Errorf("unable to fetch latest block height, %w", err)
 		}
 
@@ -109,8 +102,14 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			return nil
 		}
 
+		var start uint64
+		if isInit {
+			start = 0
+		} else {
+			start = latestLocal + 1
+		}
 		gaps := f.chunkBuffer.reserveChunkRanges(
-			latestLocal+1,
+			start,
 			latestRemote,
 			f.maxChunkSize,
 		)
@@ -186,170 +185,68 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				if err := f.processSlot(item); err != nil {
-					return fmt.Errorf("unable to process slot, %w", err)
+				wb := f.storage.WriteBatch()
+
+				// Save the fetched data
+				for blockIndex, block := range item.chunk.blocks {
+					if saveErr := wb.SetBlock(block); saveErr != nil {
+						// This is a design choice that really highlights the strain
+						// of keeping legacy testnets running. Current TM2 testnets
+						// have blocks / transactions that are no longer compatible
+						// with latest "master" changes for Amino, so these blocks / txs are ignored,
+						// as opposed to this error being a show-stopper for the fetcher
+						f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
+
+						continue
+					}
+
+					f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
+
+					// Get block results
+					txResults := item.chunk.results[blockIndex]
+
+					// Save the fetched transaction results
+					for _, txResult := range txResults {
+						if err := wb.SetTx(txResult); err != nil {
+							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+
+							continue
+						}
+
+						f.logger.Debug(
+							"Added tx to batch",
+							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+						)
+					}
+
+					// Alert any listeners of a new saved block
+					event := &types.NewBlock{
+						Block:   block,
+						Results: txResults,
+					}
+
+					f.events.SignalEvent(event)
+				}
+
+				f.logger.Info(
+					"Added to batch block and tx data for range",
+					zap.Uint64("from", item.chunkRange.from),
+					zap.Uint64("to", item.chunkRange.to),
+				)
+
+				// Save the latest height data
+				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
+					if rErr := wb.Rollback(); rErr != nil {
+						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+					}
+
+					return fmt.Errorf("unable to save latest height info, %w", err)
+				}
+
+				if err := wb.Commit(); err != nil {
+					return fmt.Errorf("error persisting block information into storage, %w", err)
 				}
 			}
 		}
 	}
-}
-
-func (f *Fetcher) maybeFetchGenesis() error {
-	// Check if genesis block has already been indexed (latest height is set)
-	_, err := f.storage.GetLatestHeight()
-	if err == nil {
-		return nil
-	} else if !errors.Is(err, storageErrors.ErrNotFound) {
-		return fmt.Errorf("unable to fetch latest block height, %w", err)
-	}
-
-	// Fetch genesis
-	iGenesisBlock, err := f.client.GetGenesisBlock()
-	if err != nil {
-		return fmt.Errorf("unable to fetch genesis block, %w", err)
-	}
-
-	genesisState, ok := iGenesisBlock.Genesis.AppState.(gnoland.GnoGenesisState)
-	if !ok {
-		return errors.New("unable to cast genesis block to GnoGenesisState")
-	}
-
-	// Convert genesis to normal block
-	bftTxs := make([]bftTypes.Tx, len(genesisState.Txs))
-	for i, tx := range genesisState.Txs {
-		bftTxs[i], err = amino.Marshal(tx)
-		if err != nil {
-			return fmt.Errorf("unable to marshal tx, %w", err)
-		}
-	}
-
-	block := &bftTypes.Block{
-		Header: bftTypes.Header{
-			AppHash:  iGenesisBlock.Genesis.AppHash,
-			ChainID:  iGenesisBlock.Genesis.ChainID,
-			Time:     iGenesisBlock.Genesis.GenesisTime,
-			Height:   0,
-			NumTxs:   int64(len(bftTxs)),
-			TotalTxs: int64(len(bftTxs)),
-		},
-		Data: bftTypes.Data{
-			Txs: bftTxs,
-		},
-	}
-
-	results := make([]*bftTypes.TxResult, len(genesisState.Txs))
-	for i, tx := range genesisState.Txs {
-		hash, err := getTxHash(tx)
-		if err != nil {
-			f.logger.Error("unable to get tx hash", zap.String("err", err.Error()))
-			continue
-		}
-		txwr, err := f.client.GetTx(hash)
-		if err != nil {
-			f.logger.Error("unable to get tx", zap.String("err", err.Error()))
-			continue
-		}
-		results[i] = &bftTypes.TxResult{
-			Height:   0,
-			Index:    uint32(i),
-			Tx:       txwr.Tx,
-			Response: txwr.TxResult,
-		}
-	}
-
-	slot := &slot{
-		chunk: &chunk{
-			blocks:  []*bftTypes.Block{block},
-			results: [][]*bftTypes.TxResult{results},
-		},
-		chunkRange: chunkRange{
-			from: 0, // should be -1, but we're using 0 to avoid underflow
-			to:   0,
-		},
-	}
-
-	if err := f.processSlot(slot); err != nil {
-		return fmt.Errorf("unable to process genesis slot, %w", err)
-	}
-
-	return nil
-}
-
-// getTxHash returns the hex hash representation of
-// the transaction (Amino encoded)
-func getTxHash(tx std.Tx) ([]byte, error) {
-	encodedTx, err := amino.Marshal(tx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal transaction, %w", err)
-	}
-
-	txHash := bftTypes.Tx(encodedTx).Hash()
-
-	return txHash, nil
-}
-
-func (f *Fetcher) processSlot(slot *slot) error {
-	wb := f.storage.WriteBatch()
-
-	// Save the fetched data
-	for blockIndex, block := range slot.chunk.blocks {
-		if saveErr := wb.SetBlock(block); saveErr != nil {
-			// This is a design choice that really highlights the strain
-			// of keeping legacy testnets running. Current TM2 testnets
-			// have blocks / transactions that are no longer compatible
-			// with latest "master" changes for Amino, so these blocks / txs are ignored,
-			// as opposed to this error being a show-stopper for the fetcher
-			f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
-
-			continue
-		}
-
-		f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
-
-		// Get block results
-		txResults := slot.chunk.results[blockIndex]
-
-		// Save the fetched transaction results
-		for _, txResult := range txResults {
-			if err := wb.SetTx(txResult); err != nil {
-				f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
-
-				continue
-			}
-
-			f.logger.Debug(
-				"Added tx to batch",
-				zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
-			)
-		}
-
-		// Alert any listeners of a new saved block
-		event := &types.NewBlock{
-			Block:   block,
-			Results: txResults,
-		}
-
-		f.events.SignalEvent(event)
-	}
-
-	f.logger.Info(
-		"Added to batch block and tx data for range",
-		zap.Uint64("from", slot.chunkRange.from),
-		zap.Uint64("to", slot.chunkRange.to),
-	)
-
-	// Save the latest height data
-	if err := wb.SetLatestHeight(slot.chunkRange.to); err != nil {
-		if rErr := wb.Rollback(); rErr != nil {
-			return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
-		}
-
-		return fmt.Errorf("unable to save latest height info, %w", err)
-	}
-
-	if err := wb.Commit(); err != nil {
-		return fmt.Errorf("error persisting block information into storage, %w", err)
-	}
-
-	return nil
 }
