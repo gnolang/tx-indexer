@@ -24,6 +24,9 @@ type Client interface {
 
 	// CreateBatch creates a new client batch
 	CreateBatch() clientTypes.Batch
+
+	// GetTx returns the transaction by its hash
+	GetTx(hash []byte) (*core_types.ResultTx, error)
 }
 
 // Events is the events API

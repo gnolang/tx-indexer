@@ -14,6 +14,7 @@ import (
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	bftTypes "github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -236,21 +237,30 @@ func (f *Fetcher) maybeFetchGenesis() error {
 		},
 	}
 
-	txResults := make([]*bftTypes.TxResult, len(bftTxs))
-	for i, tx := range bftTxs {
-		r := iGenesisBlock.Response.TxResponses[i]
-		txResults[i] = &bftTypes.TxResult{
+	results := make([]*bftTypes.TxResult, len(genesisState.Txs))
+	for i, tx := range genesisState.Txs {
+		hash, err := getTxHash(tx)
+		if err != nil {
+			f.logger.Error("unable to get tx hash", zap.String("err", err.Error()))
+			continue
+		}
+		txwr, err := f.client.GetTx(hash)
+		if err != nil {
+			f.logger.Error("unable to get tx", zap.String("err", err.Error()))
+			continue
+		}
+		results[i] = &bftTypes.TxResult{
 			Height:   0,
 			Index:    uint32(i),
-			Tx:       tx,
-			Response: r,
+			Tx:       txwr.Tx,
+			Response: txwr.TxResult,
 		}
 	}
 
 	slot := &slot{
 		chunk: &chunk{
 			blocks:  []*bftTypes.Block{block},
-			results: [][]*bftTypes.TxResult{txResults},
+			results: [][]*bftTypes.TxResult{results},
 		},
 		chunkRange: chunkRange{
 			from: 0, // should be -1, but we're using 0 to avoid underflow
@@ -263,6 +273,19 @@ func (f *Fetcher) maybeFetchGenesis() error {
 	}
 
 	return nil
+}
+
+// getTxHash returns the hex hash representation of
+// the transaction (Amino encoded)
+func getTxHash(tx std.Tx) ([]byte, error) {
+	encodedTx, err := amino.Marshal(tx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal transaction, %w", err)
+	}
+
+	txHash := bftTypes.Tx(encodedTx).Hash()
+
+	return txHash, nil
 }
 
 func (f *Fetcher) processSlot(slot *slot) error {

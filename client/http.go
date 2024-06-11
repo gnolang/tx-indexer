@@ -67,3 +67,11 @@ func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResult
 
 	return results, nil
 }
+
+func (c *Client) GetTx(hash []byte) (*core_types.ResultTx, error) {
+	tx, err := c.client.Tx(hash, false)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tx, %w", err)
+	}
+	return tx, nil
+}
