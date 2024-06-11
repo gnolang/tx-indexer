@@ -126,7 +126,17 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 
 //nolint:errname // Provide a field named `error` as the GraphQL response value
 type TransactionResponse struct {
+	events   []Event
 	response abci.ResponseDeliverTx
+
+	mu         sync.Mutex
+	onceEvents sync.Once
+}
+
+func NewTransactionResponse(response abci.ResponseDeliverTx) *TransactionResponse {
+	return &TransactionResponse{
+		response: response,
+	}
 }
 
 func (tr *TransactionResponse) Log() string {
@@ -147,6 +157,35 @@ func (tr *TransactionResponse) Error() string {
 
 func (tr *TransactionResponse) Data() string {
 	return string(tr.response.Data)
+}
+
+func (tr *TransactionResponse) Events() []Event {
+	return tr.getEvents()
+}
+
+func (tr *TransactionResponse) getEvents() []Event {
+	// This function creates a 'Event'.
+	// and executed once.
+	makeEvents := func() {
+		events := make([]Event, 0)
+
+		for _, event := range tr.response.Events {
+			event, err := makeEvent(event)
+			if err != nil {
+				continue
+			}
+
+			events = append(events, event)
+		}
+
+		tr.mu.Lock()
+		tr.events = events
+		tr.mu.Unlock()
+	}
+
+	tr.onceEvents.Do(makeEvents)
+
+	return tr.events
 }
 
 type TransactionMessage struct {
@@ -215,6 +254,23 @@ func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 
 func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
+}
+
+func makeEvent(abciEvent abci.Event) (Event, error) {
+	data, err := json.Marshal(abciEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	var gnoEvent *GnoEvent
+
+	if err = json.Unmarshal(data, &gnoEvent); err == nil {
+		return gnoEvent, nil
+	}
+
+	return &UnknownEvent{
+		Value: string(data),
+	}, nil
 }
 
 func makeBankMsgSend(value std.Msg) BankMsgSend {

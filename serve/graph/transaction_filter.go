@@ -26,6 +26,10 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 		return false
 	}
 
+	if !filteredTransactionByEvents(tx, filter.Events) {
+		return false
+	}
+
 	if filter.Message != nil {
 		if !filteredTransactionByMessageRoute(tx, filter.Message.Route) {
 			return false
@@ -50,6 +54,84 @@ func filteredTransactionBySuccess(tx *model.Transaction, success *bool) bool {
 	}
 
 	return deref(success) == tx.Success()
+}
+
+// `filteredTransactionByEvents` checks for events in the transaction's results.
+func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.EventInput) bool {
+	if len(eventInputs) == 0 {
+		return true
+	}
+
+	events := tx.Response().Events()
+	if len(events) == 0 {
+		return false
+	}
+
+	for _, event := range events {
+		for _, eventInput := range eventInputs {
+			if filteredEventBy(event, eventInput) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// `filteredEventBy` checks the conditions of a event.
+func filteredEventBy(event model.Event, eventInput *model.EventInput) bool {
+	if event == nil {
+		return false
+	}
+
+	gnoEvent, ok := event.(*model.GnoEvent)
+	if !ok {
+		return false
+	}
+
+	if eventInput.Type != nil && deref(eventInput.Type) != gnoEvent.Type {
+		return false
+	}
+
+	if eventInput.PkgPath != nil && deref(eventInput.PkgPath) != gnoEvent.PkgPath {
+		return false
+	}
+
+	if eventInput.Func != nil && deref(eventInput.Func) != gnoEvent.Func {
+		return false
+	}
+
+	if eventInput.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.Attrs) {
+		return false
+	}
+
+	return true
+}
+
+// `filteredGnoEventAttributesBy` check the conditions of event attributes
+func filteredGnoEventAttributesBy(
+	attrs []*model.GnoEventAttribute,
+	filterAttrs []*model.EventAttributeInput,
+) bool {
+	if len(attrs) == 0 {
+		return true
+	}
+
+	for _, attr := range attrs {
+		for _, attributeFilter := range filterAttrs {
+			if attributeFilter.Key != nil && attr.Key != deref(attributeFilter.Key) {
+				continue
+			}
+
+			if attributeFilter.Value != nil && attr.Value != deref(attributeFilter.Value) {
+				continue
+			}
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // `filteredAmountBy` checks a token represented as a string(<value><denomination>)
