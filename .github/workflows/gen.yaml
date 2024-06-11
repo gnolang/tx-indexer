@@ -18,4 +18,11 @@ jobs:
         run: make generate
 
       - name: Check that there is no diff
-        run: git diff --exit-code
+        run: |
+          mrdiff=$(git status --porcelain)
+          if [[ $mrdiff ]]; then
+              echo "ERROR: Diff found!""
+              echo $mrdiff
+              git diff
+              exit 1
+          fi
