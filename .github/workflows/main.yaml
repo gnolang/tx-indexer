@@ -12,3 +12,7 @@ jobs:
   test:
     name: Go Test
     uses: ./.github/workflows/test.yaml
+
+  codegen:
+    name: Go Codegen
+    uses: ./.github/workflows/gen.yaml

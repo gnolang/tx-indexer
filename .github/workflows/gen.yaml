@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
@@ -14,7 +14,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          args: --config=./.github/golangci.yaml
+      - name: Generate code
+        run: make generate
+
+      - name: Check that there is no diff
+        run: git diff --exit-code
