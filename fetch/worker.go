@@ -161,7 +161,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 		return getTxResultsSequentially(blocks, client)
 	}
 
-	indexOfBlockHeight := make(map[int64]int)
+	indexOfBlockHeight := make(map[int64]int, len(blocks))
 
 	for index, block := range blocks {
 		indexOfBlockHeight[block.Height] = index
