@@ -96,7 +96,7 @@ type EventInput struct {
 }
 
 // `GnoEvent` is the event information exported by the Gno VM.
-// It has `type`, `pkg_path`, `func`, and `attrs`.
+// It has `log`, `info`, `error`, and `data`.
 type GnoEvent struct {
 	// `type` is the type of transaction event emitted.
 	Type string `json:"type"`
@@ -342,13 +342,60 @@ type UnexpectedMessage struct {
 func (UnexpectedMessage) IsMessageValue() {}
 
 // `UnknownEvent` is an unknown event type.
-// It has `value`.
+// It has `key` and `value`.
 type UnknownEvent struct {
-	// `value` is an raw event string.
+	// `value` is an event string..
 	Value string `json:"value"`
 }
 
 func (UnknownEvent) IsEvent() {}
+
+// `MessageType` is message type of the transaction.
+// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+type EventType string
+
+const (
+	// The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
+	// This is a transaction message used when sending native tokens.
+	EventTypeGno EventType = "gno"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
+	// This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
+	EventTypeUnknown EventType = "unknown"
+)
+
+var AllEventType = []EventType{
+	EventTypeGno,
+	EventTypeUnknown,
+}
+
+func (e EventType) IsValid() bool {
+	switch e {
+	case EventTypeGno, EventTypeUnknown:
+		return true
+	}
+	return false
+}
+
+func (e EventType) String() string {
+	return string(e)
+}
+
+func (e *EventType) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EventType", str)
+	}
+	return nil
+}
+
+func (e EventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
 
 // `MessageRoute` is route type of the transactional message.
 // `MessageRoute` has the values of vm and bank.
