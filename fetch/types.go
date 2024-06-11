@@ -15,8 +15,8 @@ type Client interface {
 	// GetBlock returns specified block
 	GetBlock(uint64) (*core_types.ResultBlock, error)
 
-	// GetGenesisBlock returns the genesis block
-	GetGenesisBlock() (*core_types.ResultGenesis, error)
+	// GetGenesis returns the genesis block
+	GetGenesis() (*core_types.ResultGenesis, error)
 
 	// GetBlockResults returns the results of executing the transactions
 	// for the specified block
@@ -24,9 +24,6 @@ type Client interface {
 
 	// CreateBatch creates a new client batch
 	CreateBatch() clientTypes.Batch
-
-	// GetTx returns the transaction by its hash
-	GetTx(hash []byte) (*core_types.ResultTx, error)
 }
 
 // Events is the events API

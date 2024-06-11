@@ -53,7 +53,7 @@ func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 	return block, nil
 }
 
-func (c *Client) GetGenesisBlock() (*core_types.ResultGenesis, error) {
+func (c *Client) GetGenesis() (*core_types.ResultGenesis, error) {
 	genesis, err := c.client.Genesis()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get genesis block, %w", err)
@@ -71,12 +71,4 @@ func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResult
 	}
 
 	return results, nil
-}
-
-func (c *Client) GetTx(hash []byte) (*core_types.ResultTx, error) {
-	tx, err := c.client.Tx(hash)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get tx, %w", err)
-	}
-	return tx, nil
 }

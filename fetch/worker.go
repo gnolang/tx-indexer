@@ -128,6 +128,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 			}
 
 			blocks = append(blocks, block)
+			continue
 		}
 
 		// Get block info from the chain
@@ -144,7 +145,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 }
 
 func getGenesisBlock(client Client) (*types.Block, error) {
-	gblock, err := client.GetGenesisBlock()
+	gblock, err := client.GetGenesis()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get genesis block, %w", err)
 	}
