@@ -269,6 +269,33 @@ func (pi *PebbleTxIter) Next() bool {
 		return false
 	}
 
+	var buf []byte
+
+	key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
+	if err != nil {
+		pi.nextError = err
+
+		return false
+	}
+
+	key, _, err = decodeUint64Ascending(key)
+	if err != nil {
+		pi.nextError = err
+
+		return false
+	}
+
+	_, txIdx, err := decodeUint32Ascending(key)
+	if err != nil {
+		pi.nextError = err
+
+		return false
+	}
+
+	if txIdx >= pi.fromIndex && txIdx < pi.toIndex {
+		return true
+	}
+
 	return true
 }
 

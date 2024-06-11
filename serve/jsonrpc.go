@@ -161,6 +161,11 @@ func (j *JSONRPC) RegisterSubEndpoints(db storage.Storage) {
 	)
 
 	j.RegisterHandler(
+		"newTransactionFilter",
+		subsHandler.NewTransactionFilterHandler,
+	)
+
+	j.RegisterHandler(
 		"getFilterChanges",
 		subsHandler.GetFilterChangesHandler,
 	)

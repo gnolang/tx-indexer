@@ -8,6 +8,7 @@ import (
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
 	"github.com/gnolang/gno/tm2/pkg/amino"
+	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/sdk/bank"
 	"github.com/gnolang/gno/tm2/pkg/std"
@@ -27,7 +28,6 @@ func NewTransaction(txResult *types.TxResult) *Transaction {
 	return &Transaction{
 		txResult: txResult,
 		messages: make([]*TransactionMessage, 0),
-		stdTx:    nil,
 	}
 }
 
@@ -45,6 +45,14 @@ func (t *Transaction) Hash() string {
 
 func (t *Transaction) BlockHeight() int {
 	return int(t.txResult.Height)
+}
+
+func (t *Transaction) Success() bool {
+	return t.txResult.Response.IsOK()
+}
+
+func (t *Transaction) Response() *TransactionResponse {
+	return &TransactionResponse{response: t.txResult.Response}
 }
 
 func (t *Transaction) GasWanted() int {
@@ -130,6 +138,70 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 	return t.messages
 }
 
+//nolint:errname // Provide a field named `error` as the GraphQL response value
+type TransactionResponse struct {
+	events   []Event
+	response abci.ResponseDeliverTx
+
+	mu         sync.Mutex
+	onceEvents sync.Once
+}
+
+func NewTransactionResponse(response abci.ResponseDeliverTx) *TransactionResponse {
+	return &TransactionResponse{
+		response: response,
+	}
+}
+
+func (tr *TransactionResponse) Log() string {
+	return tr.response.Log
+}
+
+func (tr *TransactionResponse) Info() string {
+	return tr.response.Info
+}
+
+func (tr *TransactionResponse) Error() string {
+	if tr.response.IsErr() {
+		return tr.response.Error.Error()
+	}
+
+	return ""
+}
+
+func (tr *TransactionResponse) Data() string {
+	return string(tr.response.Data)
+}
+
+func (tr *TransactionResponse) Events() []Event {
+	return tr.getEvents()
+}
+
+func (tr *TransactionResponse) getEvents() []Event {
+	// This function creates a 'Event'.
+	// and executed once.
+	makeEvents := func() {
+		events := make([]Event, 0)
+
+		for _, event := range tr.response.Events {
+			event, err := makeEvent(event)
+			if err != nil {
+				continue
+			}
+
+			events = append(events, event)
+		}
+
+		tr.mu.Lock()
+		tr.events = events
+		tr.mu.Unlock()
+	}
+
+	tr.onceEvents.Do(makeEvents)
+
+	return tr.events
+}
+
 type TransactionMessage struct {
 	Value   MessageValue
 	Route   string
@@ -196,6 +268,23 @@ func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 
 func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
+}
+
+func makeEvent(abciEvent abci.Event) (Event, error) {
+	data, err := json.Marshal(abciEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	var gnoEvent *GnoEvent
+
+	if err = json.Unmarshal(data, &gnoEvent); err == nil {
+		return gnoEvent, nil
+	}
+
+	return &UnknownEvent{
+		Value: string(data),
+	}, nil
 }
 
 func makeBankMsgSend(value std.Msg) BankMsgSend {

@@ -1,6 +1,8 @@
 package fetch
 
 import (
+	"context"
+
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
@@ -62,7 +64,7 @@ func (m *mockClient) CreateBatch() clientTypes.Batch {
 type (
 	addBlockRequestDelegate        func(uint64) error
 	addBlockResultsRequestDelegate func(uint64) error
-	executeDelegate                func() ([]any, error)
+	executeDelegate                func(context.Context) ([]any, error)
 	countDelegate                  func() int
 )
 
@@ -89,9 +91,9 @@ func (m *mockBatch) AddBlockResultsRequest(num uint64) error {
 	return nil
 }
 
-func (m *mockBatch) Execute() ([]any, error) {
+func (m *mockBatch) Execute(ctx context.Context) ([]any, error) {
 	if m.executeFn != nil {
-		return m.executeFn()
+		return m.executeFn(ctx)
 	}
 
 	return nil, nil

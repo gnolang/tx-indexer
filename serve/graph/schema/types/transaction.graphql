@@ -13,6 +13,11 @@ type Transaction {
   hash: String!
 
   """
+  The success can determine whether the transaction succeeded or failed.
+  """
+  success: Boolean!
+
+  """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
   block_height: Int!
@@ -46,14 +51,10 @@ type Transaction {
   memo: String!
 
   """
-  `code` is the status code of the transaction.
+  `response` is the processing result of the transaction.
+  It has `log`, `info`, `error`, and `data`.
   """
-  code: Int!
-
-  """
-  `log` log of tx result
-  """
-  log: String!
+  response: TransactionResponse!
 }
 
 """
@@ -272,4 +273,90 @@ type TxFee {
   gas fee details (<value><denomination>)
   """
   gas_fee: Int!
+}
+
+"""
+`TransactionResponse` is the processing result of the transaction.
+It has `log`, `info`, `error`, and `data`.
+"""
+type TransactionResponse {
+  """
+  The log value associated with the Transaction execution, if any.
+  """
+  log: String!
+
+  """
+  The Info associated with the Transaction execution, if any.
+  """
+  info: String!
+
+  """
+  The error value associated with the Transaction execution, if any.
+  """
+  error: String!
+
+  """
+  The response data associated with the Transaction execution, if any.
+  """
+  data: String!
+
+  """
+  The emitted events associated with the transaction execution, if any.
+  """
+  events: [Event]
+}
+
+union Event = GnoEvent | UnknownEvent
+
+"""
+`GnoEvent` is the event information exported by the Gno VM.
+It has `type`, `pkg_path`, `func`, and `attrs`.
+"""
+type GnoEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String!
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String!
+
+  """
+  `func` is the name of the function that emitted the event.
+  """
+  func: String!
+
+  """
+  `attrs` is the event's attribute information.
+  """
+  attrs: [GnoEventAttribute!]
+}
+
+"""
+`GnoEventAttribute` is the attributes that the event has.
+It has `key` and `value`.
+"""
+type GnoEventAttribute {
+  """
+  The key of the event attribute.
+  """
+  key: String!
+
+  """
+  The value of the event attribute.
+  """
+  value: String!
+}
+
+"""
+`UnknownEvent` is an unknown event type.
+It has `value`.
+"""
+type UnknownEvent {
+  """
+  `value` is an raw event string.
+  """
+  value: String!
 }

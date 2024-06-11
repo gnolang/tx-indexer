@@ -1,5 +1,7 @@
 package types
 
+import "context"
+
 // Batch defines the interface for the client batch
 type Batch interface {
 	// AddBlockRequest adds a new block request (block fetch) to the batch
@@ -9,7 +11,7 @@ type Batch interface {
 	AddBlockResultsRequest(uint64) error
 
 	// Execute sends the batch off for processing by the node
-	Execute() ([]any, error)
+	Execute(context.Context) ([]any, error)
 
 	// Count returns the number of requests in the batch
 	Count() int

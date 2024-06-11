@@ -6,7 +6,9 @@ import (
 )
 
 // NewBlockEvent is the event for when new blocks appear
-var NewBlockEvent events.Type = "newHeads"
+var (
+	NewBlockEvent events.Type = "newHeads"
+)
 
 type NewBlock struct {
 	Block   *types.Block
