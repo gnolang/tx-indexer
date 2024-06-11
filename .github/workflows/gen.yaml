@@ -21,7 +21,7 @@ jobs:
         run: |
           mrdiff=$(git status --porcelain)
           if [[ $mrdiff ]]; then
-              echo "ERROR: Diff found!""
+              echo 'ERROR: Diff found!'
               echo $mrdiff
               git diff
               exit 1
