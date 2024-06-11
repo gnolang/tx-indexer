@@ -154,6 +154,7 @@ func getGenesisBlock(client Client) (*types.Block, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown genesis state kind")
 	}
+
 	txs := make([]types.Tx, len(genesisState.Txs))
 	for i, tx := range genesisState.Txs {
 		txs[i], err = amino.MarshalJSON(tx)
@@ -161,6 +162,7 @@ func getGenesisBlock(client Client) (*types.Block, error) {
 			return nil, fmt.Errorf("unable to marshal genesis tx, %w", err)
 		}
 	}
+
 	block := &types.Block{
 		Header: types.Header{
 			NumTxs:   int64(len(txs)),
@@ -172,6 +174,7 @@ func getGenesisBlock(client Client) (*types.Block, error) {
 			Txs: txs,
 		},
 	}
+
 	return block, nil
 }
 
