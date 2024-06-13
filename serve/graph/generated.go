@@ -82,6 +82,11 @@ type ComplexityRoot struct {
 		Memo       func(childComplexity int) int
 	}
 
+	Coin struct {
+		Amount func(childComplexity int) int
+		Denom  func(childComplexity int) int
+	}
+
 	GnoEvent struct {
 		Attrs   func(childComplexity int) int
 		Func    func(childComplexity int) int
@@ -139,6 +144,7 @@ type ComplexityRoot struct {
 	Transaction struct {
 		BlockHeight func(childComplexity int) int
 		ContentRaw  func(childComplexity int) int
+		GasFee      func(childComplexity int) int
 		GasUsed     func(childComplexity int) int
 		GasWanted   func(childComplexity int) int
 		Hash        func(childComplexity int) int
@@ -374,6 +380,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.BlockTransaction.Memo(childComplexity), true
 
+	case "Coin.amount":
+		if e.complexity.Coin.Amount == nil {
+			break
+		}
+
+		return e.complexity.Coin.Amount(childComplexity), true
+
+	case "Coin.denom":
+		if e.complexity.Coin.Denom == nil {
+			break
+		}
+
+		return e.complexity.Coin.Denom(childComplexity), true
+
 	case "GnoEvent.attrs":
 		if e.complexity.GnoEvent.Attrs == nil {
 			break
@@ -596,6 +616,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Transaction.ContentRaw(childComplexity), true
+
+	case "Transaction.gas_fee":
+		if e.complexity.Transaction.GasFee == nil {
+			break
+		}
+
+		return e.complexity.Transaction.GasFee(childComplexity), true
 
 	case "Transaction.gas_used":
 		if e.complexity.Transaction.GasUsed == nil {
@@ -2068,6 +2095,94 @@ func (ec *executionContext) fieldContext_BlockTransaction_content_raw(_ context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Coin_amount(ctx context.Context, field graphql.CollectedField, obj *model.Coin) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Coin_amount(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Amount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Coin_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Coin",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Coin_denom(ctx context.Context, field graphql.CollectedField, obj *model.Coin) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Coin_denom(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Denom, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Coin_denom(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Coin",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _GnoEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_GnoEvent_type(ctx, field)
 	if err != nil {
@@ -3103,6 +3218,8 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_gas_wanted(ctx, field)
 			case "gas_used":
 				return ec.fieldContext_Transaction_gas_used(ctx, field)
+			case "gas_fee":
+				return ec.fieldContext_Transaction_gas_fee(ctx, field)
 			case "content_raw":
 				return ec.fieldContext_Transaction_content_raw(ctx, field)
 			case "messages":
@@ -3455,6 +3572,8 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_gas_wanted(ctx, field)
 			case "gas_used":
 				return ec.fieldContext_Transaction_gas_used(ctx, field)
+			case "gas_fee":
+				return ec.fieldContext_Transaction_gas_fee(ctx, field)
 			case "content_raw":
 				return ec.fieldContext_Transaction_content_raw(ctx, field)
 			case "messages":
@@ -3845,6 +3964,53 @@ func (ec *executionContext) fieldContext_Transaction_gas_used(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_gas_fee(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_gas_fee(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.GasFee(), nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Coin)
+	fc.Result = res
+	return ec.marshalOCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_gas_fee(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "amount":
+				return ec.fieldContext_Coin_amount(ctx, field)
+			case "denom":
+				return ec.fieldContext_Coin_denom(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Coin", field.Name)
 		},
 	}
 	return fc, nil
@@ -4465,9 +4631,9 @@ func (ec *executionContext) _TxFee_gas_fee(ctx context.Context, field graphql.Co
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int)
+	res := resTmp.(*model.Coin)
 	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
+	return ec.marshalNCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TxFee_gas_fee(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4477,7 +4643,13 @@ func (ec *executionContext) fieldContext_TxFee_gas_fee(_ context.Context, field 
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
+			switch field.Name {
+			case "amount":
+				return ec.fieldContext_Coin_amount(ctx, field)
+			case "denom":
+				return ec.fieldContext_Coin_denom(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Coin", field.Name)
 		},
 	}
 	return fc, nil
@@ -7292,6 +7464,50 @@ func (ec *executionContext) _BlockTransaction(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var coinImplementors = []string{"Coin"}
+
+func (ec *executionContext) _Coin(ctx context.Context, sel ast.SelectionSet, obj *model.Coin) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, coinImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Coin")
+		case "amount":
+			out.Values[i] = ec._Coin_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "denom":
+			out.Values[i] = ec._Coin_denom(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var gnoEventImplementors = []string{"GnoEvent", "Event"}
 
 func (ec *executionContext) _GnoEvent(ctx context.Context, sel ast.SelectionSet, obj *model.GnoEvent) graphql.Marshaler {
@@ -7804,6 +8020,8 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "gas_fee":
+			out.Values[i] = ec._Transaction_gas_fee(ctx, field, obj)
 		case "content_raw":
 			out.Values[i] = ec._Transaction_content_raw(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -8472,6 +8690,16 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalNCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx context.Context, sel ast.SelectionSet, v *model.Coin) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Coin(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInput(ctx context.Context, v interface{}) (*model.EventAttributeInput, error) {
 	res, err := ec.unmarshalInputEventAttributeInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
@@ -9006,6 +9234,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	}
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx context.Context, sel ast.SelectionSet, v *model.Coin) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Coin(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v model.Event) graphql.Marshaler {

@@ -129,7 +129,10 @@ func NewBlockTransaction(tx types.Tx) *BlockTransaction {
 		ContentRaw: tx.String(),
 		Fee: &TxFee{
 			GasWanted: int(stdTx.Fee.GasWanted),
-			GasFee:    int(stdTx.Fee.GasFee.Amount),
+			GasFee: &Coin{
+				Amount: int(stdTx.Fee.GasFee.Amount),
+				Denom:  stdTx.Fee.GasFee.Denom,
+			},
 		},
 		Memo: stdTx.Memo,
 	}

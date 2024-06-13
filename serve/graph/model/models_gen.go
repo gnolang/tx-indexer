@@ -85,6 +85,14 @@ type BlockTransaction struct {
 	ContentRaw string `json:"content_raw"`
 }
 
+// Define the quantity and denomination of a coin.
+type Coin struct {
+	// The amount of coins.
+	Amount int `json:"amount"`
+	// The denomination of the coin.
+	Denom string `json:"denom"`
+}
+
 // Transaction event's attribute to filter transaction.
 // "EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
 type EventAttributeInput struct {
@@ -341,11 +349,12 @@ type TransactionVMMessageInput struct {
 	Run *MsgRunInput `json:"run,omitempty"`
 }
 
+// The `TxFee` has information about the fee used in the transaction and the maximum gas fee specified by the user.
 type TxFee struct {
 	// gas limit
 	GasWanted int `json:"gas_wanted"`
-	// gas fee details (<value><denomination>)
-	GasFee int `json:"gas_fee"`
+	// The gas fee used in the transaction.
+	GasFee *Coin `json:"gas_fee"`
 }
 
 // `UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
