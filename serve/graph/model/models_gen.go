@@ -353,7 +353,7 @@ type TransactionVMMessageInput struct {
 type TxFee struct {
 	// gas limit
 	GasWanted int `json:"gas_wanted"`
-	// The gas fee used in the transaction.
+	// The gas fee in the transaction.
 	GasFee *Coin `json:"gas_fee"`
 }
 

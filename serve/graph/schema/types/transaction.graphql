@@ -279,7 +279,7 @@ type TxFee {
   gas_wanted: Int!
 
   """
-  The gas fee used in the transaction.
+  The gas fee in the transaction.
   """
   gas_fee: Coin!
 }
