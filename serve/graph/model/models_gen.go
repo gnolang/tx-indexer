@@ -71,6 +71,20 @@ type BlockFilter struct {
 	ToTime *time.Time `json:"to_time,omitempty"`
 }
 
+// Defines a transaction within a block, its execution specifics and content.
+type BlockTransaction struct {
+	// Hash computes the TMHASH hash of the wire encoded transaction.
+	Hash string `json:"hash"`
+	// Fee information for the transaction.
+	Fee *TxFee `json:"fee"`
+	// `memo` are string information stored within a transaction.
+	// `memo` can be utilized to find or distinguish transactions.
+	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
+	Memo string `json:"memo"`
+	// The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+	ContentRaw string `json:"content_raw"`
+}
+
 // Transaction event's attribute to filter transaction.
 // "EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
 type EventAttributeInput struct {
@@ -96,7 +110,7 @@ type EventInput struct {
 }
 
 // `GnoEvent` is the event information exported by the Gno VM.
-// It has `log`, `info`, `error`, and `data`.
+// It has `type`, `pkg_path`, `func`, and `attrs`.
 type GnoEvent struct {
 	// `type` is the type of transaction event emitted.
 	Type string `json:"type"`
@@ -342,60 +356,13 @@ type UnexpectedMessage struct {
 func (UnexpectedMessage) IsMessageValue() {}
 
 // `UnknownEvent` is an unknown event type.
-// It has `key` and `value`.
+// It has `value`.
 type UnknownEvent struct {
-	// `value` is an event string..
+	// `value` is an raw event string.
 	Value string `json:"value"`
 }
 
 func (UnknownEvent) IsEvent() {}
-
-// `MessageType` is message type of the transaction.
-// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
-type EventType string
-
-const (
-	// The route value for this message type is `bank`, and the value for transactional messages is `BankMsgSend`.
-	// This is a transaction message used when sending native tokens.
-	EventTypeGno EventType = "gno"
-	// The route value for this message type is `vm`, and the value for transactional messages is `MsgCall`.
-	// This is a transaction message that executes a function in realm or package that is deployed in the GNO chain.
-	EventTypeUnknown EventType = "unknown"
-)
-
-var AllEventType = []EventType{
-	EventTypeGno,
-	EventTypeUnknown,
-}
-
-func (e EventType) IsValid() bool {
-	switch e {
-	case EventTypeGno, EventTypeUnknown:
-		return true
-	}
-	return false
-}
-
-func (e EventType) String() string {
-	return string(e)
-}
-
-func (e *EventType) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = EventType(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid EventType", str)
-	}
-	return nil
-}
-
-func (e EventType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
 
 // `MessageRoute` is route type of the transactional message.
 // `MessageRoute` has the values of vm and bank.
