@@ -176,11 +176,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 
 		height := results.Height
 		deliverTxs := results.Results.DeliverTxs
-		blockIndex, exist := indexOfBlockHeight[height]
-
-		if !exist {
-			continue
-		}
+		blockIndex := indexOfBlockHeight[height]
 
 		txResults := make([]*types.TxResult, blocks[blockIndex].NumTxs)
 
