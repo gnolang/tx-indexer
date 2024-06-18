@@ -1,0 +1,28 @@
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21.x
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate code
+        run: make generate
+
+      - name: Check that there is no diff
+        run: |
+          mrdiff=$(git status --porcelain)
+          if [[ $mrdiff ]]; then
+              echo 'ERROR: Diff found!'
+              echo $mrdiff
+              git diff
+              exit 1
+          fi
