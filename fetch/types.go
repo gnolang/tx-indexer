@@ -15,6 +15,9 @@ type Client interface {
 	// GetBlock returns specified block
 	GetBlock(uint64) (*core_types.ResultBlock, error)
 
+	// GetGenesis returns the genesis block
+	GetGenesis() (*core_types.ResultGenesis, error)
+
 	// GetBlockResults returns the results of executing the transactions
 	// for the specified block
 	GetBlockResults(uint64) (*core_types.ResultBlockResults, error)

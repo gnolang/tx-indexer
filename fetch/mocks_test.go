@@ -3,7 +3,9 @@ package fetch
 import (
 	"context"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
+	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 	"github.com/gnolang/tx-indexer/events"
@@ -39,6 +41,10 @@ func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) 
 	}
 
 	return nil, nil
+}
+
+func (m *mockClient) GetGenesis() (*core_types.ResultGenesis, error) {
+	return &core_types.ResultGenesis{Genesis: &bft_types.GenesisDoc{AppState: gnoland.GnoGenesisState{}}}, nil
 }
 
 func (m *mockClient) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {

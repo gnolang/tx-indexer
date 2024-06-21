@@ -53,6 +53,15 @@ func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 	return block, nil
 }
 
+func (c *Client) GetGenesis() (*core_types.ResultGenesis, error) {
+	genesis, err := c.client.Genesis()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get genesis block, %w", err)
+	}
+
+	return genesis, nil
+}
+
 func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
 	bn := int64(blockNum)
 
