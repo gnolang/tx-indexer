@@ -380,7 +380,7 @@ It has `value`.
 """
 type UnknownEvent {
   """
-  `value` is an raw event string.
+  `value` is a raw event string.
   """
   value: String!
 }

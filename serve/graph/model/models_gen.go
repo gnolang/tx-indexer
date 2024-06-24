@@ -367,7 +367,7 @@ func (UnexpectedMessage) IsMessageValue() {}
 // `UnknownEvent` is an unknown event type.
 // It has `value`.
 type UnknownEvent struct {
-	// `value` is an raw event string.
+	// `value` is a raw event string.
 	Value string `json:"value"`
 }
 

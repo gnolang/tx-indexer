@@ -38,6 +38,7 @@ type Block {
 
   """
   The total number of transactions that have occurred up to this block.
+  Indicates the total number of transactions that have occurred up to this point, even if there are no transactions in this block.
   """
   total_txs: Int!
 
