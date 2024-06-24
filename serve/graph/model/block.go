@@ -14,7 +14,6 @@ type Block struct {
 	b   *types.Block
 	txs []*BlockTransaction
 
-	mu      sync.Mutex
 	onceTxs sync.Once
 }
 
@@ -108,9 +107,7 @@ func (b *Block) getTxs() []*BlockTransaction {
 			}
 		}
 
-		b.mu.Lock()
 		b.txs = blockTxs
-		b.mu.Unlock()
 	}
 
 	b.onceTxs.Do(unmarshalTxs)
