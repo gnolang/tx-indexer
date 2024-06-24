@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/99designs/gqlgen v0.17.48
 	github.com/cockroachdb/pebble v1.1.0
-	github.com/gnolang/gno v0.1.0-nightly.20240604
+	github.com/gnolang/gno v0.1.0-nightly.20240620
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/httprate v0.9.0
 	github.com/google/uuid v1.6.0
