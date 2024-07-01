@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/base64"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,6 +22,10 @@ func NewBlock(b *types.Block) *Block {
 	return &Block{
 		b: b,
 	}
+}
+
+func (b *Block) ID() string {
+	return strconv.Itoa(int(b.b.Height))
 }
 
 func (b *Block) Hash() string {
