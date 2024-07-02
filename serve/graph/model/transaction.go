@@ -79,10 +79,15 @@ func (t *Transaction) Messages() []*TransactionMessage {
 	return t.getMessages()
 }
 
-func (t *Transaction) Fee() *TxFee {
-	return &TxFee{
-		GasWanted: t.GasWanted(),
-		GasFee:    t.GasUsed(),
+func (t *Transaction) GasFee() *Coin {
+	stdTx := t.getStdTx()
+	if stdTx == nil {
+		return nil
+	}
+
+	return &Coin{
+		Amount: int(stdTx.Fee.GasFee.Amount),
+		Denom:  stdTx.Fee.GasFee.Denom,
 	}
 }
 
