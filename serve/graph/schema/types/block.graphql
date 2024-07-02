@@ -3,6 +3,12 @@ Represents a blockchain block with various attributes detailing its creation and
 """
 type Block {
   """
+  A unique identifier for the block, determined by the blockchain's header.
+  It is computed as a Merkle tree from the header.
+  """
+  hash: String!
+
+  """
   A unique identifier for the Block determined by its position in the blockchain.
   This integer is strictly increasing with each new Block.
   """
@@ -26,8 +32,91 @@ type Block {
   time: Time!
 
   """
+  The number of transactions this Block belongs to.
+  """
+  num_txs: Int!
+
+  """
+  The total number of transactions that have occurred up to this block.
+  Indicates the total number of transactions that have occurred up to this point, even if there are no transactions in this block.
+  """
+  total_txs: Int!
+
+  """
+  The application's version.
+  """
+  app_version: String!
+
+  """
+  The last committed block hash.
+  """
+  last_block_hash: String!
+
+  """
+  Commit hash from validators from the last block.
+  """
+  last_commit_hash: String!
+
+  """
+  Validators for the current block.
+  """
+  validators_hash: String!
+
+  """
+  Validators for the next block.
+  """
+  next_validators_hash: String!
+
+  """
+  Consensus params for current block.
+  """
+  consensus_hash: String!
+
+  """
+  State after txs from the previous block.
+  """
+  app_hash: String!
+
+  """
+  Root hash of all results from the txs from the previous block.
+  """
+  last_results_hash: String!
+
+  """
   Encoded data representing the blockchain address of the proposer who submitted this Block.
   It is raw and requires decoding to be human-readable.
   """
   proposer_address_raw: String!
+
+  """
+  txs contains transactions included in the block.
+  """
+  txs: [BlockTransaction]!
+}
+
+"""
+Defines a transaction within a block, its execution specifics and content.
+"""
+type BlockTransaction {
+  """
+  Hash computes the TMHASH hash of the wire encoded transaction.
+  """
+  hash: String!
+
+  """
+  Fee information for the transaction.
+  """
+  fee: TxFee!
+
+  """
+  `memo` are string information stored within a transaction.
+  `memo` can be utilized to find or distinguish transactions.
+  For example, when trading a specific exchange, you would utilize the memo field of the transaction.
+  """
+  memo: String!
+
+  """
+  The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+  """
+  content_raw: String!
 }
