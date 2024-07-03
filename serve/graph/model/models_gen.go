@@ -71,6 +71,28 @@ type BlockFilter struct {
 	ToTime *time.Time `json:"to_time,omitempty"`
 }
 
+// Defines a transaction within a block, its execution specifics and content.
+type BlockTransaction struct {
+	// Hash computes the TMHASH hash of the wire encoded transaction.
+	Hash string `json:"hash"`
+	// Fee information for the transaction.
+	Fee *TxFee `json:"fee"`
+	// `memo` are string information stored within a transaction.
+	// `memo` can be utilized to find or distinguish transactions.
+	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
+	Memo string `json:"memo"`
+	// The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
+	ContentRaw string `json:"content_raw"`
+}
+
+// Define the quantity and denomination of a coin.
+type Coin struct {
+	// The amount of coins.
+	Amount int `json:"amount"`
+	// The denomination of the coin.
+	Denom string `json:"denom"`
+}
+
 // Transaction event's attribute to filter transaction.
 // "EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
 type EventAttributeInput struct {
@@ -327,11 +349,12 @@ type TransactionVMMessageInput struct {
 	Run *MsgRunInput `json:"run,omitempty"`
 }
 
+// The `TxFee` has information about the fee used in the transaction and the maximum gas fee specified by the user.
 type TxFee struct {
 	// gas limit
 	GasWanted int `json:"gas_wanted"`
-	// gas fee details (<value><denomination>)
-	GasFee int `json:"gas_fee"`
+	// The gas fee in the transaction.
+	GasFee *Coin `json:"gas_fee"`
 }
 
 // `UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
@@ -344,7 +367,7 @@ func (UnexpectedMessage) IsMessageValue() {}
 // `UnknownEvent` is an unknown event type.
 // It has `value`.
 type UnknownEvent struct {
-	// `value` is an raw event string.
+	// `value` is a raw event string.
 	Value string `json:"value"`
 }
 

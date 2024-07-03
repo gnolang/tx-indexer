@@ -33,6 +33,12 @@ type Transaction {
   gas_used: Int!
 
   """
+  Fee includes the amount of coins paid in fees and the maximum
+  gas to be used by the transaction.
+  """
+  gas_fee: Coin
+
+  """
   The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
   """
   content_raw: String!
@@ -263,6 +269,9 @@ type MemFile {
   body: String!
 }
 
+"""
+The `TxFee` has information about the fee used in the transaction and the maximum gas fee specified by the user.
+"""
 type TxFee {
   """
   gas limit
@@ -270,9 +279,24 @@ type TxFee {
   gas_wanted: Int!
 
   """
-  gas fee details (<value><denomination>)
+  The gas fee in the transaction.
   """
-  gas_fee: Int!
+  gas_fee: Coin!
+}
+
+"""
+Define the quantity and denomination of a coin.
+"""
+type Coin {
+  """
+  The amount of coins.
+  """
+  amount: Int!
+
+  """
+  The denomination of the coin.
+  """
+  denom: String!
 }
 
 """
@@ -356,7 +380,7 @@ It has `value`.
 """
 type UnknownEvent {
   """
-  `value` is an raw event string.
+  `value` is a raw event string.
   """
   value: String!
 }
