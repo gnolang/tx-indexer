@@ -95,7 +95,7 @@ FLAGS
 
 A GraphQL endpoint is available at `/graphql/query`. It supports standard queries for transactions and blocks and subscriptions for real-time events.
 
-A GrapQL playground is available at `/graphql`. There you have all the documentation needed explaining the different fields and available filters.
+A GraphQL playground is available at `/graphql`. There you have all the documentation needed explaining the different fields and available filters.
 
 ### Examples
 
