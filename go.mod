@@ -7,7 +7,7 @@ toolchain go1.22.5
 require (
 	github.com/99designs/gqlgen v0.17.49
 	github.com/cockroachdb/pebble v1.1.1
-	github.com/gnolang/gno v0.1.0-nightly.20240707
+	github.com/gnolang/gno v0.1.1
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httprate v0.9.0
 	github.com/google/uuid v1.6.0
