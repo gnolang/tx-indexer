@@ -91,6 +91,7 @@ func (f *Fetcher) FetchGenesisData() error {
 	}
 
 	txResults := make([]*bft_types.TxResult, len(block.Txs))
+
 	for txIndex, tx := range block.Txs {
 		result := &bft_types.TxResult{
 			Height:   0,
@@ -220,7 +221,12 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				if err := f.writeBatch(item.chunk.blocks, item.chunk.results, item.chunkRange.from, item.chunkRange.to); err != nil {
+				if err := f.writeBatch(
+					item.chunk.blocks,
+					item.chunk.results,
+					item.chunkRange.from,
+					item.chunkRange.to,
+				); err != nil {
 					return err
 				}
 			}
