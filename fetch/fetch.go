@@ -11,6 +11,9 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
+	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -72,6 +75,53 @@ func New(
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
+	// attemptGenesisFetch
+	attemptGenesisFetch := func() error {
+		f.logger.Info("Fetching genesis")
+
+		_, err := f.storage.GetLatestHeight()
+		isInit := errors.Is(err, storageErrors.ErrNotFound)
+
+		if !isInit {
+			return nil
+		}
+
+		block, err := getGenesisBlock(f.client)
+		if err != nil {
+			return fmt.Errorf("failed to fetch genesis block: %w", err)
+		}
+
+		results, err := f.client.GetBlockResults(0)
+		if err != nil {
+			return fmt.Errorf("failed to fetch genesis results: %w", err)
+		}
+
+		txResults := make([]*bft_types.TxResult, len(block.Txs))
+		for txIndex, tx := range block.Txs {
+			result := &bft_types.TxResult{
+				Height:   0,
+				Index:    uint32(txIndex),
+				Tx:       tx,
+				Response: results.Results.DeliverTxs[txIndex],
+			}
+
+			txResults[txIndex] = result
+		}
+
+		collectorCh <- &workerResponse{
+			chunk: &chunk{
+				blocks:  []*bft_types.Block{block},
+				results: [][]*bft_types.TxResult{txResults},
+			},
+			chunkRange: chunkRange{
+				from: 0,
+				to:   1,
+			},
+		}
+
+		return nil
+	}
+
 	// attemptRangeFetch compares local and remote state
 	// and spawns workers to fetch chunks of the chain
 	attemptRangeFetch := func() error {
@@ -83,9 +133,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 
 		// Fetch the latest saved height
 		latestLocal, err := f.storage.GetLatestHeight()
-		isInit := errors.Is(err, storageErrors.ErrNotFound)
-
-		if err != nil && !isInit {
+		if err != nil && !errors.Is(err, storageErrors.ErrNotFound) {
 			return fmt.Errorf("unable to fetch latest block height, %w", err)
 		}
 
@@ -103,15 +151,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			return nil
 		}
 
-		var start uint64
-		if isInit {
-			start = 0
-		} else {
-			start = latestLocal + 1
-		}
-
 		gaps := f.chunkBuffer.reserveChunkRanges(
-			start,
+			latestLocal+1,
 			latestRemote,
 			f.maxChunkSize,
 		)
@@ -140,6 +181,10 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	defer ticker.Stop()
 
 	// Execute the initial "catch up" with the chain
+	if err := attemptGenesisFetch(); err != nil {
+		return err
+	}
+
 	if err := attemptRangeFetch(); err != nil {
 		return err
 	}
@@ -251,4 +296,38 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func getGenesisBlock(client Client) (*bft_types.Block, error) {
+	gblock, err := client.GetGenesis()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get genesis block, %w", err)
+	}
+
+	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
+	if !ok {
+		return nil, fmt.Errorf("unknown genesis state kind")
+	}
+
+	txs := make([]bft_types.Tx, len(genesisState.Txs))
+	for i, tx := range genesisState.Txs {
+		txs[i], err = amino.MarshalJSON(tx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal genesis tx, %w", err)
+		}
+	}
+
+	block := &bft_types.Block{
+		Header: bft_types.Header{
+			NumTxs:   int64(len(txs)),
+			TotalTxs: int64(len(txs)),
+			Time:     gblock.Genesis.GenesisTime,
+			ChainID:  gblock.Genesis.ChainID,
+		},
+		Data: bft_types.Data{
+			Txs: txs,
+		},
+	}
+
+	return block, nil
 }
