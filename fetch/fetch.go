@@ -70,50 +70,49 @@ func New(
 	return f
 }
 
+func (f *Fetcher) FetchGenesisData() error {
+	_, err := f.storage.GetLatestHeight()
+	isInit := errors.Is(err, storageErrors.ErrNotFound)
+
+	if !isInit {
+		return nil
+	}
+
+	f.logger.Info("Fetching genesis")
+
+	block, err := getGenesisBlock(f.client)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis block: %w", err)
+	}
+
+	results, err := f.client.GetBlockResults(0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis results: %w", err)
+	}
+
+	txResults := make([]*bft_types.TxResult, len(block.Txs))
+	for txIndex, tx := range block.Txs {
+		result := &bft_types.TxResult{
+			Height:   0,
+			Index:    uint32(txIndex),
+			Tx:       tx,
+			Response: results.Results.DeliverTxs[txIndex],
+		}
+
+		txResults[txIndex] = result
+	}
+
+	if err := f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 1); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FetchChainData starts the fetching process that indexes
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
-
-	// attemptGenesisFetch
-	attemptGenesisFetch := func() error {
-		f.logger.Info("Fetching genesis")
-
-		_, err := f.storage.GetLatestHeight()
-		isInit := errors.Is(err, storageErrors.ErrNotFound)
-
-		if !isInit {
-			return nil
-		}
-
-		block, err := getGenesisBlock(f.client)
-		if err != nil {
-			return fmt.Errorf("failed to fetch genesis block: %w", err)
-		}
-
-		results, err := f.client.GetBlockResults(0)
-		if err != nil {
-			return fmt.Errorf("failed to fetch genesis results: %w", err)
-		}
-
-		txResults := make([]*bft_types.TxResult, len(block.Txs))
-		for txIndex, tx := range block.Txs {
-			result := &bft_types.TxResult{
-				Height:   0,
-				Index:    uint32(txIndex),
-				Tx:       tx,
-				Response: results.Results.DeliverTxs[txIndex],
-			}
-
-			txResults[txIndex] = result
-		}
-
-		if err := f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 1); err != nil {
-			return err
-		}
-
-		return nil
-	}
 
 	// attemptRangeFetch compares local and remote state
 	// and spawns workers to fetch chunks of the chain
@@ -174,10 +173,6 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	defer ticker.Stop()
 
 	// Execute the initial "catch up" with the chain
-	if err := attemptGenesisFetch(); err != nil {
-		return err
-	}
-
 	if err := attemptRangeFetch(); err != nil {
 		return err
 	}

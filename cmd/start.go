@@ -159,6 +159,10 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
+	if err := f.FetchGenesisData(); err != nil {
+		return fmt.Errorf("unable to fetch genesis data: %w", err)
+	}
+
 	// Create the JSON-RPC service
 	j := setupJSONRPC(
 		db,
