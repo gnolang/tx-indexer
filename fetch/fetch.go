@@ -108,15 +108,8 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			txResults[txIndex] = result
 		}
 
-		collectorCh <- &workerResponse{
-			chunk: &chunk{
-				blocks:  []*bft_types.Block{block},
-				results: [][]*bft_types.TxResult{txResults},
-			},
-			chunkRange: chunkRange{
-				from: 0,
-				to:   1,
-			},
+		if err := f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 1); err != nil {
+			return err
 		}
 
 		return nil
@@ -232,70 +225,78 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				wb := f.storage.WriteBatch()
-
-				// Save the fetched data
-				for blockIndex, block := range item.chunk.blocks {
-					if saveErr := wb.SetBlock(block); saveErr != nil {
-						// This is a design choice that really highlights the strain
-						// of keeping legacy testnets running. Current TM2 testnets
-						// have blocks / transactions that are no longer compatible
-						// with latest "master" changes for Amino, so these blocks / txs are ignored,
-						// as opposed to this error being a show-stopper for the fetcher
-						f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
-
-						continue
-					}
-
-					f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
-
-					// Get block results
-					txResults := item.chunk.results[blockIndex]
-
-					// Save the fetched transaction results
-					for _, txResult := range txResults {
-						if err := wb.SetTx(txResult); err != nil {
-							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
-
-							continue
-						}
-
-						f.logger.Debug(
-							"Added tx to batch",
-							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
-						)
-					}
-
-					// Alert any listeners of a new saved block
-					event := &types.NewBlock{
-						Block:   block,
-						Results: txResults,
-					}
-
-					f.events.SignalEvent(event)
-				}
-
-				f.logger.Info(
-					"Added to batch block and tx data for range",
-					zap.Uint64("from", item.chunkRange.from),
-					zap.Uint64("to", item.chunkRange.to),
-				)
-
-				// Save the latest height data
-				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
-					if rErr := wb.Rollback(); rErr != nil {
-						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
-					}
-
-					return fmt.Errorf("unable to save latest height info, %w", err)
-				}
-
-				if err := wb.Commit(); err != nil {
-					return fmt.Errorf("error persisting block information into storage, %w", err)
+				if err := f.writeBatch(item.chunk.blocks, item.chunk.results, item.chunkRange.from, item.chunkRange.to); err != nil {
+					return err
 				}
 			}
 		}
 	}
+}
+
+func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.TxResult, from, to uint64) error {
+	wb := f.storage.WriteBatch()
+
+	// Save the fetched data
+	for blockIndex, block := range blocks {
+		if saveErr := wb.SetBlock(block); saveErr != nil {
+			// This is a design choice that really highlights the strain
+			// of keeping legacy testnets running. Current TM2 testnets
+			// have blocks / transactions that are no longer compatible
+			// with latest "master" changes for Amino, so these blocks / txs are ignored,
+			// as opposed to this error being a show-stopper for the fetcher
+			f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
+
+			continue
+		}
+
+		f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
+
+		// Get block results
+		txResults := results[blockIndex]
+
+		// Save the fetched transaction results
+		for _, txResult := range txResults {
+			if err := wb.SetTx(txResult); err != nil {
+				f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+
+				continue
+			}
+
+			f.logger.Debug(
+				"Added tx to batch",
+				zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+			)
+		}
+
+		// Alert any listeners of a new saved block
+		event := &types.NewBlock{
+			Block:   block,
+			Results: txResults,
+		}
+
+		f.events.SignalEvent(event)
+	}
+
+	f.logger.Info(
+		"Added to batch block and tx data for range",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+	)
+
+	// Save the latest height data
+	if err := wb.SetLatestHeight(to); err != nil {
+		if rErr := wb.Rollback(); rErr != nil {
+			return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+		}
+
+		return fmt.Errorf("unable to save latest height info, %w", err)
+	}
+
+	if err := wb.Commit(); err != nil {
+		return fmt.Errorf("error persisting block information into storage, %w", err)
+	}
+
+	return nil
 }
 
 func getGenesisBlock(client Client) (*bft_types.Block, error) {
