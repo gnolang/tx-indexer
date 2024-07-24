@@ -300,9 +300,10 @@ func getGenesisBlock(client Client) (*bft_types.Block, error) {
 		return nil, fmt.Errorf("unable to get genesis block, %w", err)
 	}
 
-	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
+	appState := gblock.Genesis.AppState
+	genesisState, ok := appState.(gnoland.GnoGenesisState)
 	if !ok {
-		return nil, fmt.Errorf("unknown genesis state kind")
+		return nil, fmt.Errorf("unknown genesis state kind '%T'", appState)
 	}
 
 	txs := make([]bft_types.Tx, len(genesisState.Txs))
