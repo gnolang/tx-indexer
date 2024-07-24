@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -901,6 +903,119 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 
 	// Make sure no events were emitted
 	assert.Len(t, capturedEvents, 0)
+}
+
+func TestFetcher_Genesis(t *testing.T) {
+	t.Parallel()
+
+	var (
+		txCount     = 21
+		txs         = generateTransactions(t, txCount)
+		savedBlocks = map[int64]*types.Block{}
+		savedTxs    = map[string]*types.TxResult{}
+
+		capturedEvents = make([]*indexerTypes.NewBlock, 0)
+
+		mockEvents = &mockEvents{
+			signalEventFn: func(e events.Event) {
+				blockEvent, ok := e.(*indexerTypes.NewBlock)
+				require.True(t, ok)
+
+				capturedEvents = append(capturedEvents, blockEvent)
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetBlockFn: func(height uint64) (*types.Block, error) {
+				block, ok := savedBlocks[int64(height)]
+				require.True(t, ok)
+				return block, nil
+			},
+			GetTxFn: func(height uint64, index uint32) (*types.TxResult, error) {
+				tx, ok := savedTxs[fmt.Sprintf("%d-%d", height, index)]
+				require.True(t, ok)
+				return tx, nil
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				return &mock.WriteBatch{
+					SetBlockFn: func(block *types.Block) error {
+						_, ok := savedBlocks[block.Height]
+						require.False(t, ok)
+						savedBlocks[block.Height] = block
+						return nil
+					},
+					SetTxFn: func(tx *types.TxResult) error {
+						savedTxs[fmt.Sprintf("%d-%d", tx.Height, tx.Index)] = tx
+						return nil
+					},
+				}
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				localTxs := make([]std.Tx, len(txs))
+				for i, tx := range txs {
+					localTxs[i] = *tx
+				}
+				return &core_types.ResultGenesis{Genesis: &bft_types.GenesisDoc{AppState: gnoland.GnoGenesisState{
+					Txs: localTxs,
+				}}}, nil
+			},
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				return &core_types.ResultBlockResults{
+					Results: &state.ABCIResponses{
+						DeliverTxs: make([]abci.ResponseDeliverTx, len(txs)),
+					},
+				}, nil
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.NoError(t, f.FetchGenesisData())
+
+	_, err := mockStorage.GetBlock(0)
+	require.NoError(t, err)
+
+	for i := uint32(0); i < uint32(len(txs)); i++ {
+		tx, err := mockStorage.GetTx(0, i)
+		require.NoError(t, err)
+		expected := &types.TxResult{
+			Height:   0,
+			Index:    i,
+			Tx:       amino.MustMarshalJSON(txs[i]),
+			Response: abci.ResponseDeliverTx{},
+		}
+		require.Equal(t, expected, tx)
+	}
+}
+
+func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mockEvents = &mockEvents{}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, nil
+			},
+		}
+
+		mockClient = &mockClient{}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.NoError(t, f.FetchGenesisData())
 }
 
 // generateTransactions generates dummy transactions

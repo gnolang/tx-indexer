@@ -15,6 +15,7 @@ type (
 	getLatestBlockNumberDelegate func() (uint64, error)
 	getBlockDelegate             func(uint64) (*core_types.ResultBlock, error)
 	getBlockResultsDelegate      func(uint64) (*core_types.ResultBlockResults, error)
+	getGenesisDelegate           func() (*core_types.ResultGenesis, error)
 
 	createBatchDelegate func() clientTypes.Batch
 )
@@ -23,6 +24,7 @@ type mockClient struct {
 	getLatestBlockNumberFn getLatestBlockNumberDelegate
 	getBlockFn             getBlockDelegate
 	getBlockResultsFn      getBlockResultsDelegate
+	getGenesisFn           getGenesisDelegate
 
 	createBatchFn createBatchDelegate
 }
@@ -44,6 +46,10 @@ func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) 
 }
 
 func (m *mockClient) GetGenesis() (*core_types.ResultGenesis, error) {
+	if m.getGenesisFn != nil {
+		return m.getGenesisFn()
+	}
+
 	return &core_types.ResultGenesis{Genesis: &bft_types.GenesisDoc{AppState: gnoland.GnoGenesisState{}}}, nil
 }
 
