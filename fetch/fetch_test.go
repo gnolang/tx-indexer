@@ -13,7 +13,6 @@ import (
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/state"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
-	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -932,11 +931,13 @@ func TestFetcher_Genesis(t *testing.T) {
 			GetBlockFn: func(height uint64) (*types.Block, error) {
 				block, ok := savedBlocks[int64(height)]
 				require.True(t, ok)
+
 				return block, nil
 			},
 			GetTxFn: func(height uint64, index uint32) (*types.TxResult, error) {
 				tx, ok := savedTxs[fmt.Sprintf("%d-%d", height, index)]
 				require.True(t, ok)
+
 				return tx, nil
 			},
 			GetWriteBatchFn: func() storage.Batch {
@@ -945,10 +946,12 @@ func TestFetcher_Genesis(t *testing.T) {
 						_, ok := savedBlocks[block.Height]
 						require.False(t, ok)
 						savedBlocks[block.Height] = block
+
 						return nil
 					},
 					SetTxFn: func(tx *types.TxResult) error {
 						savedTxs[fmt.Sprintf("%d-%d", tx.Height, tx.Index)] = tx
+
 						return nil
 					},
 				}
@@ -964,11 +967,12 @@ func TestFetcher_Genesis(t *testing.T) {
 				for i, tx := range txs {
 					localTxs[i] = *tx
 				}
-				return &core_types.ResultGenesis{Genesis: &bft_types.GenesisDoc{AppState: gnoland.GnoGenesisState{
+
+				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{AppState: gnoland.GnoGenesisState{
 					Txs: localTxs,
 				}}}, nil
 			},
-			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
 				return &core_types.ResultBlockResults{
 					Results: &state.ABCIResponses{
 						DeliverTxs: make([]abci.ResponseDeliverTx, len(txs)),
@@ -988,6 +992,7 @@ func TestFetcher_Genesis(t *testing.T) {
 	for i := uint32(0); i < uint32(len(txs)); i++ {
 		tx, err := mockStorage.GetTx(0, i)
 		require.NoError(t, err)
+
 		expected := &types.TxResult{
 			Height:   0,
 			Index:    i,
