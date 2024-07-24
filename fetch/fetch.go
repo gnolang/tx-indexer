@@ -72,10 +72,8 @@ func New(
 
 func (f *Fetcher) FetchGenesisData() error {
 	_, err := f.storage.GetLatestHeight()
-	isInit := errors.Is(err, storageErrors.ErrNotFound)
-
-	if !isInit {
-		return nil
+	if !errors.Is(err, storageErrors.ErrNotFound) {
+		return err
 	}
 
 	f.logger.Info("Fetching genesis")
