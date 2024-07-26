@@ -4,7 +4,7 @@ go 1.22
 
 toolchain go1.22.5
 
-replace github.com/gnolang/gno => /home/sunspirit/Projects/gno
+replace github.com/gnolang/gno => github.com/linhpn99/gno v1.0.0
 
 require (
 	github.com/99designs/gqlgen v0.17.49
