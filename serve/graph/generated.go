@@ -124,6 +124,10 @@ type ComplexityRoot struct {
 		Send    func(childComplexity int) int
 	}
 
+	MsgNoop struct {
+		Caller func(childComplexity int) int
+	}
+
 	MsgRun struct {
 		Caller  func(childComplexity int) int
 		Package func(childComplexity int) int
@@ -527,6 +531,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MsgCall.Send(childComplexity), true
 
+	case "MsgNoop.caller":
+		if e.complexity.MsgNoop.Caller == nil {
+			break
+		}
+
+		return e.complexity.MsgNoop.Caller(childComplexity), true
+
 	case "MsgRun.caller":
 		if e.complexity.MsgRun.Caller == nil {
 			break
@@ -781,6 +792,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputMemPackageInput,
 		ec.unmarshalInputMsgAddPackageInput,
 		ec.unmarshalInputMsgCallInput,
+		ec.unmarshalInputMsgNoopInput,
 		ec.unmarshalInputMsgRunInput,
 		ec.unmarshalInputTransactionBankMessageInput,
 		ec.unmarshalInputTransactionFilter,
@@ -3020,6 +3032,50 @@ func (ec *executionContext) _MsgCall_args(ctx context.Context, field graphql.Col
 func (ec *executionContext) fieldContext_MsgCall_args(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MsgCall",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgNoop_caller(ctx context.Context, field graphql.CollectedField, obj *model.MsgNoop) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_MsgNoop_caller(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Caller, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_MsgNoop_caller(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgNoop",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -6899,6 +6955,33 @@ func (ec *executionContext) unmarshalInputMsgCallInput(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputMsgNoopInput(ctx context.Context, obj interface{}) (model.MsgNoopInput, error) {
+	var it model.MsgNoopInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"caller"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "caller":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("caller"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Caller = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMsgRunInput(ctx context.Context, obj interface{}) (model.MsgRunInput, error) {
 	var it model.MsgRunInput
 	asMap := map[string]interface{}{}
@@ -7133,7 +7216,7 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"exec", "add_package", "run"}
+	fieldsInOrder := [...]string{"exec", "add_package", "run", "no_op"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7161,6 +7244,13 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 				return it, err
 			}
 			it.Run = data
+		case "no_op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("no_op"))
+			data, err := ec.unmarshalOMsgNoopInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgNoopInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.NoOp = data
 		}
 	}
 
@@ -7226,6 +7316,13 @@ func (ec *executionContext) _MessageValue(ctx context.Context, sel ast.Selection
 			return graphql.Null
 		}
 		return ec._MsgRun(ctx, sel, obj)
+	case model.MsgNoop:
+		return ec._MsgNoop(ctx, sel, &obj)
+	case *model.MsgNoop:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgNoop(ctx, sel, obj)
 	case model.UnexpectedMessage:
 		return ec._UnexpectedMessage(ctx, sel, &obj)
 	case *model.UnexpectedMessage:
@@ -7775,6 +7872,45 @@ func (ec *executionContext) _MsgCall(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "args":
 			out.Values[i] = ec._MsgCall_args(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var msgNoopImplementors = []string{"MsgNoop", "MessageValue"}
+
+func (ec *executionContext) _MsgNoop(ctx context.Context, sel ast.SelectionSet, obj *model.MsgNoop) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgNoopImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgNoop")
+		case "caller":
+			out.Values[i] = ec._MsgNoop_caller(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9522,6 +9658,14 @@ func (ec *executionContext) unmarshalOMsgCallInput2ᚖgithubᚗcomᚋgnolangᚋt
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputMsgCallInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOMsgNoopInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgNoopInput(ctx context.Context, v interface{}) (*model.MsgNoopInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgNoopInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 

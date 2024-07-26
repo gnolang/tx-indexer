@@ -4,6 +4,8 @@ go 1.22
 
 toolchain go1.22.5
 
+replace github.com/gnolang/gno => /home/sunspirit/Projects/gno
+
 require (
 	github.com/99designs/gqlgen v0.17.49
 	github.com/cockroachdb/pebble v1.1.1
@@ -20,6 +22,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.7.0
+
 )
 
 require (

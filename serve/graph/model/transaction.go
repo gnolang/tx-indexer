@@ -231,7 +231,14 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 				TypeURL: MessageTypeRun.String(),
 				Value:   makeVMMsgRun(message),
 			}
+		case MessageTypeNoOp.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeNoOp.String(),
+				Value:   makeVMMsgNoop(message),
+			}
 		}
+
 	}
 
 	if contentMessage == nil {
@@ -259,6 +266,10 @@ func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 
 func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
+}
+
+func (tm *TransactionMessage) VMMsgNoop() MsgNoop {
+	return tm.Value.(MsgNoop)
 }
 
 func makeEvent(abciEvent abci.Event) (Event, error) {
@@ -353,6 +364,17 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
+	}
+}
+
+func makeVMMsgNoop(value std.Msg) MsgNoop {
+	decodedMessage, err := cast[vm.MsgNoop](value)
+	if err != nil {
+		return MsgNoop{}
+	}
+
+	return MsgNoop{
+		Caller: decodedMessage.Caller.String(),
 	}
 }
 

@@ -74,7 +74,7 @@ enum MessageRoute {
 
 """
 `MessageType` is message type of the transaction.
-`MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+`MessageType` has the values `send`, `exec`, `add_package`, `run` and `no_op`.
 """
 enum MessageType {
   """
@@ -100,12 +100,18 @@ enum MessageType {
   This is a transactional message that executes an arbitrary Gno-coded TX message.
   """
   run
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgNoop`.
+  This is a transactional message that executes nothing.
+  """
+  no_op
 }
 
 type TransactionMessage {
   """
   The type of transaction message.
-  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`, `no_op`.
   """
   typeUrl: String!
 
@@ -117,12 +123,12 @@ type TransactionMessage {
 
   """
   MessageValue is the content of the transaction.
-  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `MsgNoop, `UnexpectedMessage`.
   """
   value: MessageValue!
 }
 
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | MsgNoop | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
@@ -225,6 +231,18 @@ type MsgRun {
   the package being executed.
   """
   package: MemPackage!
+}
+
+"""
+`MsgNoop` is a message with a message router of `vm` and a message type of `no_op`.
+`MsgNoop is the execute nothing`.
+"""
+type MsgNoop {
+  """
+  the bech32 address of the function caller.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String!
 }
 
 """

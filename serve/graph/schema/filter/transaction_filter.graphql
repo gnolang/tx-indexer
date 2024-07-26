@@ -126,7 +126,7 @@ Transaction's message to filter Transactions.
 input TransactionMessageInput {
   """
   The type of transaction message.
-  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`, `no_op`.
   """
   type_url: MessageType
 
@@ -200,6 +200,11 @@ input TransactionVmMessageInput {
   `MsgRunInput` represents input parameters required when the message type is `run`.
   """
   run: MsgRunInput
+
+  """
+  `MsgNoopInput` represents input parameters required when the message type is `no_op`.
+  """
+  no_op: MsgNoopInput
 }
 
 """
@@ -282,6 +287,18 @@ input MsgRunInput {
   the package being executed.
   """
   package: MemPackageInput
+}
+
+"""
+`MsgNoopInput` represents input parameters required when the message type is `no_op`.
+"""
+input MsgNoopInput {
+  """
+  the bech32 address of the function caller.
+  You can filter by the function caller's address.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  caller: String
 }
 
 """

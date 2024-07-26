@@ -295,6 +295,10 @@ func filteredTransactionMessageBy(
 		if !filteredMessageOfMsgRunBy(tm.VMMsgRun(), messageInput.VMParam) {
 			return false
 		}
+	case model.MessageTypeNoOp.String():
+		if !filteredMessageOfMsgNoOpBy(tm.VMMsgNoop(), messageInput.VMParam) {
+			return false
+		}
 	default:
 		return false
 	}
@@ -438,6 +442,24 @@ func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.
 		if deref(params.Run.Package.Path) != messageValue.Package.Path {
 			return false
 		}
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgNoOpBy` checks the conditions of a message of type MsgNoop
+func filteredMessageOfMsgNoOpBy(messageValue model.MsgNoop, vmMessageInput *model.TransactionVMMessageInput) bool {
+	params := vmMessageInput
+	if params == nil {
+		return true
+	}
+
+	if params.NoOp == nil {
+		return false
+	}
+
+	if params.NoOp.Caller != nil && deref(params.NoOp.Caller) != messageValue.Caller {
+		return false
 	}
 
 	return true
