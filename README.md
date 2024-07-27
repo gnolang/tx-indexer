@@ -54,7 +54,7 @@ make build
 3. **Run the indexer**
 
 ```bash
-./build/indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
+./build/tx-indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
 ```
 
 or:
@@ -71,7 +71,7 @@ on-disk location for the indexed data.
 For a full list of available features and flags, execute the `--help` command:
 
 ```shell
-> ./build/indexer start --help
+> ./build/tx-indexer start --help
 
 DESCRIPTION
   Starts the indexer service
