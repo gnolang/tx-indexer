@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"github.com/rs/cors"
 	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/client"
@@ -168,17 +167,6 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 
 	mux := chi.NewMux()
-
-	// Tạo middleware CORS
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-	})
-
-	// Áp dụng middleware CORS
-	mux.Use(corsMiddleware.Handler)
 
 	if c.rateLimit != 0 {
 		logger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
