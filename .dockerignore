@@ -1,0 +1,10 @@
+# git + GitHub stuff
+.git*
+*.yml
+
+# Markdown
+README.md
+LICENSE.md
+
+Dockerfile*
+Makefile

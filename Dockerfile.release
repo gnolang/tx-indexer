@@ -1,3 +1,5 @@
+# This Dockerfile is only useful for Goreleaser task
+# https://goreleaser.com/customization/docker/
 FROM scratch
 COPY tx-indexer /
 ENTRYPOINT [ "/tx-indexer" ]
