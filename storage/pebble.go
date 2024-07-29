@@ -153,11 +153,13 @@ func (s *Pebble) GetTxByHash(txHash string) (*types.TxResult, error) {
 	return decodeTx(tx)
 }
 
-func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error) {
+func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64, ascending bool) (Iterator[*types.Block], error) {
 	fromKey := keyBlock(fromBlockNum)
 
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++
 	}
 
 	toKey := keyBlock(toBlockNum)
@@ -172,7 +174,7 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types
 		return nil, multierr.Append(snap.Close(), err)
 	}
 
-	return &PebbleBlockIter{i: it, s: snap}, nil
+	return &PebbleBlockIter{i: it, s: snap, ascending: ascending}, nil
 }
 
 func (s *Pebble) TxIterator(
@@ -180,9 +182,8 @@ func (s *Pebble) TxIterator(
 	toBlockNum uint64,
 	fromTxIndex,
 	toTxIndex uint32,
+	ascending bool,
 ) (Iterator[*types.TxResult], error) {
-	fromKey := keyTx(fromBlockNum, fromTxIndex)
-
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
 	}
@@ -190,6 +191,8 @@ func (s *Pebble) TxIterator(
 	if toTxIndex == 0 {
 		toTxIndex = math.MaxUint32
 	}
+
+	fromKey := keyTx(fromBlockNum, fromTxIndex)
 
 	toKey := keyTx(toBlockNum, toTxIndex)
 
@@ -203,7 +206,7 @@ func (s *Pebble) TxIterator(
 		return nil, multierr.Append(snap.Close(), err)
 	}
 
-	return &PebbleTxIter{i: it, s: snap, fromIndex: fromTxIndex, toIndex: toTxIndex}, nil
+	return &PebbleTxIter{i: it, s: snap, fromIndex: fromTxIndex, toIndex: toTxIndex, ascending: ascending}, nil
 }
 
 func (s *Pebble) WriteBatch() Batch {
@@ -222,17 +225,18 @@ type PebbleBlockIter struct {
 	i *pebble.Iterator
 	s *pebble.Snapshot
 
-	init bool
+	init      bool
+	ascending bool
 }
 
 func (pi *PebbleBlockIter) Next() bool {
 	if !pi.init {
 		pi.init = true
 
-		return pi.i.First()
+		return pi.first()
 	}
 
-	return pi.i.Valid() && pi.i.Next()
+	return pi.i.Valid() && pi.next()
 }
 
 func (pi *PebbleBlockIter) Error() error {
@@ -247,6 +251,22 @@ func (pi *PebbleBlockIter) Close() error {
 	return multierr.Append(pi.i.Close(), pi.s.Close())
 }
 
+func (pi *PebbleBlockIter) first() bool {
+	if pi.ascending {
+		return pi.i.First()
+	}
+
+	return pi.i.Last()
+}
+
+func (pi *PebbleBlockIter) next() bool {
+	if pi.ascending {
+		return pi.i.Next()
+	}
+
+	return pi.i.Prev()
+}
+
 var _ Iterator[*types.TxResult] = &PebbleTxIter{}
 
 type PebbleTxIter struct {
@@ -256,17 +276,18 @@ type PebbleTxIter struct {
 	fromIndex uint32
 	toIndex   uint32
 	init      bool
+	ascending bool
 }
 
 func (pi *PebbleTxIter) Next() bool {
 	for {
 		if !pi.init {
-			if !pi.i.First() {
+			if !pi.first() {
 				return false
 			}
 
 			pi.init = true
-		} else if !pi.i.Next() {
+		} else if !pi.i.Valid() || !pi.next() {
 			return false
 		}
 
@@ -313,6 +334,22 @@ func (pi *PebbleTxIter) Value() (*types.TxResult, error) {
 
 func (pi *PebbleTxIter) Close() error {
 	return multierr.Append(pi.i.Close(), pi.s.Close())
+}
+
+func (pi *PebbleTxIter) first() bool {
+	if pi.ascending {
+		return pi.i.First()
+	}
+
+	return pi.i.Last()
+}
+
+func (pi *PebbleTxIter) next() bool {
+	if pi.ascending {
+		return pi.i.Next()
+	}
+
+	return pi.i.Prev()
 }
 
 var _ Batch = &PebbleBatch{}

@@ -51,7 +51,7 @@ func (m *Storage) GetTxByHash(txHash string) (*types.TxResult, error) {
 }
 
 // BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-func (m *Storage) BlockIterator(_, _ uint64) (storage.Iterator[*types.Block], error) {
+func (m *Storage) BlockIterator(_, _ uint64, _ bool) (storage.Iterator[*types.Block], error) {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -62,6 +62,7 @@ func (m *Storage) TxIterator(
 	_ uint64,
 	_,
 	_ uint32,
+	_ bool,
 ) (storage.Iterator[*types.TxResult], error) {
 	panic("not implemented") // TODO: Implement
 }

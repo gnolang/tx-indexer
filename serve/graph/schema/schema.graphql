@@ -7,3 +7,8 @@ schema {
 Field representing a point on time. It is following the RFC3339Nano format ("2006-01-02T15:04:05.999999999Z07:00")
 """
 scalar Time
+
+"""
+Cursor is a string representing position in a sequential list of edges.
+"""
+scalar Cursor
