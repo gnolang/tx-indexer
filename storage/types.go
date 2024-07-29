@@ -29,11 +29,17 @@ type Reader interface {
 	GetTxByHash(txHash string) (*types.TxResult, error)
 
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-	BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
+	BlockIterator(fromBlockNum, toBlockNum uint64, ascending bool) (Iterator[*types.Block], error)
 
 	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
 	// and transaction indexes
-	TxIterator(fromBlockNum, toBlockNum uint64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
+	TxIterator(
+		fromBlockNum,
+		toBlockNum uint64,
+		fromTxIndex,
+		toTxIndex uint32,
+		ascending bool,
+	) (Iterator[*types.TxResult], error)
 }
 
 type Iterator[T any] interface {

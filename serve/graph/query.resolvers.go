@@ -13,96 +13,166 @@ import (
 )
 
 // Transactions is the resolver for the transactions field.
-func (r *queryResolver) Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error) {
+func (r *queryResolver) Transactions(ctx context.Context, filter model.TransactionFilter, after *model.Cursor, size *int, ascending bool) (*model.TransactionList, error) {
 	if filter.Hash != nil {
 		tx, err := r.store.GetTxByHash(*filter.Hash)
 		if err != nil {
 			return nil, gqlerror.Wrap(err)
 		}
-		return []*model.Transaction{model.NewTransaction(tx)}, nil
+
+		transactionListEdges := make([]*model.TransactionListEdge, 0)
+		transactionListEdges = append(transactionListEdges, model.NewTransactionListEdge(model.NewTransaction(tx)))
+
+		return model.NewTransactionList(transactionListEdges, false), nil
+	}
+
+	fromBlockHeight := uint64(deref(filter.FromBlockHeight))
+	toBlockHeight := uint64(deref(filter.ToBlockHeight))
+	fromIndex := uint32(deref(filter.FromIndex))
+	toIndex := uint32(deref(filter.ToIndex))
+
+	afterBlockHeight, afterIndex, err := after.BlockHeightWithIndex()
+	if err != nil {
+		return nil, err
+	}
+
+	// Adjusts the iterator range based on the value of after cursor.
+	if afterBlockHeight > 0 {
+		if ascending {
+			if fromBlockHeight <= afterBlockHeight {
+				fromBlockHeight = afterBlockHeight + 1
+				fromIndex = uint32(afterIndex)
+			}
+		} else {
+			if toBlockHeight == 0 || toBlockHeight >= afterBlockHeight {
+				toBlockHeight = afterBlockHeight - 1
+				toIndex = uint32(afterIndex)
+			}
+		}
 	}
 
 	it, err := r.
 		store.
 		TxIterator(
-			uint64(deref(filter.FromBlockHeight)),
-			uint64(deref(filter.ToBlockHeight)),
-			uint32(deref(filter.FromIndex)),
-			uint32(deref(filter.ToIndex)),
+			fromBlockHeight,
+			toBlockHeight,
+			fromIndex,
+			toIndex,
+			ascending,
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
 	}
 	defer it.Close()
 
-	var out []*model.Transaction
+	transactions := make([]*model.TransactionListEdge, 0)
+	hasNext := true
 	i := 0
+
 	for {
 		if i == maxElementsPerQuery {
 			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			break
+		}
+
+		if size != nil && deref(size) == i {
+			break
 		}
 
 		if !it.Next() {
-			return out, it.Error()
+			hasNext = false
+			err = it.Error()
+			break
 		}
 
 		select {
 		case <-ctx.Done():
 			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return model.NewTransactionList(transactions, hasNext), nil
 		default:
 			t, err := it.Value()
 			if err != nil {
 				graphql.AddError(ctx, err)
-				return out, nil
+				return model.NewTransactionList(transactions, hasNext), err
 			}
 
 			transaction := model.NewTransaction(t)
 			if !FilteredTransactionBy(transaction, filter) {
 				continue
 			}
-			out = append(out, transaction)
+
+			transactions = append(transactions, model.NewTransactionListEdge(transaction))
 			i++
 		}
 	}
+
+	return model.NewTransactionList(transactions, hasNext), err
 }
 
 // Blocks is the resolver for the blocks field.
-func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error) {
+func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter, after *model.Cursor, size *int, ascending bool) (*model.BlockList, error) {
+	fromBlockHeight := uint64(deref(filter.FromHeight))
+	toBlockHeight := uint64(deref(filter.ToHeight))
+
+	afterBlockHeight, err := after.BlockHeight()
+	if err != nil {
+		return nil, err
+	}
+
+	// Adjusts the iterator range based on the value of after cursor.
+	if afterBlockHeight > 0 {
+		if ascending {
+			if fromBlockHeight <= afterBlockHeight {
+				fromBlockHeight = afterBlockHeight + 1
+			}
+		} else {
+			if toBlockHeight == 0 || toBlockHeight >= afterBlockHeight {
+				toBlockHeight = afterBlockHeight - 1
+			}
+		}
+	}
+
 	it, err := r.
 		store.
 		BlockIterator(
-			uint64(deref(filter.FromHeight)),
-			uint64(deref(filter.ToHeight)),
+			fromBlockHeight,
+			toBlockHeight,
+			ascending,
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
 	}
 	defer it.Close()
 
-	var out []*model.Block
-
+	blocks := make([]*model.BlockListEdge, 0)
+	hasNext := true
 	i := 0
+
 	for {
 		if i == maxElementsPerQuery {
 			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			break
+		}
+
+		if size != nil && deref(size) == i {
+			break
 		}
 
 		if !it.Next() {
-			return out, it.Error()
+			hasNext = false
+			err = it.Error()
+			break
 		}
 
 		select {
 		case <-ctx.Done():
 			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return model.NewBlockList(blocks, hasNext), nil
 		default:
 			b, err := it.Value()
 			if err != nil {
 				graphql.AddError(ctx, err)
-				return out, nil
+				return model.NewBlockList(blocks, hasNext), err
 			}
 
 			block := model.NewBlock(b)
@@ -110,10 +180,12 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 				continue
 			}
 
-			out = append(out, block)
+			blocks = append(blocks, model.NewBlockListEdge(block))
 			i++
 		}
 	}
+
+	return model.NewBlockList(blocks, hasNext), err
 }
 
 // LatestBlockHeight is the resolver for the latestBlockHeight field.

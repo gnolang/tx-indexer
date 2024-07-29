@@ -75,6 +75,16 @@ type ComplexityRoot struct {
 		Version            func(childComplexity int) int
 	}
 
+	BlockList struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	BlockListEdge struct {
+		Block  func(childComplexity int) int
+		Cursor func(childComplexity int) int
+	}
+
 	BlockTransaction struct {
 		ContentRaw func(childComplexity int) int
 		Fee        func(childComplexity int) int
@@ -130,10 +140,16 @@ type ComplexityRoot struct {
 		Send    func(childComplexity int) int
 	}
 
+	PageInfo struct {
+		First   func(childComplexity int) int
+		HasNext func(childComplexity int) int
+		Last    func(childComplexity int) int
+	}
+
 	Query struct {
-		Blocks            func(childComplexity int, filter model.BlockFilter) int
+		Blocks            func(childComplexity int, filter model.BlockFilter, after *model.Cursor, size *int, ascending bool) int
 		LatestBlockHeight func(childComplexity int) int
-		Transactions      func(childComplexity int, filter model.TransactionFilter) int
+		Transactions      func(childComplexity int, filter model.TransactionFilter, after *model.Cursor, size *int, ascending bool) int
 	}
 
 	Subscription struct {
@@ -153,6 +169,16 @@ type ComplexityRoot struct {
 		Messages    func(childComplexity int) int
 		Response    func(childComplexity int) int
 		Success     func(childComplexity int) int
+	}
+
+	TransactionList struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	TransactionListEdge struct {
+		Cursor      func(childComplexity int) int
+		Transaction func(childComplexity int) int
 	}
 
 	TransactionMessage struct {
@@ -184,8 +210,8 @@ type ComplexityRoot struct {
 }
 
 type QueryResolver interface {
-	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
-	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
+	Transactions(ctx context.Context, filter model.TransactionFilter, after *model.Cursor, size *int, ascending bool) (*model.TransactionList, error)
+	Blocks(ctx context.Context, filter model.BlockFilter, after *model.Cursor, size *int, ascending bool) (*model.BlockList, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
 }
 type SubscriptionResolver interface {
@@ -351,6 +377,34 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Block.Version(childComplexity), true
+
+	case "BlockList.edges":
+		if e.complexity.BlockList.Edges == nil {
+			break
+		}
+
+		return e.complexity.BlockList.Edges(childComplexity), true
+
+	case "BlockList.pageInfo":
+		if e.complexity.BlockList.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.BlockList.PageInfo(childComplexity), true
+
+	case "BlockListEdge.block":
+		if e.complexity.BlockListEdge.Block == nil {
+			break
+		}
+
+		return e.complexity.BlockListEdge.Block(childComplexity), true
+
+	case "BlockListEdge.cursor":
+		if e.complexity.BlockListEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.BlockListEdge.Cursor(childComplexity), true
 
 	case "BlockTransaction.content_raw":
 		if e.complexity.BlockTransaction.ContentRaw == nil {
@@ -548,6 +602,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MsgRun.Send(childComplexity), true
 
+	case "PageInfo.first":
+		if e.complexity.PageInfo.First == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.First(childComplexity), true
+
+	case "PageInfo.hasNext":
+		if e.complexity.PageInfo.HasNext == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.HasNext(childComplexity), true
+
+	case "PageInfo.last":
+		if e.complexity.PageInfo.Last == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.Last(childComplexity), true
+
 	case "Query.blocks":
 		if e.complexity.Query.Blocks == nil {
 			break
@@ -558,7 +633,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Blocks(childComplexity, args["filter"].(model.BlockFilter)), true
+		return e.complexity.Query.Blocks(childComplexity, args["filter"].(model.BlockFilter), args["after"].(*model.Cursor), args["size"].(*int), args["ascending"].(bool)), true
 
 	case "Query.latestBlockHeight":
 		if e.complexity.Query.LatestBlockHeight == nil {
@@ -577,7 +652,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+		return e.complexity.Query.Transactions(childComplexity, args["filter"].(model.TransactionFilter), args["after"].(*model.Cursor), args["size"].(*int), args["ascending"].(bool)), true
 
 	case "Subscription.blocks":
 		if e.complexity.Subscription.Blocks == nil {
@@ -679,6 +754,34 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Transaction.Success(childComplexity), true
+
+	case "TransactionList.edges":
+		if e.complexity.TransactionList.Edges == nil {
+			break
+		}
+
+		return e.complexity.TransactionList.Edges(childComplexity), true
+
+	case "TransactionList.pageInfo":
+		if e.complexity.TransactionList.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.TransactionList.PageInfo(childComplexity), true
+
+	case "TransactionListEdge.cursor":
+		if e.complexity.TransactionListEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.TransactionListEdge.Cursor(childComplexity), true
+
+	case "TransactionListEdge.transaction":
+		if e.complexity.TransactionListEdge.Transaction == nil {
+			break
+		}
+
+		return e.complexity.TransactionListEdge.Transaction(childComplexity), true
 
 	case "TransactionMessage.route":
 		if e.complexity.TransactionMessage.Route == nil {
@@ -884,7 +987,7 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 	return introspection.WrapTypeFromDef(ec.Schema(), ec.Schema().Types[name]), nil
 }
 
-//go:embed "schema/query.graphql" "schema/schema.graphql" "schema/subscription.graphql" "schema/filter/block_filter.graphql" "schema/filter/transaction_filter.graphql" "schema/types/block.graphql" "schema/types/transaction.graphql"
+//go:embed "schema/query.graphql" "schema/schema.graphql" "schema/subscription.graphql" "schema/filter/block_filter.graphql" "schema/filter/transaction_filter.graphql" "schema/types/block.graphql" "schema/types/block_list.graphql" "schema/types/page_info.graphql" "schema/types/transaction.graphql" "schema/types/transaction_list.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -902,7 +1005,10 @@ var sources = []*ast.Source{
 	{Name: "schema/filter/block_filter.graphql", Input: sourceData("schema/filter/block_filter.graphql"), BuiltIn: false},
 	{Name: "schema/filter/transaction_filter.graphql", Input: sourceData("schema/filter/transaction_filter.graphql"), BuiltIn: false},
 	{Name: "schema/types/block.graphql", Input: sourceData("schema/types/block.graphql"), BuiltIn: false},
+	{Name: "schema/types/block_list.graphql", Input: sourceData("schema/types/block_list.graphql"), BuiltIn: false},
+	{Name: "schema/types/page_info.graphql", Input: sourceData("schema/types/page_info.graphql"), BuiltIn: false},
 	{Name: "schema/types/transaction.graphql", Input: sourceData("schema/types/transaction.graphql"), BuiltIn: false},
+	{Name: "schema/types/transaction_list.graphql", Input: sourceData("schema/types/transaction_list.graphql"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -937,6 +1043,33 @@ func (ec *executionContext) field_Query_blocks_args(ctx context.Context, rawArgs
 		}
 	}
 	args["filter"] = arg0
+	var arg1 *model.Cursor
+	if tmp, ok := rawArgs["after"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
+		arg1, err = ec.unmarshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["after"] = arg1
+	var arg2 *int
+	if tmp, ok := rawArgs["size"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("size"))
+		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["size"] = arg2
+	var arg3 bool
+	if tmp, ok := rawArgs["ascending"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ascending"))
+		arg3, err = ec.unmarshalNBoolean2bool(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["ascending"] = arg3
 	return args, nil
 }
 
@@ -952,6 +1085,33 @@ func (ec *executionContext) field_Query_transactions_args(ctx context.Context, r
 		}
 	}
 	args["filter"] = arg0
+	var arg1 *model.Cursor
+	if tmp, ok := rawArgs["after"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("after"))
+		arg1, err = ec.unmarshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["after"] = arg1
+	var arg2 *int
+	if tmp, ok := rawArgs["size"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("size"))
+		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["size"] = arg2
+	var arg3 bool
+	if tmp, ok := rawArgs["ascending"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ascending"))
+		arg3, err = ec.unmarshalNBoolean2bool(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["ascending"] = arg3
 	return args, nil
 }
 
@@ -1908,6 +2068,232 @@ func (ec *executionContext) fieldContext_Block_txs(ctx context.Context, field gr
 				return ec.fieldContext_BlockTransaction_content_raw(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type BlockTransaction", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BlockList_edges(ctx context.Context, field graphql.CollectedField, obj *model.BlockList) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_BlockList_edges(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Edges, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.BlockListEdge)
+	fc.Result = res
+	return ec.marshalNBlockListEdge2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockListEdgeᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_BlockList_edges(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BlockList",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "block":
+				return ec.fieldContext_BlockListEdge_block(ctx, field)
+			case "cursor":
+				return ec.fieldContext_BlockListEdge_cursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type BlockListEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BlockList_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.BlockList) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_BlockList_pageInfo(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PageInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.PageInfo)
+	fc.Result = res
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_BlockList_pageInfo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BlockList",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "first":
+				return ec.fieldContext_PageInfo_first(ctx, field)
+			case "last":
+				return ec.fieldContext_PageInfo_last(ctx, field)
+			case "hasNext":
+				return ec.fieldContext_PageInfo_hasNext(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BlockListEdge_block(ctx context.Context, field graphql.CollectedField, obj *model.BlockListEdge) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_BlockListEdge_block(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Block, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Block)
+	fc.Result = res
+	return ec.marshalNBlock2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlock(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_BlockListEdge_block(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BlockListEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hash":
+				return ec.fieldContext_Block_hash(ctx, field)
+			case "height":
+				return ec.fieldContext_Block_height(ctx, field)
+			case "version":
+				return ec.fieldContext_Block_version(ctx, field)
+			case "chain_id":
+				return ec.fieldContext_Block_chain_id(ctx, field)
+			case "time":
+				return ec.fieldContext_Block_time(ctx, field)
+			case "num_txs":
+				return ec.fieldContext_Block_num_txs(ctx, field)
+			case "total_txs":
+				return ec.fieldContext_Block_total_txs(ctx, field)
+			case "app_version":
+				return ec.fieldContext_Block_app_version(ctx, field)
+			case "last_block_hash":
+				return ec.fieldContext_Block_last_block_hash(ctx, field)
+			case "last_commit_hash":
+				return ec.fieldContext_Block_last_commit_hash(ctx, field)
+			case "validators_hash":
+				return ec.fieldContext_Block_validators_hash(ctx, field)
+			case "next_validators_hash":
+				return ec.fieldContext_Block_next_validators_hash(ctx, field)
+			case "consensus_hash":
+				return ec.fieldContext_Block_consensus_hash(ctx, field)
+			case "app_hash":
+				return ec.fieldContext_Block_app_hash(ctx, field)
+			case "last_results_hash":
+				return ec.fieldContext_Block_last_results_hash(ctx, field)
+			case "proposer_address_raw":
+				return ec.fieldContext_Block_proposer_address_raw(ctx, field)
+			case "txs":
+				return ec.fieldContext_Block_txs(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Block", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BlockListEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.BlockListEdge) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_BlockListEdge_cursor(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Cursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.Cursor)
+	fc.Result = res
+	return ec.marshalNCursor2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_BlockListEdge_cursor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BlockListEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Cursor does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3170,6 +3556,132 @@ func (ec *executionContext) fieldContext_MsgRun_package(ctx context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _PageInfo_first(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_first(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.First, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Cursor)
+	fc.Result = res
+	return ec.marshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_first(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Cursor does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_last(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_last(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Last, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Cursor)
+	fc.Result = res
+	return ec.marshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_last(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Cursor does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_hasNext(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PageInfo_hasNext(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.HasNext, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_hasNext(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_transactions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_transactions(ctx, field)
 	if err != nil {
@@ -3184,18 +3696,21 @@ func (ec *executionContext) _Query_transactions(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Transactions(rctx, fc.Args["filter"].(model.TransactionFilter))
+		return ec.resolvers.Query().Transactions(rctx, fc.Args["filter"].(model.TransactionFilter), fc.Args["after"].(*model.Cursor), fc.Args["size"].(*int), fc.Args["ascending"].(bool))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.Transaction)
+	res := resTmp.(*model.TransactionList)
 	fc.Result = res
-	return ec.marshalOTransaction2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransactionList2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3206,30 +3721,12 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "index":
-				return ec.fieldContext_Transaction_index(ctx, field)
-			case "hash":
-				return ec.fieldContext_Transaction_hash(ctx, field)
-			case "success":
-				return ec.fieldContext_Transaction_success(ctx, field)
-			case "block_height":
-				return ec.fieldContext_Transaction_block_height(ctx, field)
-			case "gas_wanted":
-				return ec.fieldContext_Transaction_gas_wanted(ctx, field)
-			case "gas_used":
-				return ec.fieldContext_Transaction_gas_used(ctx, field)
-			case "gas_fee":
-				return ec.fieldContext_Transaction_gas_fee(ctx, field)
-			case "content_raw":
-				return ec.fieldContext_Transaction_content_raw(ctx, field)
-			case "messages":
-				return ec.fieldContext_Transaction_messages(ctx, field)
-			case "memo":
-				return ec.fieldContext_Transaction_memo(ctx, field)
-			case "response":
-				return ec.fieldContext_Transaction_response(ctx, field)
+			case "edges":
+				return ec.fieldContext_TransactionList_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionList_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransactionList", field.Name)
 		},
 	}
 	defer func() {
@@ -3260,18 +3757,21 @@ func (ec *executionContext) _Query_blocks(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Blocks(rctx, fc.Args["filter"].(model.BlockFilter))
+		return ec.resolvers.Query().Blocks(rctx, fc.Args["filter"].(model.BlockFilter), fc.Args["after"].(*model.Cursor), fc.Args["size"].(*int), fc.Args["ascending"].(bool))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.Block)
+	res := resTmp.(*model.BlockList)
 	fc.Result = res
-	return ec.marshalOBlock2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockᚄ(ctx, field.Selections, res)
+	return ec.marshalNBlockList2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_blocks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3282,42 +3782,12 @@ func (ec *executionContext) fieldContext_Query_blocks(ctx context.Context, field
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "hash":
-				return ec.fieldContext_Block_hash(ctx, field)
-			case "height":
-				return ec.fieldContext_Block_height(ctx, field)
-			case "version":
-				return ec.fieldContext_Block_version(ctx, field)
-			case "chain_id":
-				return ec.fieldContext_Block_chain_id(ctx, field)
-			case "time":
-				return ec.fieldContext_Block_time(ctx, field)
-			case "num_txs":
-				return ec.fieldContext_Block_num_txs(ctx, field)
-			case "total_txs":
-				return ec.fieldContext_Block_total_txs(ctx, field)
-			case "app_version":
-				return ec.fieldContext_Block_app_version(ctx, field)
-			case "last_block_hash":
-				return ec.fieldContext_Block_last_block_hash(ctx, field)
-			case "last_commit_hash":
-				return ec.fieldContext_Block_last_commit_hash(ctx, field)
-			case "validators_hash":
-				return ec.fieldContext_Block_validators_hash(ctx, field)
-			case "next_validators_hash":
-				return ec.fieldContext_Block_next_validators_hash(ctx, field)
-			case "consensus_hash":
-				return ec.fieldContext_Block_consensus_hash(ctx, field)
-			case "app_hash":
-				return ec.fieldContext_Block_app_hash(ctx, field)
-			case "last_results_hash":
-				return ec.fieldContext_Block_last_results_hash(ctx, field)
-			case "proposer_address_raw":
-				return ec.fieldContext_Block_proposer_address_raw(ctx, field)
-			case "txs":
-				return ec.fieldContext_Block_txs(ctx, field)
+			case "edges":
+				return ec.fieldContext_BlockList_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_BlockList_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Block", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type BlockList", field.Name)
 		},
 	}
 	defer func() {
@@ -4207,6 +4677,220 @@ func (ec *executionContext) fieldContext_Transaction_response(ctx context.Contex
 				return ec.fieldContext_TransactionResponse_events(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type TransactionResponse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionList_edges(ctx context.Context, field graphql.CollectedField, obj *model.TransactionList) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionList_edges(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Edges, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.TransactionListEdge)
+	fc.Result = res
+	return ec.marshalNTransactionListEdge2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionListEdgeᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionList_edges(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionList",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "transaction":
+				return ec.fieldContext_TransactionListEdge_transaction(ctx, field)
+			case "cursor":
+				return ec.fieldContext_TransactionListEdge_cursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransactionListEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionList_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.TransactionList) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionList_pageInfo(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PageInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.PageInfo)
+	fc.Result = res
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionList_pageInfo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionList",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "first":
+				return ec.fieldContext_PageInfo_first(ctx, field)
+			case "last":
+				return ec.fieldContext_PageInfo_last(ctx, field)
+			case "hasNext":
+				return ec.fieldContext_PageInfo_hasNext(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionListEdge_transaction(ctx context.Context, field graphql.CollectedField, obj *model.TransactionListEdge) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionListEdge_transaction(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Transaction, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Transaction)
+	fc.Result = res
+	return ec.marshalNTransaction2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransaction(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionListEdge_transaction(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionListEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "index":
+				return ec.fieldContext_Transaction_index(ctx, field)
+			case "hash":
+				return ec.fieldContext_Transaction_hash(ctx, field)
+			case "success":
+				return ec.fieldContext_Transaction_success(ctx, field)
+			case "block_height":
+				return ec.fieldContext_Transaction_block_height(ctx, field)
+			case "gas_wanted":
+				return ec.fieldContext_Transaction_gas_wanted(ctx, field)
+			case "gas_used":
+				return ec.fieldContext_Transaction_gas_used(ctx, field)
+			case "gas_fee":
+				return ec.fieldContext_Transaction_gas_fee(ctx, field)
+			case "content_raw":
+				return ec.fieldContext_Transaction_content_raw(ctx, field)
+			case "messages":
+				return ec.fieldContext_Transaction_messages(ctx, field)
+			case "memo":
+				return ec.fieldContext_Transaction_memo(ctx, field)
+			case "response":
+				return ec.fieldContext_Transaction_response(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransactionListEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.TransactionListEdge) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TransactionListEdge_cursor(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Cursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.Cursor)
+	fc.Result = res
+	return ec.marshalNCursor2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TransactionListEdge_cursor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionListEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Cursor does not have child fields")
 		},
 	}
 	return fc, nil
@@ -7410,6 +8094,94 @@ func (ec *executionContext) _Block(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var blockListImplementors = []string{"BlockList"}
+
+func (ec *executionContext) _BlockList(ctx context.Context, sel ast.SelectionSet, obj *model.BlockList) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, blockListImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BlockList")
+		case "edges":
+			out.Values[i] = ec._BlockList_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._BlockList_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var blockListEdgeImplementors = []string{"BlockListEdge"}
+
+func (ec *executionContext) _BlockListEdge(ctx context.Context, sel ast.SelectionSet, obj *model.BlockListEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, blockListEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BlockListEdge")
+		case "block":
+			out.Values[i] = ec._BlockListEdge_block(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._BlockListEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var blockTransactionImplementors = []string{"BlockTransaction"}
 
 func (ec *executionContext) _BlockTransaction(ctx context.Context, sel ast.SelectionSet, obj *model.BlockTransaction) graphql.Marshaler {
@@ -7847,6 +8619,49 @@ func (ec *executionContext) _MsgRun(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var pageInfoImplementors = []string{"PageInfo"}
+
+func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.PageInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, pageInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PageInfo")
+		case "first":
+			out.Values[i] = ec._PageInfo_first(ctx, field, obj)
+		case "last":
+			out.Values[i] = ec._PageInfo_last(ctx, field, obj)
+		case "hasNext":
+			out.Values[i] = ec._PageInfo_hasNext(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -7876,6 +8691,9 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_transactions(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -7895,6 +8713,9 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_blocks(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -8039,6 +8860,94 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			}
 		case "response":
 			out.Values[i] = ec._Transaction_response(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transactionListImplementors = []string{"TransactionList"}
+
+func (ec *executionContext) _TransactionList(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionList) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transactionListImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransactionList")
+		case "edges":
+			out.Values[i] = ec._TransactionList_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TransactionList_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transactionListEdgeImplementors = []string{"TransactionListEdge"}
+
+func (ec *executionContext) _TransactionListEdge(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionListEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transactionListEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransactionListEdge")
+		case "transaction":
+			out.Values[i] = ec._TransactionListEdge_transaction(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._TransactionListEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8637,6 +9546,74 @@ func (ec *executionContext) unmarshalNBlockFilter2githubᚗcomᚋgnolangᚋtxᚑ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNBlockList2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockList(ctx context.Context, sel ast.SelectionSet, v model.BlockList) graphql.Marshaler {
+	return ec._BlockList(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBlockList2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockList(ctx context.Context, sel ast.SelectionSet, v *model.BlockList) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BlockList(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBlockListEdge2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockListEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BlockListEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNBlockListEdge2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockListEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBlockListEdge2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockListEdge(ctx context.Context, sel ast.SelectionSet, v *model.BlockListEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BlockListEdge(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNBlockTransaction2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockTransaction(ctx context.Context, sel ast.SelectionSet, v []*model.BlockTransaction) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -8698,6 +9675,22 @@ func (ec *executionContext) marshalNCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexe
 		return graphql.Null
 	}
 	return ec._Coin(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCursor2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx context.Context, v interface{}) (model.Cursor, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := model.Cursor(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCursor2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx context.Context, sel ast.SelectionSet, v model.Cursor) graphql.Marshaler {
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) unmarshalNEventAttributeInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInput(ctx context.Context, v interface{}) (*model.EventAttributeInput, error) {
@@ -8780,6 +9773,16 @@ func (ec *executionContext) marshalNMessageValue2githubᚗcomᚋgnolangᚋtxᚑi
 	return ec._MessageValue(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PageInfo(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -8827,6 +9830,74 @@ func (ec *executionContext) marshalNTransaction2ᚖgithubᚗcomᚋgnolangᚋtx�
 func (ec *executionContext) unmarshalNTransactionFilter2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionFilter(ctx context.Context, v interface{}) (model.TransactionFilter, error) {
 	res, err := ec.unmarshalInputTransactionFilter(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTransactionList2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionList(ctx context.Context, sel ast.SelectionSet, v model.TransactionList) graphql.Marshaler {
+	return ec._TransactionList(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTransactionList2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionList(ctx context.Context, sel ast.SelectionSet, v *model.TransactionList) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransactionList(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTransactionListEdge2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionListEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionListEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTransactionListEdge2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionListEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTransactionListEdge2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionListEdge(ctx context.Context, sel ast.SelectionSet, v *model.TransactionListEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransactionListEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNTransactionMessage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessage(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMessage) graphql.Marshaler {
@@ -9156,53 +10227,6 @@ func (ec *executionContext) unmarshalOBankMsgSendInput2ᚖgithubᚗcomᚋgnolang
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOBlock2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Block) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNBlock2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlock(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
 func (ec *executionContext) marshalOBlockTransaction2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockTransaction(ctx context.Context, sel ast.SelectionSet, v *model.BlockTransaction) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -9241,6 +10265,23 @@ func (ec *executionContext) marshalOCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexe
 		return graphql.Null
 	}
 	return ec._Coin(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx context.Context, v interface{}) (*model.Cursor, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := model.Cursor(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOCursor2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCursor(ctx context.Context, sel ast.SelectionSet, v *model.Cursor) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalString(string(*v))
+	return res
 }
 
 func (ec *executionContext) marshalOEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v model.Event) graphql.Marshaler {
@@ -9601,53 +10642,6 @@ func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel
 	}
 	res := graphql.MarshalTime(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOTransaction2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Transaction) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNTransaction2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransaction(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) unmarshalOTransactionBankMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionBankMessageInput(ctx context.Context, v interface{}) (*model.TransactionBankMessageInput, error) {

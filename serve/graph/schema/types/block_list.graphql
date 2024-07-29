@@ -1,0 +1,23 @@
+"""
+BlockList is a list of block edges provided by sequential access request.
+"""
+type BlockList {
+  """
+  Edges contains provided edges of the sequential list.
+  """
+  edges: [BlockListEdge!]!
+
+  """
+  PageInfo is an information about the current page of block edges.
+  """
+  pageInfo: PageInfo!
+}
+
+"""
+BlockListEdge is a single edge in a sequential list of blocks.
+"""
+type BlockListEdge {
+  block: Block!
+
+  cursor: Cursor!
+}

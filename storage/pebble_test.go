@@ -126,7 +126,7 @@ func TestStorageIters(t *testing.T) {
 
 	require.NoError(t, wb.Commit())
 
-	it, err := s.TxIterator(0, 0, 0, 3)
+	it, err := s.TxIterator(0, 0, 0, 3, true)
 	require.NoError(t, err)
 
 	txCount := 0
@@ -149,7 +149,7 @@ func TestStorageIters(t *testing.T) {
 
 	defer require.NoError(t, it.Close())
 
-	it2, err := s.BlockIterator(0, 2)
+	it2, err := s.BlockIterator(0, 2, true)
 	require.NoError(t, err)
 
 	blockCount := 0
@@ -167,11 +167,11 @@ func TestStorageIters(t *testing.T) {
 		blockCount++
 	}
 
-	require.Equal(t, 2, blockCount)
+	require.Equal(t, 3, blockCount)
 
 	defer require.NoError(t, it2.Close())
 
-	it, err = s.TxIterator(0, 0, 20000, 30000)
+	it, err = s.TxIterator(0, 0, 20000, 30000, true)
 	require.NoError(t, err)
 
 	txCount = 0

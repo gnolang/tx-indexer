@@ -4,13 +4,15 @@ Root Query type to fetch data about Blocks and Transactions based on filters or 
 type Query {
   """
   Retrieves a list of Transactions that match the given filter criteria. If the result is incomplete due to errors, both partial results and errors are returned.
+  Options of `after`, `size`, and `ascending` can be used to utilize pagination.
   """
-  transactions(filter: TransactionFilter!): [Transaction!]
+  transactions(filter: TransactionFilter!, after: Cursor, size: Int, ascending: Boolean! = true): TransactionList!
 
   """
   Fetches Blocks matching the specified filter criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
+  Options of `after`, `size`, and `ascending` can be used to utilize pagination.
   """
-  blocks(filter: BlockFilter!): [Block!]
+  blocks(filter: BlockFilter!, after: Cursor, size: Int, ascending: Boolean! = true): BlockList!
 
   """
   Returns the height of the most recently processed Block by the blockchain indexer, indicating the current length of the blockchain.
