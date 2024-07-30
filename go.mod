@@ -4,6 +4,8 @@ go 1.22
 
 toolchain go1.22.5
 
+replace github.com/gnolang/gno => github.com/linhpn99/gno v1.0.0
+
 require (
 	github.com/99designs/gqlgen v0.17.49
 	github.com/cockroachdb/pebble v1.1.1
@@ -15,11 +17,13 @@ require (
 	github.com/olahol/melody v1.2.1
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/pkg/errors v0.9.1
+	github.com/rs/cors v1.11.0
 	github.com/stretchr/testify v1.9.0
 	github.com/vektah/gqlparser/v2 v2.5.16
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.7.0
+
 )
 
 require (

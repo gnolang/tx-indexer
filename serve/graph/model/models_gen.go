@@ -244,6 +244,24 @@ type MsgCallInput struct {
 	Args []string `json:"args,omitempty"`
 }
 
+// `MsgNoop` is a message with a message router of `vm` and a message type of `no_op`.
+// `MsgNoop is the execute nothing`.
+type MsgNoop struct {
+	// the bech32 address of the function caller.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Caller string `json:"caller"`
+}
+
+func (MsgNoop) IsMessageValue() {}
+
+// `MsgNoopInput` represents input parameters required when the message type is `no_op`.
+type MsgNoopInput struct {
+	// the bech32 address of the function caller.
+	// You can filter by the function caller's address.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Caller *string `json:"caller,omitempty"`
+}
+
 // `MsgRun` is a message with a message router of `vm` and a message type of `run`.
 // `MsgRun is the execute arbitrary Gno code tx message`.
 type MsgRun struct {
@@ -328,7 +346,7 @@ type TransactionFilter struct {
 // `TransactionMessageInput` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
 type TransactionMessageInput struct {
 	// The type of transaction message.
-	// The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+	// The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`, `no_op`.
 	TypeURL *MessageType `json:"type_url,omitempty"`
 	// The route of transaction message.
 	// The value of `route` can be `bank`, `vm`.
@@ -347,6 +365,8 @@ type TransactionVMMessageInput struct {
 	AddPackage *MsgAddPackageInput `json:"add_package,omitempty"`
 	// `MsgRunInput` represents input parameters required when the message type is `run`.
 	Run *MsgRunInput `json:"run,omitempty"`
+	// `MsgNoopInput` represents input parameters required when the message type is `no_op`.
+	NoOp *MsgNoopInput `json:"no_op,omitempty"`
 }
 
 // The `TxFee` has information about the fee used in the transaction and the maximum gas fee specified by the user.
@@ -417,7 +437,7 @@ func (e MessageRoute) MarshalGQL(w io.Writer) {
 }
 
 // `MessageType` is message type of the transaction.
-// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+// `MessageType` has the values `send`, `exec`, `add_package`, `run` and `no_op`.
 type MessageType string
 
 const (
@@ -433,6 +453,9 @@ const (
 	// The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
 	// This is a transactional message that executes an arbitrary Gno-coded TX message.
 	MessageTypeRun MessageType = "run"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgNoop`.
+	// This is a transactional message that executes nothing.
+	MessageTypeNoOp MessageType = "no_op"
 )
 
 var AllMessageType = []MessageType{
@@ -440,11 +463,12 @@ var AllMessageType = []MessageType{
 	MessageTypeExec,
 	MessageTypeAddPackage,
 	MessageTypeRun,
+	MessageTypeNoOp,
 }
 
 func (e MessageType) IsValid() bool {
 	switch e {
-	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun:
+	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun, MessageTypeNoOp:
 		return true
 	}
 	return false
