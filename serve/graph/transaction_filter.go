@@ -30,18 +30,8 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 		return false
 	}
 
-	if filter.Message != nil {
-		if !filteredTransactionByMessageRoute(tx, filter.Message.Route) {
-			return false
-		}
-
-		if !filteredTransactionByMessageType(tx, filter.Message.TypeURL) {
-			return false
-		}
-
-		if !filteredTransactionByMessages(tx, filter.Message) {
-			return false
-		}
+	if !filteredTransactionByMessages(tx, filter.Messages) {
+		return false
 	}
 
 	return true
@@ -209,43 +199,21 @@ func filteredTransactionByMemo(tx *model.Transaction, filterMemo *string) bool {
 }
 
 // `filteredTransactionByMessages` checks transaction's messages.
-func filteredTransactionByMessages(tx *model.Transaction, messageInput *model.TransactionMessageInput) bool {
-	messages := tx.Messages()
-	for _, message := range messages {
-		if !filteredTransactionMessageBy(message, messageInput) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// `filteredTransactionByMessageRoute` checks if the transaction message contains the route value.
-func filteredTransactionByMessageRoute(tx *model.Transaction, messageRoute *model.MessageRoute) bool {
-	if messageRoute == nil {
+func filteredTransactionByMessages(tx *model.Transaction, messageInputs []*model.TransactionMessageInput) bool {
+	if len(messageInputs) == 0 {
 		return true
 	}
 
 	messages := tx.Messages()
-	for _, message := range messages {
-		if message.Route == messageRoute.String() {
-			return true
-		}
+	if len(messages) == 0 {
+		return false
 	}
 
-	return false
-}
-
-// `filteredTransactionByMessageType` checks if the transaction message contains the type value.
-func filteredTransactionByMessageType(tx *model.Transaction, messageType *model.MessageType) bool {
-	if messageType == nil {
-		return true
-	}
-
-	messages := tx.Messages()
 	for _, message := range messages {
-		if message.TypeURL == messageType.String() {
-			return true
+		for _, messageInput := range messageInputs {
+			if filteredTransactionMessageBy(message, messageInput) {
+				return true
+			}
 		}
 	}
 
@@ -257,7 +225,15 @@ func filteredTransactionMessageBy(
 	tm *model.TransactionMessage,
 	messageInput *model.TransactionMessageInput,
 ) bool {
-	if messageInput.TypeURL != nil && messageInput.TypeURL.String() != tm.TypeURL {
+	if tm == nil {
+		return false
+	}
+
+	if messageInput.Route != nil && deref(messageInput.Route) != model.MessageRoute(tm.Route) {
+		return false
+	}
+
+	if messageInput.TypeURL != nil && deref(messageInput.TypeURL) != model.MessageType(tm.TypeURL) {
 		return false
 	}
 
