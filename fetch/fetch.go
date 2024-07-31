@@ -88,6 +88,10 @@ func (f *Fetcher) FetchGenesisData() error {
 		return fmt.Errorf("failed to fetch genesis results: %w", err)
 	}
 
+	if results.Results == nil {
+		return errors.New("nil results")
+	}
+
 	txResults := make([]*bft_types.TxResult, len(block.Txs))
 
 	for txIndex, tx := range block.Txs {
@@ -297,7 +301,11 @@ func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.T
 func getGenesisBlock(client Client) (*bft_types.Block, error) {
 	gblock, err := client.GetGenesis()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get genesis block, %w", err)
+		return nil, fmt.Errorf("unable to get genesis block: %w", err)
+	}
+
+	if gblock.Genesis == nil {
+		return nil, fmt.Errorf("nil genesis doc")
 	}
 
 	appState := gblock.Genesis.AppState
@@ -311,7 +319,7 @@ func getGenesisBlock(client Client) (*bft_types.Block, error) {
 	for i, tx := range genesisState.Txs {
 		txs[i], err = amino.MarshalJSON(tx)
 		if err != nil {
-			return nil, fmt.Errorf("unable to marshal genesis tx, %w", err)
+			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
 		}
 	}
 

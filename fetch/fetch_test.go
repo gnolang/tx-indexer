@@ -928,18 +928,6 @@ func TestFetcher_Genesis(t *testing.T) {
 			GetLatestSavedHeightFn: func() (uint64, error) {
 				return 0, storageErrors.ErrNotFound
 			},
-			GetBlockFn: func(height uint64) (*types.Block, error) {
-				block, ok := savedBlocks[int64(height)]
-				require.True(t, ok)
-
-				return block, nil
-			},
-			GetTxFn: func(height uint64, index uint32) (*types.TxResult, error) {
-				tx, ok := savedTxs[fmt.Sprintf("%d-%d", height, index)]
-				require.True(t, ok)
-
-				return tx, nil
-			},
 			GetWriteBatchFn: func() storage.Batch {
 				return &mock.WriteBatch{
 					SetBlockFn: func(block *types.Block) error {
@@ -986,12 +974,14 @@ func TestFetcher_Genesis(t *testing.T) {
 
 	require.NoError(t, f.FetchGenesisData())
 
-	_, err := mockStorage.GetBlock(0)
-	require.NoError(t, err)
+	require.Len(t, capturedEvents, 1)
+
+	_, ok := savedBlocks[0]
+	require.True(t, ok)
 
 	for i := uint32(0); i < uint32(len(txs)); i++ {
-		tx, err := mockStorage.GetTx(0, i)
-		require.NoError(t, err)
+		tx, ok := savedTxs[fmt.Sprintf("0-%d", i)]
+		require.True(t, ok)
 
 		expected := &types.TxResult{
 			Height:   0,
@@ -1021,6 +1011,213 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 	f := New(mockStorage, mockClient, mockEvents)
 
 	require.NoError(t, f.FetchGenesisData())
+}
+
+func TestFetcher_GenesisFetchError(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteErr = errors.New("remote error")
+
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write to storage")
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return nil, remoteErr
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				require.Fail(t, "should not attempt to fetch block results")
+
+				return nil, nil
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.ErrorIs(t, f.FetchGenesisData(), remoteErr)
+}
+
+func TestFetcher_GenesisInvalidState(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write to storage")
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{AppState: 0xdeadbeef}}, nil
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				require.Fail(t, "should not attempt to fetch block results")
+
+				return nil, nil
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.ErrorContains(t, f.FetchGenesisData(), "unknown genesis state kind 'int'")
+}
+
+func TestFetcher_GenesisFetchResultsError(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteErr = errors.New("remote error")
+
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write to storage")
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
+					AppState: gnoland.GnoGenesisState{Txs: []std.Tx{{}}},
+				}}, nil
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				return nil, remoteErr
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.ErrorIs(t, f.FetchGenesisData(), remoteErr)
+}
+
+func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write")
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{Genesis: nil}, nil
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				return &core_types.ResultBlockResults{Results: &state.ABCIResponses{}}, nil
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.Error(t, f.FetchGenesisData())
+}
+
+func TestFetcher_GenesisNilResults(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write")
+
+				return nil
+			},
+		}
+
+		mockClient = &mockClient{
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return 0, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
+					AppState: gnoland.GnoGenesisState{Txs: []std.Tx{{}}},
+				}}, nil
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				return &core_types.ResultBlockResults{Results: nil}, nil
+			},
+		}
+	)
+
+	f := New(mockStorage, mockClient, mockEvents)
+
+	require.Error(t, f.FetchGenesisData())
 }
 
 // generateTransactions generates dummy transactions
