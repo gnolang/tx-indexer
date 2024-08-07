@@ -11,6 +11,9 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
+	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -65,6 +68,44 @@ func New(
 	}
 
 	return f
+}
+
+func (f *Fetcher) FetchGenesisData() error {
+	_, err := f.storage.GetLatestHeight()
+	if !errors.Is(err, storageErrors.ErrNotFound) {
+		return err
+	}
+
+	f.logger.Info("Fetching genesis")
+
+	block, err := getGenesisBlock(f.client)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis block: %w", err)
+	}
+
+	results, err := f.client.GetBlockResults(0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis results: %w", err)
+	}
+
+	if results.Results == nil {
+		return errors.New("nil results")
+	}
+
+	txResults := make([]*bft_types.TxResult, len(block.Txs))
+
+	for txIndex, tx := range block.Txs {
+		result := &bft_types.TxResult{
+			Height:   0,
+			Index:    uint32(txIndex),
+			Tx:       tx,
+			Response: results.Results.DeliverTxs[txIndex],
+		}
+
+		txResults[txIndex] = result
+	}
+
+	return f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 1)
 }
 
 // FetchChainData starts the fetching process that indexes
@@ -178,68 +219,119 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				wb := f.storage.WriteBatch()
-
-				// Save the fetched data
-				for blockIndex, block := range item.chunk.blocks {
-					if saveErr := wb.SetBlock(block); saveErr != nil {
-						// This is a design choice that really highlights the strain
-						// of keeping legacy testnets running. Current TM2 testnets
-						// have blocks / transactions that are no longer compatible
-						// with latest "master" changes for Amino, so these blocks / txs are ignored,
-						// as opposed to this error being a show-stopper for the fetcher
-						f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
-
-						continue
-					}
-
-					f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
-
-					// Get block results
-					txResults := item.chunk.results[blockIndex]
-
-					// Save the fetched transaction results
-					for _, txResult := range txResults {
-						if err := wb.SetTx(txResult); err != nil {
-							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
-
-							continue
-						}
-
-						f.logger.Debug(
-							"Added tx to batch",
-							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
-						)
-					}
-
-					// Alert any listeners of a new saved block
-					event := &types.NewBlock{
-						Block:   block,
-						Results: txResults,
-					}
-
-					f.events.SignalEvent(event)
-				}
-
-				f.logger.Info(
-					"Added to batch block and tx data for range",
-					zap.Uint64("from", item.chunkRange.from),
-					zap.Uint64("to", item.chunkRange.to),
-				)
-
-				// Save the latest height data
-				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
-					if rErr := wb.Rollback(); rErr != nil {
-						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
-					}
-
-					return fmt.Errorf("unable to save latest height info, %w", err)
-				}
-
-				if err := wb.Commit(); err != nil {
-					return fmt.Errorf("error persisting block information into storage, %w", err)
+				if err := f.writeBatch(
+					item.chunk.blocks,
+					item.chunk.results,
+					item.chunkRange.from,
+					item.chunkRange.to,
+				); err != nil {
+					return err
 				}
 			}
 		}
 	}
+}
+
+func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.TxResult, from, to uint64) error {
+	wb := f.storage.WriteBatch()
+
+	// Save the fetched data
+	for blockIndex, block := range blocks {
+		if saveErr := wb.SetBlock(block); saveErr != nil {
+			// This is a design choice that really highlights the strain
+			// of keeping legacy testnets running. Current TM2 testnets
+			// have blocks / transactions that are no longer compatible
+			// with latest "master" changes for Amino, so these blocks / txs are ignored,
+			// as opposed to this error being a show-stopper for the fetcher
+			f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
+
+			continue
+		}
+
+		f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
+
+		// Get block results
+		txResults := results[blockIndex]
+
+		// Save the fetched transaction results
+		for _, txResult := range txResults {
+			if err := wb.SetTx(txResult); err != nil {
+				f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+
+				continue
+			}
+
+			f.logger.Debug(
+				"Added tx to batch",
+				zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+			)
+		}
+
+		// Alert any listeners of a new saved block
+		event := &types.NewBlock{
+			Block:   block,
+			Results: txResults,
+		}
+
+		f.events.SignalEvent(event)
+	}
+
+	f.logger.Info(
+		"Added to batch block and tx data for range",
+		zap.Uint64("from", from),
+		zap.Uint64("to", to),
+	)
+
+	// Save the latest height data
+	if err := wb.SetLatestHeight(to); err != nil {
+		if rErr := wb.Rollback(); rErr != nil {
+			return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+		}
+
+		return fmt.Errorf("unable to save latest height info, %w", err)
+	}
+
+	if err := wb.Commit(); err != nil {
+		return fmt.Errorf("error persisting block information into storage, %w", err)
+	}
+
+	return nil
+}
+
+func getGenesisBlock(client Client) (*bft_types.Block, error) {
+	gblock, err := client.GetGenesis()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get genesis block: %w", err)
+	}
+
+	if gblock.Genesis == nil {
+		return nil, fmt.Errorf("nil genesis doc")
+	}
+
+	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
+	if !ok {
+		return nil, fmt.Errorf("unknown genesis state kind '%T'", gblock.Genesis.AppState)
+	}
+
+	txs := make([]bft_types.Tx, len(genesisState.Txs))
+	for i, tx := range genesisState.Txs {
+		txs[i], err = amino.MarshalJSON(tx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
+		}
+	}
+
+	block := &bft_types.Block{
+		Header: bft_types.Header{
+			NumTxs:   int64(len(txs)),
+			TotalTxs: int64(len(txs)),
+			Time:     gblock.Genesis.GenesisTime,
+			ChainID:  gblock.Genesis.ChainID,
+		},
+		Data: bft_types.Data{
+			Txs: txs,
+		},
+	}
+
+	return block, nil
 }
