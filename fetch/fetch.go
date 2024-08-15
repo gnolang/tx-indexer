@@ -72,6 +72,10 @@ func New(
 
 func (f *Fetcher) fetchGenesisData() error {
 	_, err := f.storage.GetLatestHeight()
+	// Possible cases:
+	// - err is ErrNotFound: the storage is empty, we execute the rest of the routine and fetch+write genesis data
+	// - err is nil: the storage has a latest height, this means at least the genesis data has been written, or some blocks past it, we do nothing and return nil
+	// - err is something else: there has been a storage error, we do nothing and return this error
 	if !errors.Is(err, storageErrors.ErrNotFound) {
 		return err
 	}
