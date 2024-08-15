@@ -105,7 +105,7 @@ func (f *Fetcher) FetchGenesisData() error {
 		txResults[txIndex] = result
 	}
 
-	return f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 1)
+	return f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 0)
 }
 
 // FetchChainData starts the fetching process that indexes
