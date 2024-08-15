@@ -105,7 +105,18 @@ func (f *Fetcher) FetchGenesisData() error {
 		txResults[txIndex] = result
 	}
 
-	return f.writeBatch([]*bft_types.Block{block}, [][]*bft_types.TxResult{txResults}, 0, 0)
+	s := &slot{
+		chunk: &chunk{
+			blocks:  []*bft_types.Block{block},
+			results: [][]*bft_types.TxResult{txResults},
+		},
+		chunkRange: chunkRange{
+			from: 0,
+			to:   0,
+		},
+	}
+
+	return f.writeSlot(s)
 }
 
 // FetchChainData starts the fetching process that indexes
@@ -219,12 +230,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				if err := f.writeBatch(
-					item.chunk.blocks,
-					item.chunk.results,
-					item.chunkRange.from,
-					item.chunkRange.to,
-				); err != nil {
+				if err := f.writeSlot(item); err != nil {
 					return err
 				}
 			}
@@ -232,11 +238,11 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	}
 }
 
-func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.TxResult, from, to uint64) error {
+func (f *Fetcher) writeSlot(s *slot) error {
 	wb := f.storage.WriteBatch()
 
 	// Save the fetched data
-	for blockIndex, block := range blocks {
+	for blockIndex, block := range s.chunk.blocks {
 		if saveErr := wb.SetBlock(block); saveErr != nil {
 			// This is a design choice that really highlights the strain
 			// of keeping legacy testnets running. Current TM2 testnets
@@ -251,7 +257,7 @@ func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.T
 		f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
 
 		// Get block results
-		txResults := results[blockIndex]
+		txResults := s.chunk.results[blockIndex]
 
 		// Save the fetched transaction results
 		for _, txResult := range txResults {
@@ -278,12 +284,12 @@ func (f *Fetcher) writeBatch(blocks []*bft_types.Block, results [][]*bft_types.T
 
 	f.logger.Info(
 		"Added to batch block and tx data for range",
-		zap.Uint64("from", from),
-		zap.Uint64("to", to),
+		zap.Uint64("from", s.chunkRange.from),
+		zap.Uint64("to", s.chunkRange.to),
 	)
 
 	// Save the latest height data
-	if err := wb.SetLatestHeight(to); err != nil {
+	if err := wb.SetLatestHeight(s.chunkRange.to); err != nil {
 		if rErr := wb.Rollback(); rErr != nil {
 			return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
 		}
