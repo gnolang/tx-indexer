@@ -70,7 +70,7 @@ func New(
 	return f
 }
 
-func (f *Fetcher) FetchGenesisData() error {
+func (f *Fetcher) fetchGenesisData() error {
 	_, err := f.storage.GetLatestHeight()
 	if !errors.Is(err, storageErrors.ErrNotFound) {
 		return err
@@ -122,6 +122,10 @@ func (f *Fetcher) FetchGenesisData() error {
 // FetchChainData starts the fetching process that indexes
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
+	if err := f.fetchGenesisData(); err != nil {
+		return fmt.Errorf("unable to fetch genesis data: %w", err)
+	}
+
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state
