@@ -99,8 +99,6 @@ func Test_NewBlockEvents(t *testing.T) {
 	defer filterManager.UninstallFilter(id)
 
 	for _, block := range blocks {
-		block := block
-
 		blockCh <- &types.NewBlock{
 			Block: block,
 		}

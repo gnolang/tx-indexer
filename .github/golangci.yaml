@@ -7,8 +7,6 @@ run:
   modules-download-mode: readonly
   allow-parallel-runners: false
   go: ""
-  skip-dirs:
-    - serve/filters/mocks
 
 output:
   uniq-by-line: false
@@ -25,6 +23,8 @@ issues:
       linters:
         - nilnil
         - gosec
+  exclude-dirs:
+    - serve/filters/mocks
 
 linters:
   fast: false
@@ -35,7 +35,7 @@ linters:
     - bidichk # Checks for dangerous unicode character sequences
     - durationcheck # Check for two durations multiplied together
     - errcheck # Forces to not skip error check
-    - exportloopref # Checks for pointers to enclosing loop variables
+    - copyloopvar # Checks for pointers to enclosing loop variables
     - gocritic # Bundles different linting checks
     - godot # Checks for periods at the end of comments
     - gomoddirectives # Allow or ban replace directives in go.mod
@@ -124,3 +124,6 @@ linters-settings:
       rules:
         json: goCamel
         yaml: goCamel
+  gosec:
+    excludes:
+      - G115 # G115: integer overflow conversion uint64 -> int6

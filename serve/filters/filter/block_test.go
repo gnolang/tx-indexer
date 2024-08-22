@@ -38,8 +38,6 @@ func TestBlockFilter_GetChanges(t *testing.T) {
 
 	// Update the block filter with dummy blocks
 	for _, block := range blocks {
-		block := block
-
 		f.UpdateWith(block)
 	}
 
