@@ -61,7 +61,6 @@ func (sm *subscriptionMap) sendEvent(eventType events.Type, data any) {
 	}
 
 	for id, sub := range sm.subscriptions {
-		sub := sub
 		if sub.GetType() != eventType {
 			continue
 		}
