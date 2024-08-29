@@ -6974,7 +6974,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo", "success", "events"}
+	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "messages", "memo", "success", "events"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7044,13 +7044,13 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 				return it, err
 			}
 			it.Hash = data
-		case "message":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("message"))
-			data, err := ec.unmarshalOTransactionMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInput(ctx, v)
+		case "messages":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("messages"))
+			data, err := ec.unmarshalOTransactionMessageInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Message = data
+			it.Messages = data
 		case "memo":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("memo"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -8867,6 +8867,11 @@ func (ec *executionContext) marshalNTransactionMessage2ᚕᚖgithubᚗcomᚋgnol
 	return ret
 }
 
+func (ec *executionContext) unmarshalNTransactionMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInput(ctx context.Context, v interface{}) (*model.TransactionMessageInput, error) {
+	res, err := ec.unmarshalInputTransactionMessageInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -9665,12 +9670,24 @@ func (ec *executionContext) marshalOTransactionMessage2ᚖgithubᚗcomᚋgnolang
 	return ec._TransactionMessage(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOTransactionMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInput(ctx context.Context, v interface{}) (*model.TransactionMessageInput, error) {
+func (ec *executionContext) unmarshalOTransactionMessageInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInputᚄ(ctx context.Context, v interface{}) ([]*model.TransactionMessageInput, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalInputTransactionMessageInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.TransactionMessageInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNTransactionMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionMessageInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (ec *executionContext) unmarshalOTransactionVmMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionVMMessageInput(ctx context.Context, v interface{}) (*model.TransactionVMMessageInput, error) {
