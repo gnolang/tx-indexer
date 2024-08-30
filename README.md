@@ -48,6 +48,7 @@ git clone https://github.com/gnolang/tx-indexer.git
 2. **Build the binary**
 
 ```bash
+cd tx-indexer
 make build
 ```
 
