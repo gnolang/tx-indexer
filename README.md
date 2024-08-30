@@ -104,7 +104,7 @@ A GraphQL playground is available at `/graphql`. There you have all the document
 ```graphql
 {
   transactions(
-    filter: { message: {vm_param: {add_package: {}}}}
+    filter: { messages: {vm_param: {add_package: {}}}}
   ) {
     index
     hash
