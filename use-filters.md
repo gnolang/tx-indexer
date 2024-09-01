@@ -2,22 +2,22 @@
 
 This example uses the tx-indexing service to perform a simple filter query: find transactions that cost over 5,000,000 gas within a chain.
 
-*Note: This example indexes the text chain at `http://test3.gno.land:36657`, as used in the 
+*Note: This example indexes the test chain at `http://test3.gno.land:36657`, as used in the 
 [tx-indexer Getting Started](https://github.com/gnolang/tx-indexer/blob/ae33bd64265d47f8c3871ac491d2ba60edb44e58/README.md#getting-started).*
 
-The tx-indexer service provides a utility to index a specified chain, as well as an API to manage the indexing and query the index data. The following diagram depicts this idea:
+The tx-indexer service provides a utility to index a specified chain, as well as an API to manage the indexing and to query the index data. The following diagram depicts this idea:
 
 <div style="width:20%; margin:auto;">
 
-![](tx-indexer-context.png)
+![Need a better diagram](tx-indexer-context.png)
 
 </div>
 
 The tx-indexer service includes a graphql endpoint to query and retrieve the extracted index data.
-This example shows you how to do this, by taking you through the following activities:
+This example shows you how to do this, by leading you through the following activities:
 
 1. Install and start the tx-indexer service.
-2. Query the API for transactions using > 5 million gas.
+2. Query the API to find transactions that use > 5 million gas.
  
 These activities are detailed in the following sections.
 
@@ -45,13 +45,13 @@ make build
 ./build/tx-indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
 ```
 
-This starts up the tx-indexer service, indexing the test3.gno.land example chain. Leave this running a little while it indexes the existing contents of the chain; then leave it running to continue indexing new transactions as they are added.
+This starts up the tx-indexer service, indexing the `test3.gno.land` example chain. Leave this running while it indexes the existing contents of the chain; then leave it running to continue indexing new transactions as they are added.
 
 ### Use the service to request filtered transactions
 
-With the tx-indexer running, you can make a request against the service's RPC or graphql endpoints. This example uses the graphql endpoint, and assumes that the `jq` shell command is available.
+With the tx-indexer running, you can make a request against the service's RPC or graphql endpoints. This example uses the graphql endpoint; it also assumes that the `jq` shell command is available in your environment.
 
-**Step 1: create the query** &mdash; Create a JSON file named `request.json`, with content shown below.
+**Step 1: create the query** &mdash; Create a JSON file named `request.json`, with the content shown below.
 
 ```
 {
