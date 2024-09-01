@@ -86,10 +86,13 @@ With the tx-indexer running, you can make a request against the service's RPC or
 ```bash
 curl -d @request.json --header "Content-Type: application/json" http://0.0.0.0:8546/graphql/query | jq 
 ```
-*Note: If the `jq` command is not present on your system, you can either install it first or just omit it from the command.*
+*Note: The `jq` command  here is optional; it only formats the JSON response. If it isn't present on your system, you can either install it first or just omit it from the command.*
 
 **Step 3: See the result** &mdash; The service should return output similar to the following:
 
+![tx-indexer graphql filter](tx-i-filter.gif)
+
+<!--
 ```
 {
   "data": {
@@ -136,5 +139,7 @@ curl -d @request.json --header "Content-Type: application/json" http://0.0.0.0:8
   }
 }
 ```
+
+-->
 
 This returned data lists the requested fields for all transactions that satisfy the filter; in this case, where gas is greater than 5,000,000.
