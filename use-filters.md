@@ -1,6 +1,7 @@
 ## Using tx-indexing filters
 
-This example uses the tx-indexing service to perform a simple filter query: find transactions that cost over 5,000,000 gas within a chain.
+This example shows how you can use the tx-indexing service to perform a simple transaction filter query:
+find transactions that cost over 5,000,000 gas within a chain.
 
 *Note: This example indexes the test chain at `http://test3.gno.land:36657`, as used in the 
 [tx-indexer Getting Started](https://github.com/gnolang/tx-indexer/blob/ae33bd64265d47f8c3871ac491d2ba60edb44e58/README.md#getting-started).*
@@ -9,7 +10,7 @@ The tx-indexer service provides a utility to index a specified chain, as well as
 
 <div style="width:20%; margin:auto;">
 
-![Need a better diagram](tx-indexer-context.png)
+![Need a better diagram](tx-indexer.png)
 
 </div>
 
