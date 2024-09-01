@@ -5,7 +5,17 @@ This example uses the tx-indexing service to find transactions that cost over 5,
 *Note: This example indexes the text chain at `http://test3.gno.land:36657`, as used in the 
 [tx-indexer Getting Started](https://github.com/gnolang/tx-indexer/blob/ae33bd64265d47f8c3871ac491d2ba60edb44e58/README.md#getting-started).*
 
-What the tx-indexing does
+The tx-indexer service provides a utility to index a specified chain, as well as an API to manage the indexing and query the index data. The following diagram depicts this idea:
+
+![](tx-indexer-context.png)
+
+This example shows how to use the graphql endpoint to retrieve index data extracted by the tx-indexer service.
+The example takes you through the following activities:
+
+1. Install and start the tx-indexer service.
+2. Query the API for transactions using > 5 million gas.
+ 
+These activities are described in the following sections.
 
 ### Install and start the service
 
@@ -31,8 +41,7 @@ make build
 ./build/tx-indexer start --remote http://test3.gno.land:36657 --db-path indexer-db
 ```
 
-This starts up the tx-indexer service, indexing the test3.gno.land example chain. Leave this
-
+This starts up the tx-indexer service, indexing the test3.gno.land example chain. Leave this running a little while it indexes the existing contents of the chain; then leave it running to continue indexing new transactions as they are added.
 
 ### Use the service to request filtered transactions
 
