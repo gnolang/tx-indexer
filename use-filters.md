@@ -10,7 +10,7 @@ The tx-indexer service provides a utility to index a specified chain, as well as
 
 <div style="width:20%; margin:auto;">
 
-![Need a better diagram](tx-indexer.png)
+![](tx-inx-ctx.png)
 
 </div>
 
