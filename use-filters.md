@@ -1,6 +1,6 @@
 ## Using tx-indexing filters
 
-This example shows how you can use the tx-indexing service to perform a simple transaction filter query:
+This simple tutorial shows how you can use the tx-indexing service to perform a simple transaction filter query:
 find transactions that cost over 5,000,000 gas within a chain.
 
 *Note: This example indexes the test chain at `http://test3.gno.land:36657`, as used in the 
@@ -14,8 +14,12 @@ The tx-indexer service provides a utility to index a specified chain, as well as
 
 </div>
 
-The tx-indexer service includes a graphql endpoint to query and retrieve the extracted index data.
-This example shows you how to do this, by leading you through the following activities:
+The tx-indexer service exposes two endpoints:
+
+* An RPC endpoint, used mainly to configure and manage the indexer
+* A graphql endpoint to query and retrieve extracted index data
+
+This example uses a simple `curl` command to make a request to the graphql endpoint. The tutorial leads you through the following activities:
 
 1. Install and start the tx-indexer service.
 2. Query the API to find transactions that use > 5 million gas.
@@ -48,7 +52,7 @@ make build
 
 This starts up the tx-indexer service, indexing the `test3.gno.land` example chain. Leave this running while it indexes the existing contents of the chain; then leave it running to continue indexing new transactions as they are added.
 
-### Use the service to request filtered transactions
+### Query the API to return filtered transactions
 
 With the tx-indexer running, you can make a request against the service's RPC or graphql endpoints. This example uses the graphql endpoint; it also assumes that the `jq` shell command is available in your environment.
 
