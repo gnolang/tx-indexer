@@ -1,21 +1,25 @@
 ## Using tx-indexing filters
 
-This example uses the tx-indexing service to find transactions that cost over 5,000,000 gas within a chain.
+This example uses the tx-indexing service to perform a simple filter query: find transactions that cost over 5,000,000 gas within a chain.
 
 *Note: This example indexes the text chain at `http://test3.gno.land:36657`, as used in the 
 [tx-indexer Getting Started](https://github.com/gnolang/tx-indexer/blob/ae33bd64265d47f8c3871ac491d2ba60edb44e58/README.md#getting-started).*
 
 The tx-indexer service provides a utility to index a specified chain, as well as an API to manage the indexing and query the index data. The following diagram depicts this idea:
 
+<div style="width:20%; margin:auto;">
+
 ![](tx-indexer-context.png)
 
-This example shows how to use the graphql endpoint to retrieve index data extracted by the tx-indexer service.
-The example takes you through the following activities:
+</div>
+
+The tx-indexer service includes a graphql endpoint to query and retrieve the extracted index data.
+This example shows you how to do this, by taking you through the following activities:
 
 1. Install and start the tx-indexer service.
 2. Query the API for transactions using > 5 million gas.
  
-These activities are described in the following sections.
+These activities are detailed in the following sections.
 
 ### Install and start the service
 
@@ -81,6 +85,7 @@ With the tx-indexer running, you can make a request against the service's RPC or
 ```bash
 curl -d @request.json --header "Content-Type: application/json" http://0.0.0.0:8546/graphql/query | jq 
 ```
+*Note: If the `jq` command is not present on your system, you can either install it first or just omit it from the command.*
 
 **Step 3: See the result** &mdash; The service should return output similar to the following:
 
@@ -132,9 +137,3 @@ curl -d @request.json --header "Content-Type: application/json" http://0.0.0.0:8
 ```
 
 This returned data lists the requested fields for all transactions that satisfy the filter; in this case, where gas is greater than 5,000,000.
-
-
-
-https://dreampuf.github.io/GraphvizOnline/#digraph%20G%20%7B%0A%0Anode%20%5Bfontname%3D%22helvetica%22%5D%0Aedge%20%5Bfontname%3D%22helvetica-oblique%22%5D%0Agno_chain%0A%0Aclient%0A%0A%20%20subgraph%20cluster_0%20%7B%0A%20%20%20%20style%3Dfilled%3B%0A%20%20%20%20color%3Dlightgrey%3B%0A%20%20%20%20node%20%5Bstyle%3Dfilled%2Ccolor%3Dwhite%5D%3B%0A%20%20%20%20indexer%20database%20api%0A%20%20%20%20label%20%3D%20%22process%20%231%22%3B%0A%20%20%20%20%7Brank%3Dsame%3B%20database%3B%20api%7D%0A%20%20%7D%0A%0A%0Agno_chain%20-%3E%20indexer%20%5Blabel%3D%22indexing%20chain%5Cnin%20background%22%5D%0Aindexer-%3Edatabase%0Adatabase-%3Eapi%0Aapi-%3Eclient%20%5Bdir%3Dboth%5D%0Aapi-%3Eindexer%20%5Bstyle%3Ddashed%20label%3D%22control%22%5D%0A%0A%0A%0A%2F*%20%20subgraph%20cluster_1%20%7B%0A%20%20%20%20node%20%5Bstyle%3Dfilled%5D%3B%0A%20%20%20%20b0%20-%3E%20b1%20-%3E%20b2%20-%3E%20b3%3B%0A%20%20%20%20label%20%3D%20%22process%20%232%22%3B%0A%20%20%20%20color%3Dblue%0A%20%20%7D%0A%20%20start%20-%3E%20a0%3B%0A%20%20start%20-%3E%20b0%3B%0A%20%20a1%20-%3E%20b3%3B%0A%20%20b2%20-%3E%20a3%3B%0A%20%20a3%20-%3E%20a0%3B%0A%20%20a3%20-%3E%20end%3B%0A%20%20b3%20-%3E%20end%3B%0A%0A%20%20start%20%5Bshape%3DMdiamond%5D%3B%0A%20%20end%20%5Bshape%3DMsquare%5D%3B%0A*%2F%0A%20%20%20%20%0A%7D
-
-
