@@ -16,3 +16,7 @@ jobs:
   codegen:
     name: Go Codegen
     uses: ./.github/workflows/gen.yaml
+  
+  grapqlcheck:
+    name: GraphQL Check
+    uses: ./.github/workflows/gqlCheck.yaml
