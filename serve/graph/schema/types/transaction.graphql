@@ -5,38 +5,38 @@ type Transaction {
   """
   A sequential index representing the order of this Transaction within its Block. Unique within the context of its Block.
   """
-  index: Int!
+  index: Int! @filterable(extras:[MINMAX])
 
   """
   Hash from Transaction content in base64 encoding.
   """
-  hash: String!
+  hash: String! @filterable
 
   """
   The success can determine whether the transaction succeeded or failed.
   """
-  success: Boolean!
+  success: Boolean! @filterable
 
   """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
-  block_height: Int!
-
+  block_height: Int! @filterable(extras:[MINMAX])
+  
   """
   The declared amount of computational effort the sender is willing to pay for executing this Transaction.
   """
-  gas_wanted: Int!
+  gas_wanted: Int! @filterable
 
   """
   The actual amount of computational effort consumed to execute this Transaction. It could be less or equal to `gas_wanted`.
   """
-  gas_used: Int!
+  gas_used: Int! @filterable
 
   """
   Fee includes the amount of coins paid in fees and the maximum
   gas to be used by the transaction.
   """
-  gas_fee: Coin
+  gas_fee: Coin @filterable
 
   """
   The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
@@ -47,20 +47,20 @@ type Transaction {
   The payload of a message shows the contents of the messages in a transaction.
   A message consists of `router`, `type`, and `value` (whose form depends on the `router` and `type`).
   """
-  messages: [TransactionMessage]!
+  messages: [TransactionMessage]! @filterable
 
   """
   `memo` are string information stored within a transaction.
   `memo` can be utilized to find or distinguish transactions.
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
-  memo: String!
+  memo: String! @filterable
 
   """
   `response` is the processing result of the transaction.
   It has `log`, `info`, `error`, and `data`.
   """
-  response: TransactionResponse!
+  response: TransactionResponse! @filterable
 }
 
 """
@@ -107,13 +107,13 @@ type TransactionMessage {
   The type of transaction message.
   The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
   """
-  typeUrl: String!
+  typeUrl: String! @filterable
 
   """
   The route of transaction message.
   The value of `route` can be `bank`, `vm`.
   """
-  route: String!
+  route: String! @filterable
 
   """
   MessageValue is the content of the transaction.
@@ -276,12 +276,12 @@ type TxFee {
   """
   gas limit
   """
-  gas_wanted: Int!
+  gas_wanted: Int! @filterable
 
   """
   The gas fee in the transaction.
   """
-  gas_fee: Coin!
+  gas_fee: Coin! @filterable
 }
 
 """
@@ -291,12 +291,12 @@ type Coin {
   """
   The amount of coins.
   """
-  amount: Int!
+  amount: Int! @filterable
 
   """
   The denomination of the coin.
   """
-  denom: String!
+  denom: String! @filterable
 }
 
 """
@@ -307,22 +307,22 @@ type TransactionResponse {
   """
   The log value associated with the Transaction execution, if any.
   """
-  log: String!
+  log: String! @filterable
 
   """
   The Info associated with the Transaction execution, if any.
   """
-  info: String!
+  info: String! @filterable
 
   """
   The error value associated with the Transaction execution, if any.
   """
-  error: String!
+  error: String! @filterable
 
   """
   The response data associated with the Transaction execution, if any.
   """
-  data: String!
+  data: String! @filterable
 
   """
   The emitted events associated with the transaction execution, if any.

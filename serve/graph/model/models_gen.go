@@ -117,6 +117,206 @@ type EventInput struct {
 	Attrs []*EventAttributeInput `json:"attrs,omitempty"`
 }
 
+// filter for Block objects
+type FilterBlock struct {
+	// logical operator for Block that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterBlock `json:"_and,omitempty"`
+	// logical operator for Block that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterBlock `json:"_or,omitempty"`
+	// logical operator for Block that will reverse conditions.
+	Not *FilterBlock `json:"_not,omitempty"`
+	// filter for hash field.
+	Hash *FilterString `json:"hash,omitempty"`
+	// filter for height field.
+	Height *FilterNumber `json:"height,omitempty"`
+	// filter for version field.
+	Version *FilterString `json:"version,omitempty"`
+	// filter for chain_id field.
+	ChainID *FilterString `json:"chain_id,omitempty"`
+	// filter for time field.
+	Time *FilterTime `json:"time,omitempty"`
+	// filter for num_txs field.
+	NumTxs *FilterNumber `json:"num_txs,omitempty"`
+	// filter for total_txs field.
+	TotalTxs *FilterNumber `json:"total_txs,omitempty"`
+	// filter for app_version field.
+	AppVersion *FilterString `json:"app_version,omitempty"`
+	// filter for last_block_hash field.
+	LastBlockHash *FilterString `json:"last_block_hash,omitempty"`
+	// filter for last_commit_hash field.
+	LastCommitHash *FilterString `json:"last_commit_hash,omitempty"`
+	// filter for validators_hash field.
+	ValidatorsHash *FilterString `json:"validators_hash,omitempty"`
+	// filter for next_validators_hash field.
+	NextValidatorsHash *FilterString `json:"next_validators_hash,omitempty"`
+	// filter for consensus_hash field.
+	ConsensusHash *FilterString `json:"consensus_hash,omitempty"`
+	// filter for app_hash field.
+	AppHash *FilterString `json:"app_hash,omitempty"`
+	// filter for last_results_hash field.
+	LastResultsHash *FilterString `json:"last_results_hash,omitempty"`
+	// filter for proposer_address_raw field.
+	ProposerAddressRaw *FilterString `json:"proposer_address_raw,omitempty"`
+	// filter for txs field.
+	Txs *NestedFilterBlockTransaction `json:"txs,omitempty"`
+}
+
+// filter for BlockTransaction objects
+type FilterBlockTransaction struct {
+	// logical operator for BlockTransaction that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterBlockTransaction `json:"_and,omitempty"`
+	// logical operator for BlockTransaction that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterBlockTransaction `json:"_or,omitempty"`
+	// logical operator for BlockTransaction that will reverse conditions.
+	Not *FilterBlockTransaction `json:"_not,omitempty"`
+	// filter for hash field.
+	Hash *FilterString `json:"hash,omitempty"`
+	// filter for fee field.
+	Fee *NestedFilterTxFee `json:"fee,omitempty"`
+	// filter for memo field.
+	Memo *FilterString `json:"memo,omitempty"`
+}
+
+// Filter type for boolean fields. All added filters here are processed as AND operators.
+type FilterBoolean struct {
+	// Filter a boolean field checking if it exists or not.
+	Exists *bool `json:"exists,omitempty"`
+	// Filter a boolean field checking if it is equals to the specified value.
+	Eq *bool `json:"eq,omitempty"`
+}
+
+// filter for Coin objects
+type FilterCoin struct {
+	// logical operator for Coin that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterCoin `json:"_and,omitempty"`
+	// logical operator for Coin that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterCoin `json:"_or,omitempty"`
+	// logical operator for Coin that will reverse conditions.
+	Not *FilterCoin `json:"_not,omitempty"`
+	// filter for amount field.
+	Amount *FilterNumber `json:"amount,omitempty"`
+	// filter for denom field.
+	Denom *FilterString `json:"denom,omitempty"`
+}
+
+// Filter type for number fields. All added filters here are processed as AND operators.
+type FilterNumber struct {
+	// Filter a number field checking if it exists or not.
+	Exists *bool `json:"exists,omitempty"`
+	// Filter a number field checking if it is equals to the specified value.
+	Eq *int `json:"eq,omitempty"`
+	// Filter a number field checking if it is NOT equals to the specified value.
+	Neq *int `json:"neq,omitempty"`
+	// Filter a number field checking if it is greater than the specified value.
+	Gt *int `json:"gt,omitempty"`
+	// Filter a number field checking if it is less than the specified value.
+	Lt *int `json:"lt,omitempty"`
+}
+
+// Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
+type FilterString struct {
+	// Filter a string field checking if it exists or not.
+	Exists *bool `json:"exists,omitempty"`
+	// Filter a string field checking if it is equals to the specified value.
+	Eq *string `json:"eq,omitempty"`
+	// Filter a string field checking if it is NOT equals to the specified value.
+	Neq *string `json:"neq,omitempty"`
+	// Filter a string field checking if it is like the specified value. You can use standard Go RegEx expressions here.
+	Like *string `json:"like,omitempty"`
+	// Filter a string field checking if it is NOT like the specified value. You can use standard Go RegEx expressions here.
+	Nlike *string `json:"nlike,omitempty"`
+}
+
+// Filter type for time fields. All added filters here are processed as AND operators.
+type FilterTime struct {
+	// Filter a time field checking if it exists or not.
+	Exists *bool `json:"exists,omitempty"`
+	// Filter a time field checking if it is equals to the specified value.
+	Eq *time.Time `json:"eq,omitempty"`
+	// Filter a time field checking if it is NOT equals to the specified value.
+	Neq *time.Time `json:"neq,omitempty"`
+	// Filter a time field checking if it is before than the specified value.
+	Before *time.Time `json:"before,omitempty"`
+	// Filter a time field checking if it is after the specified value.
+	After *time.Time `json:"after,omitempty"`
+}
+
+// filter for Transaction objects
+type FilterTransaction struct {
+	// logical operator for Transaction that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterTransaction `json:"_and,omitempty"`
+	// logical operator for Transaction that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterTransaction `json:"_or,omitempty"`
+	// logical operator for Transaction that will reverse conditions.
+	Not *FilterTransaction `json:"_not,omitempty"`
+	// filter for index field.
+	Index *FilterNumber `json:"index,omitempty"`
+	// filter for hash field.
+	Hash *FilterString `json:"hash,omitempty"`
+	// filter for success field.
+	Success *FilterBoolean `json:"success,omitempty"`
+	// filter for block_height field.
+	BlockHeight *FilterNumber `json:"block_height,omitempty"`
+	// filter for gas_wanted field.
+	GasWanted *FilterNumber `json:"gas_wanted,omitempty"`
+	// filter for gas_used field.
+	GasUsed *FilterNumber `json:"gas_used,omitempty"`
+	// filter for gas_fee field.
+	GasFee *NestedFilterCoin `json:"gas_fee,omitempty"`
+	// filter for messages field.
+	Messages *NestedFilterTransactionMessage `json:"messages,omitempty"`
+	// filter for memo field.
+	Memo *FilterString `json:"memo,omitempty"`
+	// filter for response field.
+	Response *NestedFilterTransactionResponse `json:"response,omitempty"`
+}
+
+// filter for TransactionMessage objects
+type FilterTransactionMessage struct {
+	// logical operator for TransactionMessage that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterTransactionMessage `json:"_and,omitempty"`
+	// logical operator for TransactionMessage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterTransactionMessage `json:"_or,omitempty"`
+	// logical operator for TransactionMessage that will reverse conditions.
+	Not *FilterTransactionMessage `json:"_not,omitempty"`
+	// filter for typeUrl field.
+	TypeURL *FilterString `json:"typeUrl,omitempty"`
+	// filter for route field.
+	Route *FilterString `json:"route,omitempty"`
+}
+
+// filter for TransactionResponse objects
+type FilterTransactionResponse struct {
+	// logical operator for TransactionResponse that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterTransactionResponse `json:"_and,omitempty"`
+	// logical operator for TransactionResponse that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterTransactionResponse `json:"_or,omitempty"`
+	// logical operator for TransactionResponse that will reverse conditions.
+	Not *FilterTransactionResponse `json:"_not,omitempty"`
+	// filter for log field.
+	Log *FilterString `json:"log,omitempty"`
+	// filter for info field.
+	Info *FilterString `json:"info,omitempty"`
+	// filter for error field.
+	Error *FilterString `json:"error,omitempty"`
+	// filter for data field.
+	Data *FilterString `json:"data,omitempty"`
+}
+
+// filter for TxFee objects
+type FilterTxFee struct {
+	// logical operator for TxFee that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterTxFee `json:"_and,omitempty"`
+	// logical operator for TxFee that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterTxFee `json:"_or,omitempty"`
+	// logical operator for TxFee that will reverse conditions.
+	Not *FilterTxFee `json:"_not,omitempty"`
+	// filter for gas_wanted field.
+	GasWanted *FilterNumber `json:"gas_wanted,omitempty"`
+	// filter for gas_fee field.
+	GasFee *NestedFilterCoin `json:"gas_fee,omitempty"`
+}
+
 // `GnoEvent` is the event information exported by the Gno VM.
 // It has `type`, `pkg_path`, `func`, and `attrs`.
 type GnoEvent struct {
@@ -272,6 +472,82 @@ type MsgRunInput struct {
 	Package *MemPackageInput `json:"package,omitempty"`
 }
 
+// filter for BlockTransaction objects
+type NestedFilterBlockTransaction struct {
+	// logical operator for BlockTransaction that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterBlockTransaction `json:"_and,omitempty"`
+	// logical operator for BlockTransaction that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterBlockTransaction `json:"_or,omitempty"`
+	// logical operator for BlockTransaction that will reverse conditions.
+	Not *NestedFilterBlockTransaction `json:"_not,omitempty"`
+	// filter for hash field.
+	Hash *FilterString `json:"hash,omitempty"`
+	// filter for fee field.
+	Fee *NestedFilterTxFee `json:"fee,omitempty"`
+	// filter for memo field.
+	Memo *FilterString `json:"memo,omitempty"`
+}
+
+// filter for Coin objects
+type NestedFilterCoin struct {
+	// logical operator for Coin that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterCoin `json:"_and,omitempty"`
+	// logical operator for Coin that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterCoin `json:"_or,omitempty"`
+	// logical operator for Coin that will reverse conditions.
+	Not *NestedFilterCoin `json:"_not,omitempty"`
+	// filter for amount field.
+	Amount *FilterNumber `json:"amount,omitempty"`
+	// filter for denom field.
+	Denom *FilterString `json:"denom,omitempty"`
+}
+
+// filter for TransactionMessage objects
+type NestedFilterTransactionMessage struct {
+	// logical operator for TransactionMessage that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterTransactionMessage `json:"_and,omitempty"`
+	// logical operator for TransactionMessage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterTransactionMessage `json:"_or,omitempty"`
+	// logical operator for TransactionMessage that will reverse conditions.
+	Not *NestedFilterTransactionMessage `json:"_not,omitempty"`
+	// filter for typeUrl field.
+	TypeURL *FilterString `json:"typeUrl,omitempty"`
+	// filter for route field.
+	Route *FilterString `json:"route,omitempty"`
+}
+
+// filter for TransactionResponse objects
+type NestedFilterTransactionResponse struct {
+	// logical operator for TransactionResponse that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterTransactionResponse `json:"_and,omitempty"`
+	// logical operator for TransactionResponse that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterTransactionResponse `json:"_or,omitempty"`
+	// logical operator for TransactionResponse that will reverse conditions.
+	Not *NestedFilterTransactionResponse `json:"_not,omitempty"`
+	// filter for log field.
+	Log *FilterString `json:"log,omitempty"`
+	// filter for info field.
+	Info *FilterString `json:"info,omitempty"`
+	// filter for error field.
+	Error *FilterString `json:"error,omitempty"`
+	// filter for data field.
+	Data *FilterString `json:"data,omitempty"`
+}
+
+// filter for TxFee objects
+type NestedFilterTxFee struct {
+	// logical operator for TxFee that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterTxFee `json:"_and,omitempty"`
+	// logical operator for TxFee that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterTxFee `json:"_or,omitempty"`
+	// logical operator for TxFee that will reverse conditions.
+	Not *NestedFilterTxFee `json:"_not,omitempty"`
+	// filter for gas_wanted field.
+	GasWanted *FilterNumber `json:"gas_wanted,omitempty"`
+	// filter for gas_fee field.
+	GasFee *NestedFilterCoin `json:"gas_fee,omitempty"`
+}
+
 // Root Query type to fetch data about Blocks and Transactions based on filters or retrieve the latest block height.
 type Query struct {
 }
@@ -374,6 +650,47 @@ type UnknownEvent struct {
 }
 
 func (UnknownEvent) IsEvent() {}
+
+type FilterableAddons string
+
+const (
+	// Get minimum and maximum value used on all the filters for this field.
+	// Useful when you need to do a range query for performance reasons.
+	FilterableAddonsMinmax FilterableAddons = "MINMAX"
+)
+
+var AllFilterableAddons = []FilterableAddons{
+	FilterableAddonsMinmax,
+}
+
+func (e FilterableAddons) IsValid() bool {
+	switch e {
+	case FilterableAddonsMinmax:
+		return true
+	}
+	return false
+}
+
+func (e FilterableAddons) String() string {
+	return string(e)
+}
+
+func (e *FilterableAddons) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = FilterableAddons(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid FilterableAddons", str)
+	}
+	return nil
+}
+
+func (e FilterableAddons) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
 
 // `MessageRoute` is route type of the transactional message.
 // `MessageRoute` has the values of vm and bank.
