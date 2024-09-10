@@ -17,6 +17,7 @@ func Setup(s storage.Storage, m *chi.Mux) *chi.Mux {
 		if err != nil {
 			fmt.Fprintf(w, "ERROR: %s\n", err)
 			render.Status(r, http.StatusInternalServerError)
+
 			return
 		}
 
