@@ -307,11 +307,11 @@ type TransactionFilter struct {
 	ToGasUsed *int `json:"to_gas_used,omitempty"`
 	// Hash from Transaction content in base64 encoding. If this filter is used, any other filter will be ignored.
 	Hash *string `json:"hash,omitempty"`
-	// Transaction's message to filter Transactions.
-	// `messages` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
-	// `messages` is entered as an array and works exclusively.
-	// ex) `messages[0] || messages[1] || messages[2]`
-	Messages []*TransactionMessageInput `json:"messages,omitempty"`
+	// Transaction's messages to filter Transactions.
+	// `message` can be configured as a filter with a transaction message's `router` and `type` and `parameters(bank / vm)`.
+	// `message` is entered as an array and works exclusively.
+	// ex) `message[0] || message[1] || message[2]`
+	Message []*TransactionMessageInput `json:"message,omitempty"`
 	// `memo` are string information stored within a transaction.
 	// `memo` can be utilized to find or distinguish transactions.
 	// For example, when trading a specific exchange, you would utilize the memo field of the transaction.
