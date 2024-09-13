@@ -18,6 +18,7 @@ import (
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
+	"github.com/gnolang/tx-indexer/serve/health"
 	"github.com/gnolang/tx-indexer/storage"
 )
 
@@ -187,6 +188,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, mux)
+	mux = health.Setup(db, mux)
 
 	// Create the HTTP server
 	hs := serve.NewHTTPServer(mux, c.listenAddress, logger.Named("http-server"))

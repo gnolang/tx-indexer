@@ -20,6 +20,8 @@ require (
 	golang.org/x/sync v0.8.0
 )
 
+require github.com/ajg/form v1.5.1 // indirect
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
@@ -40,6 +42,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gnolang/overflow v0.0.0-20170615021017-4d914c927216 // indirect
+	github.com/go-chi/render v1.0.3
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
