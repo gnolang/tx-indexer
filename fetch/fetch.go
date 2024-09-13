@@ -24,6 +24,8 @@ const (
 	DefaultMaxChunkSize = 100
 )
 
+var errInvalidGenesisState = errors.New("invalid genesis state")
+
 // Fetcher is an instance of the block indexer
 // fetcher
 type Fetcher struct {
@@ -320,7 +322,7 @@ func getGenesisBlock(client Client) (*bft_types.Block, error) {
 	}
 
 	if gblock.Genesis == nil {
-		return nil, fmt.Errorf("nil genesis doc")
+		return nil, errInvalidGenesisState
 	}
 
 	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)

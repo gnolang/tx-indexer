@@ -159,6 +159,16 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						},
 					}, nil
 				},
+				getGenesisFn: func() (*core_types.ResultGenesis, error) {
+					return &core_types.ResultGenesis{
+						Genesis: &types.GenesisDoc{
+							AppState: gnoland.GnoGenesisState{
+								Balances: []gnoland.Balance{},
+								Txs:      []std.Tx{},
+							},
+						},
+					}, nil
+				},
 			}
 		)
 
@@ -184,8 +194,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		// Verify the transactions are saved correctly
 		require.Len(t, savedTxs, blockNum*txCount)
 
-		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 
 			for txIndex := 0; txIndex < txCount; txIndex++ {
 				// since this is a linearized array of transactions
@@ -200,9 +210,14 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		}
 
 		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks)-1)
+		require.Len(t, capturedEvents, len(blocks))
 
 		for index, event := range capturedEvents {
+			if index == 0 {
+				// Dummy genesis block
+				continue
+			}
+
 			if event.GetType() != indexerTypes.NewBlockEvent {
 				continue
 			}
@@ -211,13 +226,13 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			require.True(t, ok)
 
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index+1], eventData.Block)
+			assert.Equal(t, blocks[index], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index+1].Height, tx.Height)
+				assert.EqualValues(t, blocks[index].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -337,6 +352,29 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 				getLatestBlockNumberFn: func() (uint64, error) {
 					return uint64(blockNum), nil
 				},
+				getGenesisFn: func() (*core_types.ResultGenesis, error) {
+					return &core_types.ResultGenesis{
+						Genesis: &types.GenesisDoc{
+							AppState: gnoland.GnoGenesisState{
+								Balances: []gnoland.Balance{},
+								Txs:      []std.Tx{},
+							},
+						},
+					}, nil
+				},
+				getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+					// Sanity check
+					if num > uint64(blockNum) {
+						t.Fatalf("invalid block requested, %d", num)
+					}
+
+					return &core_types.ResultBlockResults{
+						Height: int64(num),
+						Results: &state.ABCIResponses{
+							DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
+						},
+					}, nil
+				},
 			}
 		)
 
@@ -368,8 +406,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		// Verify the transactions are saved correctly
 		require.Len(t, savedTxs, blockNum*txCount)
 
-		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 
 			for txIndex := 0; txIndex < txCount; txIndex++ {
 				// since this is a linearized array of transactions
@@ -384,18 +422,23 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		}
 
 		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks)-1)
+		require.Len(t, capturedEvents, len(blocks))
 
 		for index, event := range capturedEvents {
+			if index == 0 {
+				// Dummy genesis block
+				continue
+			}
+
 			// Make sure the block is valid
 			eventData := event.(*indexerTypes.NewBlock)
-			assert.Equal(t, blocks[index+1], eventData.Block)
+			assert.Equal(t, blocks[index], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index+1].Height, tx.Height)
+				assert.EqualValues(t, blocks[index].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -508,6 +551,16 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 						},
 					}, nil
 				},
+				getGenesisFn: func() (*core_types.ResultGenesis, error) {
+					return &core_types.ResultGenesis{
+						Genesis: &types.GenesisDoc{
+							AppState: gnoland.GnoGenesisState{
+								Balances: []gnoland.Balance{},
+								Txs:      []std.Tx{},
+							},
+						},
+					}, nil
+				},
 			}
 		)
 
@@ -533,16 +586,16 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 		// Verify the transactions are saved correctly
 		require.Len(t, savedTxs, blockNum*txCount)
 
-		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 
 			for txIndex := 0; txIndex < txCount; txIndex++ {
 				// since this is a linearized array of transactions
 				// we can access each item with: blockNum * length + txIndx
 				// where blockNum is the y-axis, and txIndx is the x-axis
-				tx := savedTxs[blockIndex*txCount+txIndex]
+				tx := savedTxs[(blockIndex-1)*txCount+txIndex]
 
-				assert.EqualValues(t, blockIndex+1, tx.Height)
+				assert.EqualValues(t, blockIndex, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -550,10 +603,15 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 
 		// Make sure proper events were emitted
 		// Blocks each have as many transactions as txCount.
-		txEventCount := (len(blocks) - 1)
+		txEventCount := len(blocks)
 		require.Len(t, capturedEvents, txEventCount)
 
 		for index, event := range capturedEvents {
+			if index == 0 {
+				// Dummy genesis block
+				continue
+			}
+
 			if event.GetType() != indexerTypes.NewBlockEvent {
 				continue
 			}
@@ -562,13 +620,13 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 			require.True(t, ok)
 
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index+1], eventData.Block)
+			assert.Equal(t, blocks[index], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index+1].Height, tx.Height)
+				assert.EqualValues(t, blocks[index].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -651,10 +709,29 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Block: blocks[num],
 					}, nil
 				},
-				getBlockResultsFn: func(_ uint64) (*core_types.ResultBlockResults, error) {
+				getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+					if num == 0 {
+						return &core_types.ResultBlockResults{
+							Height: int64(num),
+							Results: &state.ABCIResponses{
+								DeliverTxs: make([]abci.ResponseDeliverTx, 0),
+							},
+						}, nil
+					}
+
 					t.Fatalf("should not request results")
 
 					return nil, nil
+				},
+				getGenesisFn: func() (*core_types.ResultGenesis, error) {
+					return &core_types.ResultGenesis{
+						Genesis: &types.GenesisDoc{
+							AppState: gnoland.GnoGenesisState{
+								Balances: []gnoland.Balance{},
+								Txs:      []std.Tx{},
+							},
+						},
+					}, nil
 				},
 			}
 		)
@@ -669,16 +746,21 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 		// Run the fetch
 		require.NoError(t, f.FetchChainData(ctx))
 
-		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 		}
 
 		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks)-1)
+		require.Len(t, capturedEvents, len(blocks))
 
 		for index, event := range capturedEvents {
+			if index == 0 {
+				// Dummy genesis block
+				continue
+			}
+
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index+1], event.Block)
+			assert.Equal(t, blocks[index], event.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, event.Results, 0)
@@ -770,8 +852,32 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						},
 					}
 				},
+				getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+					if num == 0 {
+						return &core_types.ResultBlockResults{
+							Height: int64(num),
+							Results: &state.ABCIResponses{
+								DeliverTxs: make([]abci.ResponseDeliverTx, 0),
+							},
+						}, nil
+					}
+
+					t.Fatalf("should not request results")
+
+					return nil, nil
+				},
 				getLatestBlockNumberFn: func() (uint64, error) {
 					return uint64(blockNum), nil
+				},
+				getGenesisFn: func() (*core_types.ResultGenesis, error) {
+					return &core_types.ResultGenesis{
+						Genesis: &types.GenesisDoc{
+							AppState: gnoland.GnoGenesisState{
+								Balances: []gnoland.Balance{},
+								Txs:      []std.Tx{},
+							},
+						},
+					}, nil
 				},
 			}
 		)
@@ -786,16 +892,21 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 		// Run the fetch
 		require.NoError(t, f.FetchChainData(ctx))
 
-		for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-			assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 		}
 
 		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks)-1)
+		require.Len(t, capturedEvents, len(blocks))
 
 		for index, event := range capturedEvents {
+			if index == 0 {
+				// Dummy genesis block
+				continue
+			}
+
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index+1], event.Block)
+			assert.Equal(t, blocks[index], event.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, event.Results, 0)
@@ -878,9 +989,28 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 				}, nil
 			},
 			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				if num == 0 {
+					return &core_types.ResultBlockResults{
+						Height: int64(num),
+						Results: &state.ABCIResponses{
+							DeliverTxs: make([]abci.ResponseDeliverTx, 0),
+						},
+					}, nil
+				}
+
 				require.LessOrEqual(t, num, uint64(blockNum))
 
 				return nil, fmt.Errorf("unable to fetch result for block %d", num)
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{
+					Genesis: &types.GenesisDoc{
+						AppState: gnoland.GnoGenesisState{
+							Balances: []gnoland.Balance{},
+							Txs:      []std.Tx{},
+						},
+					},
+				}, nil
 			},
 		}
 	)
@@ -896,8 +1026,8 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 	require.NoError(t, f.FetchChainData(ctx))
 
 	// Make sure correct blocks were attempted to be saved
-	for blockIndex := 0; blockIndex < blockNum; blockIndex++ {
-		assert.Equal(t, blocks[blockIndex+1], savedBlocks[blockIndex])
+	for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
+		assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 	}
 
 	// Make sure no events were emitted
