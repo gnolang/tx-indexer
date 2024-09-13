@@ -11,6 +11,9 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
+	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -20,6 +23,8 @@ const (
 	DefaultMaxSlots     = 100
 	DefaultMaxChunkSize = 100
 )
+
+var errInvalidGenesisState = errors.New("invalid genesis state")
 
 // Fetcher is an instance of the block indexer
 // fetcher
@@ -67,9 +72,71 @@ func New(
 	return f
 }
 
+func (f *Fetcher) fetchGenesisData() error {
+	_, err := f.storage.GetLatestHeight()
+	// Possible cases:
+	// - err is ErrNotFound: the storage is empty, we execute the rest of the routine and fetch+write genesis data
+	// - err is nil: the storage has a latest height, this means at least the genesis data has been written,
+	//   or some blocks past it, we do nothing and return nil
+	// - err is something else: there has been a storage error, we do nothing and return this error
+	if !errors.Is(err, storageErrors.ErrNotFound) {
+		return err
+	}
+
+	f.logger.Info("Fetching genesis")
+
+	block, err := getGenesisBlock(f.client)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis block: %w", err)
+	}
+
+	results, err := f.client.GetBlockResults(0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch genesis results: %w", err)
+	}
+
+	if results.Results == nil {
+		return errors.New("nil results")
+	}
+
+	txResults := make([]*bft_types.TxResult, len(block.Txs))
+
+	for txIndex, tx := range block.Txs {
+		result := &bft_types.TxResult{
+			Height:   0,
+			Index:    uint32(txIndex),
+			Tx:       tx,
+			Response: results.Results.DeliverTxs[txIndex],
+		}
+
+		txResults[txIndex] = result
+	}
+
+	s := &slot{
+		chunk: &chunk{
+			blocks:  []*bft_types.Block{block},
+			results: [][]*bft_types.TxResult{txResults},
+		},
+		chunkRange: chunkRange{
+			from: 0,
+			to:   0,
+		},
+	}
+
+	return f.writeSlot(s)
+}
+
 // FetchChainData starts the fetching process that indexes
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
+	// Attempt to fetch the genesis data
+	if err := f.fetchGenesisData(); err != nil {
+		// We treat this error as soft, to ease migration, since
+		// some versions of gno networks don't support this.
+		// In the future, we should hard fail if genesis is not fetch-able
+		f.logger.Error("unable to fetch genesis data", zap.Error(err))
+	}
+
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state
@@ -178,68 +245,114 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// Pop the next chunk
 				f.chunkBuffer.PopFront()
 
-				wb := f.storage.WriteBatch()
-
-				// Save the fetched data
-				for blockIndex, block := range item.chunk.blocks {
-					if saveErr := wb.SetBlock(block); saveErr != nil {
-						// This is a design choice that really highlights the strain
-						// of keeping legacy testnets running. Current TM2 testnets
-						// have blocks / transactions that are no longer compatible
-						// with latest "master" changes for Amino, so these blocks / txs are ignored,
-						// as opposed to this error being a show-stopper for the fetcher
-						f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
-
-						continue
-					}
-
-					f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
-
-					// Get block results
-					txResults := item.chunk.results[blockIndex]
-
-					// Save the fetched transaction results
-					for _, txResult := range txResults {
-						if err := wb.SetTx(txResult); err != nil {
-							f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
-
-							continue
-						}
-
-						f.logger.Debug(
-							"Added tx to batch",
-							zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
-						)
-					}
-
-					// Alert any listeners of a new saved block
-					event := &types.NewBlock{
-						Block:   block,
-						Results: txResults,
-					}
-
-					f.events.SignalEvent(event)
-				}
-
-				f.logger.Info(
-					"Added to batch block and tx data for range",
-					zap.Uint64("from", item.chunkRange.from),
-					zap.Uint64("to", item.chunkRange.to),
-				)
-
-				// Save the latest height data
-				if err := wb.SetLatestHeight(item.chunkRange.to); err != nil {
-					if rErr := wb.Rollback(); rErr != nil {
-						return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
-					}
-
-					return fmt.Errorf("unable to save latest height info, %w", err)
-				}
-
-				if err := wb.Commit(); err != nil {
-					return fmt.Errorf("error persisting block information into storage, %w", err)
+				if err := f.writeSlot(item); err != nil {
+					return err
 				}
 			}
 		}
 	}
+}
+
+func (f *Fetcher) writeSlot(s *slot) error {
+	wb := f.storage.WriteBatch()
+
+	// Save the fetched data
+	for blockIndex, block := range s.chunk.blocks {
+		if saveErr := wb.SetBlock(block); saveErr != nil {
+			// This is a design choice that really highlights the strain
+			// of keeping legacy testnets running. Current TM2 testnets
+			// have blocks / transactions that are no longer compatible
+			// with latest "master" changes for Amino, so these blocks / txs are ignored,
+			// as opposed to this error being a show-stopper for the fetcher
+			f.logger.Error("unable to save block", zap.String("err", saveErr.Error()))
+
+			continue
+		}
+
+		f.logger.Debug("Added block data to batch", zap.Int64("number", block.Height))
+
+		// Get block results
+		txResults := s.chunk.results[blockIndex]
+
+		// Save the fetched transaction results
+		for _, txResult := range txResults {
+			if err := wb.SetTx(txResult); err != nil {
+				f.logger.Error("unable to  save tx", zap.String("err", err.Error()))
+
+				continue
+			}
+
+			f.logger.Debug(
+				"Added tx to batch",
+				zap.String("hash", base64.StdEncoding.EncodeToString(txResult.Tx.Hash())),
+			)
+		}
+
+		// Alert any listeners of a new saved block
+		event := &types.NewBlock{
+			Block:   block,
+			Results: txResults,
+		}
+
+		f.events.SignalEvent(event)
+	}
+
+	f.logger.Info(
+		"Added to batch block and tx data for range",
+		zap.Uint64("from", s.chunkRange.from),
+		zap.Uint64("to", s.chunkRange.to),
+	)
+
+	// Save the latest height data
+	if err := wb.SetLatestHeight(s.chunkRange.to); err != nil {
+		if rErr := wb.Rollback(); rErr != nil {
+			return fmt.Errorf("unable to save latest height info, %w, %w", err, rErr)
+		}
+
+		return fmt.Errorf("unable to save latest height info, %w", err)
+	}
+
+	if err := wb.Commit(); err != nil {
+		return fmt.Errorf("error persisting block information into storage, %w", err)
+	}
+
+	return nil
+}
+
+func getGenesisBlock(client Client) (*bft_types.Block, error) {
+	gblock, err := client.GetGenesis()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get genesis block: %w", err)
+	}
+
+	if gblock.Genesis == nil {
+		return nil, errInvalidGenesisState
+	}
+
+	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
+	if !ok {
+		return nil, fmt.Errorf("unknown genesis state kind '%T'", gblock.Genesis.AppState)
+	}
+
+	txs := make([]bft_types.Tx, len(genesisState.Txs))
+	for i, tx := range genesisState.Txs {
+		txs[i], err = amino.MarshalJSON(tx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
+		}
+	}
+
+	block := &bft_types.Block{
+		Header: bft_types.Header{
+			NumTxs:   int64(len(txs)),
+			TotalTxs: int64(len(txs)),
+			Time:     gblock.Genesis.GenesisTime,
+			ChainID:  gblock.Genesis.ChainID,
+		},
+		Data: bft_types.Data{
+			Txs: txs,
+		},
+	}
+
+	return block, nil
 }
