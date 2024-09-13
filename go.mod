@@ -2,11 +2,9 @@ module github.com/gnolang/tx-indexer
 
 go 1.22
 
-toolchain go1.22.5
-
 require (
 	github.com/99designs/gqlgen v0.17.49
-	github.com/cockroachdb/pebble v1.1.1
+	github.com/cockroachdb/pebble v1.1.2
 	github.com/gnolang/gno v0.1.1
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httprate v0.12.1
