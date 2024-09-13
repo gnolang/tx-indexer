@@ -129,8 +129,12 @@ func (f *Fetcher) fetchGenesisData() error {
 // FetchChainData starts the fetching process that indexes
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
+	// Attempt to fetch the genesis data
 	if err := f.fetchGenesisData(); err != nil {
-		return fmt.Errorf("unable to fetch genesis data: %w", err)
+		// We treat this error as soft, to ease migration, since
+		// some versions of gno networks don't support this.
+		// In the future, we should hard fail if genesis is not fetch-able
+		f.logger.Error("unable to fetch genesis data", zap.Error(err))
 	}
 
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
