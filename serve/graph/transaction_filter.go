@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/gnolang/gno/tm2/pkg/std"
+
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 )
 
@@ -30,7 +31,7 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 		return false
 	}
 
-	if !filteredTransactionByMessages(tx, filter.Messages) {
+	if !filteredTransactionByMessages(tx, filter.Message) {
 		return false
 	}
 
