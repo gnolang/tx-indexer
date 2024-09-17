@@ -19,7 +19,7 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 		Config{
 			Resolvers: NewResolver(s, manager),
 			Directives: DirectiveRoot{
-				Filterable: func(ctx context.Context, obj interface{}, next graphql.Resolver, extras []model.FilterableAddons) (res interface{}, err error) {
+				Filterable: func(ctx context.Context, obj interface{}, next graphql.Resolver, extras []model.FilterableExtra) (res interface{}, err error) {
 					return next(ctx)
 				},
 			},
