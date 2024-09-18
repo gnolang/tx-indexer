@@ -415,40 +415,50 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	}
 
 	// Handle union objects depending of the type
+
+	// Check if any filters are specified
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || false
+
+	// If no filters are specified for any types, accept all objects
+	if !filtersSpecified {
+		return true
+	}
+
+	// Evaluate specified type filters
+	matchedType := false
+
 	tobj := *obj
-	switch objv := tobj.(type) {
-	case BankMsgSend:
-
-		// Handle BankMsgSend field
-		toEvalBankMsgSend := objv
-		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&toEvalBankMsgSend) {
+	if uObj, ok := tobj.(BankMsgSend); ok {
+		matchedType = true
+		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgCall:
-
-		// Handle MsgCall field
-		toEvalMsgCall := objv
-		if f.MsgCall != nil && !f.MsgCall.Eval(&toEvalMsgCall) {
+	if uObj, ok := tobj.(MsgCall); ok {
+		matchedType = true
+		if f.MsgCall != nil && !f.MsgCall.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgAddPackage:
-
-		// Handle MsgAddPackage field
-		toEvalMsgAddPackage := objv
-		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&toEvalMsgAddPackage) {
+	if uObj, ok := tobj.(MsgAddPackage); ok {
+		matchedType = true
+		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgRun:
-
-		// Handle MsgRun field
-		toEvalMsgRun := objv
-		if f.MsgRun != nil && !f.MsgRun.Eval(&toEvalMsgRun) {
+	if uObj, ok := tobj.(MsgRun); ok {
+		matchedType = true
+		if f.MsgRun != nil && !f.MsgRun.Eval(&uObj) {
 			return false
 		}
+	}
 
+	// If the object is of a type not specified in filters and filters are specified, ignore this element
+	if !matchedType {
+		return true
 	}
 
 	return true
@@ -692,24 +702,36 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	}
 
 	// Handle union objects depending of the type
+
+	// Check if any filters are specified
+	filtersSpecified := f.GnoEvent != nil || f.UnknownEvent != nil || false
+
+	// If no filters are specified for any types, accept all objects
+	if !filtersSpecified {
+		return true
+	}
+
+	// Evaluate specified type filters
+	matchedType := false
+
 	tobj := *obj
-	switch objv := tobj.(type) {
-	case GnoEvent:
-
-		// Handle GnoEvent field
-		toEvalGnoEvent := objv
-		if f.GnoEvent != nil && !f.GnoEvent.Eval(&toEvalGnoEvent) {
+	if uObj, ok := tobj.(GnoEvent); ok {
+		matchedType = true
+		if f.GnoEvent != nil && !f.GnoEvent.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case UnknownEvent:
-
-		// Handle UnknownEvent field
-		toEvalUnknownEvent := objv
-		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&toEvalUnknownEvent) {
+	if uObj, ok := tobj.(UnknownEvent); ok {
+		matchedType = true
+		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&uObj) {
 			return false
 		}
+	}
 
+	// If the object is of a type not specified in filters and filters are specified, ignore this element
+	if !matchedType {
+		return true
 	}
 
 	return true
@@ -1488,40 +1510,50 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	}
 
 	// Handle union objects depending of the type
+
+	// Check if any filters are specified
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || false
+
+	// If no filters are specified for any types, accept all objects
+	if !filtersSpecified {
+		return true
+	}
+
+	// Evaluate specified type filters
+	matchedType := false
+
 	tobj := *obj
-	switch objv := tobj.(type) {
-	case BankMsgSend:
-
-		// Handle BankMsgSend field
-		toEvalBankMsgSend := objv
-		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&toEvalBankMsgSend) {
+	if uObj, ok := tobj.(BankMsgSend); ok {
+		matchedType = true
+		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgCall:
-
-		// Handle MsgCall field
-		toEvalMsgCall := objv
-		if f.MsgCall != nil && !f.MsgCall.Eval(&toEvalMsgCall) {
+	if uObj, ok := tobj.(MsgCall); ok {
+		matchedType = true
+		if f.MsgCall != nil && !f.MsgCall.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgAddPackage:
-
-		// Handle MsgAddPackage field
-		toEvalMsgAddPackage := objv
-		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&toEvalMsgAddPackage) {
+	if uObj, ok := tobj.(MsgAddPackage); ok {
+		matchedType = true
+		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case MsgRun:
-
-		// Handle MsgRun field
-		toEvalMsgRun := objv
-		if f.MsgRun != nil && !f.MsgRun.Eval(&toEvalMsgRun) {
+	if uObj, ok := tobj.(MsgRun); ok {
+		matchedType = true
+		if f.MsgRun != nil && !f.MsgRun.Eval(&uObj) {
 			return false
 		}
+	}
 
+	// If the object is of a type not specified in filters and filters are specified, ignore this element
+	if !matchedType {
+		return true
 	}
 
 	return true
@@ -1765,24 +1797,36 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	}
 
 	// Handle union objects depending of the type
+
+	// Check if any filters are specified
+	filtersSpecified := f.GnoEvent != nil || f.UnknownEvent != nil || false
+
+	// If no filters are specified for any types, accept all objects
+	if !filtersSpecified {
+		return true
+	}
+
+	// Evaluate specified type filters
+	matchedType := false
+
 	tobj := *obj
-	switch objv := tobj.(type) {
-	case GnoEvent:
-
-		// Handle GnoEvent field
-		toEvalGnoEvent := objv
-		if f.GnoEvent != nil && !f.GnoEvent.Eval(&toEvalGnoEvent) {
+	if uObj, ok := tobj.(GnoEvent); ok {
+		matchedType = true
+		if f.GnoEvent != nil && !f.GnoEvent.Eval(&uObj) {
 			return false
 		}
+	}
 
-	case UnknownEvent:
-
-		// Handle UnknownEvent field
-		toEvalUnknownEvent := objv
-		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&toEvalUnknownEvent) {
+	if uObj, ok := tobj.(UnknownEvent); ok {
+		matchedType = true
+		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&uObj) {
 			return false
 		}
+	}
 
+	// If the object is of a type not specified in filters and filters are specified, ignore this element
+	if !matchedType {
+		return true
 	}
 
 	return true
