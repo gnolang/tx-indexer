@@ -1,4 +1,4 @@
-// go:build ignore
+//go:build ignore
 
 package main
 
@@ -11,41 +11,53 @@ import (
 	"github.com/ajnavarro/gqlfiltergen"
 )
 
-var queriesInject string = `
+var queriesInject = `
 type Query {
    """
-   Fetches Blocks matching the specified where criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
+   EXPERIMENTAL: Fetches Blocks matching the specified where criteria. 
+   Incomplete results due to errors return both the partial Blocks and 
+   the associated errors.
    """
    getBlocks(where: FilterBlock!): [Block!]
    
    """
-   Retrieves a list of Transactions that match the given where criteria. If the result is incomplete due to errors, both partial results and errors are returned.
+   EXPERIMENTAL: Retrieves a list of Transactions that match the given 
+   where criteria. If the result is incomplete due to errors, both partial
+   results and errors are returned.
    """
    getTransactions(where: FilterTransaction!): [Transaction!]
 }
 
 type Subscription {
   """
-  Subscribes to real-time updates of Transactions that match the provided filter criteria.
-  This subscription starts immediately and only includes Transactions added to the blockchain after the subscription is active.
+  EXPERIMENTAL: Subscribes to real-time updates of Transactions that 
+  match the provided filter criteria. This subscription starts immediately
+  and only includes Transactions added to the blockchain after the subscription
+  is active.
 
-  This is useful for applications needing to track Transactions in real-time, such as wallets tracking incoming transactions
-  or analytics platforms monitoring blockchain activity.
+  This is useful for applications needing to track Transactions in real-time, 
+  such as wallets tracking incoming transactions or analytics platforms 
+  monitoring blockchain activity.
 
   Returns:
-  - Transaction: Each received update is a Transaction object that matches the filter criteria.
+  - Transaction: Each received update is a Transaction object that matches 
+  the filter criteria.
   """
   getTransactions(filter: FilterTransaction!): Transaction!
 
   """
-  Subscribes to real-time updates of Blocks that match the provided filter criteria. Similar to the Transactions subscription,
-  this subscription is active immediately upon creation and only includes Blocks added after the subscription begins.
+  EXPERIMENTAL: Subscribes to real-time updates of Blocks that match the provided
+  filter criteria. Similar to the Transactions subscription,
+  this subscription is active immediately upon creation and only includes Blocks
+  added after the subscription begins.
 
-  This subscription is ideal for services that need to be notified of new Blocks for processing or analysis, such as block explorers,
-  data aggregators, or security monitoring tools.
+  This subscription is ideal for services that need to be notified of new Blocks
+  for processing or analysis, such as block explorers, data aggregators, or security
+  monitoring tools.
 
   Returns:
-  - Block: Each update consists of a Block object that satisfies the filter criteria, allowing subscribers to process or analyze new Blocks in real time.
+  - Block: Each update consists of a Block object that satisfies the filter criteria,
+  allowing subscribers to process or analyze new Blocks in real time.
   """
   getBlocks(filter: FilterBlock!): Block!
 }

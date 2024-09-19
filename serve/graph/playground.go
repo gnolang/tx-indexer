@@ -92,9 +92,10 @@ var page = template.Must(template.New("graphiql").Parse(`<!DOCTYPE html>
 `))
 
 func HandlerWithDefaultTabs(title, endpoint string, defaultTabs []string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Add("Content-Type", "text/html; charset=UTF-8")
-		err := page.Execute(w, map[string]any{
+
+		if err := page.Execute(w, map[string]any{
 			"title":                title,
 			"endpoint":             endpoint,
 			"fetcherHeaders":       nil,
@@ -107,8 +108,7 @@ func HandlerWithDefaultTabs(title, endpoint string, defaultTabs []string) http.H
 			"jsSRI":                "sha256-eNxH+Ah7Z9up9aJYTQycgyNuy953zYZwE9Rqf5rH+r4=",
 			"reactSRI":             "sha256-S0lp+k7zWUMk2ixteM6HZvu8L9Eh//OVrt+ZfbCpmgY=",
 			"reactDOMSRI":          "sha256-IXWO0ITNDjfnNXIu5POVfqlgYoop36bDzhodR6LW5Pc=",
-		})
-		if err != nil {
+		}); err != nil {
 			panic(err)
 		}
 	}
@@ -117,6 +117,7 @@ func HandlerWithDefaultTabs(title, endpoint string, defaultTabs []string) http.H
 // endpointHasScheme checks if the endpoint has a scheme.
 func endpointHasScheme(endpoint string) bool {
 	u, err := url.Parse(endpoint)
+
 	return err == nil && u.Scheme != ""
 }
 

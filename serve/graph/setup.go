@@ -23,7 +23,12 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 		Config{
 			Resolvers: NewResolver(s, manager),
 			Directives: DirectiveRoot{
-				Filterable: func(ctx context.Context, obj interface{}, next graphql.Resolver, extras []model.FilterableExtra) (res interface{}, err error) {
+				Filterable: func(
+					ctx context.Context,
+					_ interface{},
+					next graphql.Resolver,
+					_ []model.FilterableExtra,
+				) (interface{}, error) {
 					return next(ctx)
 				},
 			},
@@ -45,6 +50,7 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 
 func examplesToSlice() ([]string, error) {
 	var out []string
+
 	err := fs.WalkDir(examples, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
