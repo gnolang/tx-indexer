@@ -1,0 +1,12 @@
+query getSpecificBlocksByHeight {
+  getBlocks(where: {_or: [{height: {gt: 1990, lt: 2000}}, {height: {eq: 200}}]}) {
+    hash
+    height
+    time
+    num_txs
+    total_txs
+    txs {
+      content_raw
+    }
+  }
+}
