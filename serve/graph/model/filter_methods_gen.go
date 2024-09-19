@@ -140,11 +140,17 @@ func (f *NestedFilterTransactionResponse) Eval(obj *TransactionResponse) bool {
 
 	// Handle Events slice
 	if f.Events != nil {
+		elemMatchEvents := false
 		for _, elem := range obj.Events() {
-			if !f.Events.Eval(&elem) {
-				return false
+			if f.Events.Eval(&elem) {
+				elemMatchEvents = true
 			}
 		}
+
+		if !elemMatchEvents {
+			return false
+		}
+
 	}
 
 	// Handle Error field
@@ -323,11 +329,17 @@ func (f *NestedFilterMsgCall) Eval(obj *MsgCall) bool {
 
 	// Handle Args slice
 	if f.Args != nil {
+		elemMatchArgs := false
 		for _, elem := range obj.Args {
-			if !f.Args.Eval(&elem) {
-				return false
+			if f.Args.Eval(&elem) {
+				elemMatchArgs = true
 			}
 		}
+
+		if !elemMatchArgs {
+			return false
+		}
+
 	}
 
 	return true
@@ -430,35 +442,35 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	tobj := *obj
 	if uObj, ok := tobj.(BankMsgSend); ok {
 		matchedType = true
-		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&uObj) {
-			return false
+		if f.BankMsgSend != nil && f.BankMsgSend.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgCall); ok {
 		matchedType = true
-		if f.MsgCall != nil && !f.MsgCall.Eval(&uObj) {
-			return false
+		if f.MsgCall != nil && f.MsgCall.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgAddPackage); ok {
 		matchedType = true
-		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&uObj) {
-			return false
+		if f.MsgAddPackage != nil && f.MsgAddPackage.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgRun); ok {
 		matchedType = true
-		if f.MsgRun != nil && !f.MsgRun.Eval(&uObj) {
-			return false
+		if f.MsgRun != nil && f.MsgRun.Eval(&uObj) {
+			return true
 		}
 	}
 
-	// If the object is of a type not specified in filters and filters are specified, ignore this element
-	if !matchedType {
-		return true
+	// If the object is of a type specified in filters but didn't match, return false.
+	if matchedType {
+		return false
 	}
 
 	return true
@@ -509,11 +521,17 @@ func (f *NestedFilterMemPackage) Eval(obj *MemPackage) bool {
 
 	// Handle Files slice
 	if f.Files != nil {
+		elemMatchFiles := false
 		for _, elem := range obj.Files {
-			if !f.Files.Eval(elem) {
-				return false
+			if f.Files.Eval(elem) {
+				elemMatchFiles = true
 			}
 		}
+
+		if !elemMatchFiles {
+			return false
+		}
+
 	}
 
 	return true
@@ -662,11 +680,17 @@ func (f *NestedFilterGnoEvent) Eval(obj *GnoEvent) bool {
 
 	// Handle Attrs slice
 	if f.Attrs != nil {
+		elemMatchAttrs := false
 		for _, elem := range obj.Attrs {
-			if !f.Attrs.Eval(elem) {
-				return false
+			if f.Attrs.Eval(elem) {
+				elemMatchAttrs = true
 			}
 		}
+
+		if !elemMatchAttrs {
+			return false
+		}
+
 	}
 
 	return true
@@ -717,21 +741,21 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	tobj := *obj
 	if uObj, ok := tobj.(GnoEvent); ok {
 		matchedType = true
-		if f.GnoEvent != nil && !f.GnoEvent.Eval(&uObj) {
-			return false
+		if f.GnoEvent != nil && f.GnoEvent.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(UnknownEvent); ok {
 		matchedType = true
-		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&uObj) {
-			return false
+		if f.UnknownEvent != nil && f.UnknownEvent.Eval(&uObj) {
+			return true
 		}
 	}
 
-	// If the object is of a type not specified in filters and filters are specified, ignore this element
-	if !matchedType {
-		return true
+	// If the object is of a type specified in filters but didn't match, return false.
+	if matchedType {
+		return false
 	}
 
 	return true
@@ -1018,11 +1042,17 @@ func (f *FilterTransactionResponse) Eval(obj *TransactionResponse) bool {
 
 	// Handle Events slice
 	if f.Events != nil {
+		elemMatchEvents := false
 		for _, elem := range obj.Events() {
-			if !f.Events.Eval(&elem) {
-				return false
+			if f.Events.Eval(&elem) {
+				elemMatchEvents = true
 			}
 		}
+
+		if !elemMatchEvents {
+			return false
+		}
+
 	}
 
 	// Handle Error field
@@ -1137,11 +1167,17 @@ func (f *FilterTransaction) Eval(obj *Transaction) bool {
 
 	// Handle Messages slice
 	if f.Messages != nil {
+		elemMatchMessages := false
 		for _, elem := range obj.Messages() {
-			if !f.Messages.Eval(elem) {
-				return false
+			if f.Messages.Eval(elem) {
+				elemMatchMessages = true
 			}
 		}
+
+		if !elemMatchMessages {
+			return false
+		}
+
 	}
 
 	// Handle Memo field
@@ -1418,11 +1454,17 @@ func (f *FilterMsgCall) Eval(obj *MsgCall) bool {
 
 	// Handle Args slice
 	if f.Args != nil {
+		elemMatchArgs := false
 		for _, elem := range obj.Args {
-			if !f.Args.Eval(&elem) {
-				return false
+			if f.Args.Eval(&elem) {
+				elemMatchArgs = true
 			}
 		}
+
+		if !elemMatchArgs {
+			return false
+		}
+
 	}
 
 	return true
@@ -1525,35 +1567,35 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	tobj := *obj
 	if uObj, ok := tobj.(BankMsgSend); ok {
 		matchedType = true
-		if f.BankMsgSend != nil && !f.BankMsgSend.Eval(&uObj) {
-			return false
+		if f.BankMsgSend != nil && f.BankMsgSend.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgCall); ok {
 		matchedType = true
-		if f.MsgCall != nil && !f.MsgCall.Eval(&uObj) {
-			return false
+		if f.MsgCall != nil && f.MsgCall.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgAddPackage); ok {
 		matchedType = true
-		if f.MsgAddPackage != nil && !f.MsgAddPackage.Eval(&uObj) {
-			return false
+		if f.MsgAddPackage != nil && f.MsgAddPackage.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(MsgRun); ok {
 		matchedType = true
-		if f.MsgRun != nil && !f.MsgRun.Eval(&uObj) {
-			return false
+		if f.MsgRun != nil && f.MsgRun.Eval(&uObj) {
+			return true
 		}
 	}
 
-	// If the object is of a type not specified in filters and filters are specified, ignore this element
-	if !matchedType {
-		return true
+	// If the object is of a type specified in filters but didn't match, return false.
+	if matchedType {
+		return false
 	}
 
 	return true
@@ -1604,11 +1646,17 @@ func (f *FilterMemPackage) Eval(obj *MemPackage) bool {
 
 	// Handle Files slice
 	if f.Files != nil {
+		elemMatchFiles := false
 		for _, elem := range obj.Files {
-			if !f.Files.Eval(elem) {
-				return false
+			if f.Files.Eval(elem) {
+				elemMatchFiles = true
 			}
 		}
+
+		if !elemMatchFiles {
+			return false
+		}
+
 	}
 
 	return true
@@ -1757,11 +1805,17 @@ func (f *FilterGnoEvent) Eval(obj *GnoEvent) bool {
 
 	// Handle Attrs slice
 	if f.Attrs != nil {
+		elemMatchAttrs := false
 		for _, elem := range obj.Attrs {
-			if !f.Attrs.Eval(elem) {
-				return false
+			if f.Attrs.Eval(elem) {
+				elemMatchAttrs = true
 			}
 		}
+
+		if !elemMatchAttrs {
+			return false
+		}
+
 	}
 
 	return true
@@ -1812,21 +1866,21 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	tobj := *obj
 	if uObj, ok := tobj.(GnoEvent); ok {
 		matchedType = true
-		if f.GnoEvent != nil && !f.GnoEvent.Eval(&uObj) {
-			return false
+		if f.GnoEvent != nil && f.GnoEvent.Eval(&uObj) {
+			return true
 		}
 	}
 
 	if uObj, ok := tobj.(UnknownEvent); ok {
 		matchedType = true
-		if f.UnknownEvent != nil && !f.UnknownEvent.Eval(&uObj) {
-			return false
+		if f.UnknownEvent != nil && f.UnknownEvent.Eval(&uObj) {
+			return true
 		}
 	}
 
-	// If the object is of a type not specified in filters and filters are specified, ignore this element
-	if !matchedType {
-		return true
+	// If the object is of a type specified in filters but didn't match, return false.
+	if matchedType {
+		return false
 	}
 
 	return true
@@ -1975,11 +2029,17 @@ func (f *FilterBlock) Eval(obj *Block) bool {
 
 	// Handle Txs slice
 	if f.Txs != nil {
+		elemMatchTxs := false
 		for _, elem := range obj.Txs() {
-			if !f.Txs.Eval(elem) {
-				return false
+			if f.Txs.Eval(elem) {
+				elemMatchTxs = true
 			}
 		}
+
+		if !elemMatchTxs {
+			return false
+		}
+
 	}
 
 	// Handle TotalTxs field

@@ -4,7 +4,7 @@ go 1.22.7
 
 require (
 	github.com/99designs/gqlgen v0.17.54
-	github.com/ajnavarro/gqlfiltergen v0.0.0-20240918141943-b05d2c9a83f1
+	github.com/ajnavarro/gqlfiltergen v0.0.0-20240918155639-e541e088cd28
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/gnolang/gno v0.2.0
 	github.com/go-chi/chi/v5 v5.1.0
