@@ -267,8 +267,6 @@ type FilterInt struct {
 	Exists *bool `json:"exists,omitempty"`
 	// Filter a number field checking if it is equals to the specified value.
 	Eq *int `json:"eq,omitempty"`
-	// Filter a number field checking if it is NOT equals to the specified value.
-	Neq *int `json:"neq,omitempty"`
 	// Filter a number field checking if it is greater than the specified value.
 	Gt *int `json:"gt,omitempty"`
 	// Filter a number field checking if it is less than the specified value.
@@ -381,12 +379,8 @@ type FilterString struct {
 	Exists *bool `json:"exists,omitempty"`
 	// Filter a string field checking if it is equals to the specified value.
 	Eq *string `json:"eq,omitempty"`
-	// Filter a string field checking if it is NOT equals to the specified value.
-	Neq *string `json:"neq,omitempty"`
 	// Filter a string field checking if it is like the specified value. You can use standard Go RegEx expressions here.
 	Like *string `json:"like,omitempty"`
-	// Filter a string field checking if it is NOT like the specified value. You can use standard Go RegEx expressions here.
-	Nlike *string `json:"nlike,omitempty"`
 }
 
 // Filter type for time fields. All added filters here are processed as AND operators.
@@ -395,8 +389,6 @@ type FilterTime struct {
 	Exists *bool `json:"exists,omitempty"`
 	// Filter a time field checking if it is equals to the specified value.
 	Eq *time.Time `json:"eq,omitempty"`
-	// Filter a time field checking if it is NOT equals to the specified value.
-	Neq *time.Time `json:"neq,omitempty"`
 	// Filter a time field checking if it is before than the specified value.
 	Before *time.Time `json:"before,omitempty"`
 	// Filter a time field checking if it is after the specified value.

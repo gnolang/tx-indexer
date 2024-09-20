@@ -2287,7 +2287,7 @@ func (f *FilterBoolean) Eval(val *bool) bool {
 		return true
 	}
 
-	return rootEval(val, f.Exists, f.Eq, nil)
+	return rootEval(val, f.Exists, f.Eq)
 }
 
 func (f *FilterInt) Eval(val *int) bool {
@@ -2295,7 +2295,7 @@ func (f *FilterInt) Eval(val *int) bool {
 		return true
 	}
 
-	if !rootEval(val, f.Exists, f.Eq, f.Neq) {
+	if !rootEval(val, f.Exists, f.Eq) {
 		return false
 	}
 
@@ -2315,20 +2315,13 @@ func (f *FilterString) Eval(val *string) bool {
 		return true
 	}
 
-	if !rootEval(val, f.Exists, f.Eq, f.Neq) {
+	if !rootEval(val, f.Exists, f.Eq) {
 		return false
 	}
 
 	if val != nil && f.Like != nil {
 		matched, err := regexp.MatchString(*f.Like, *val)
 		if err != nil || !matched {
-			return false
-		}
-	}
-
-	if val != nil && f.Nlike != nil {
-		matched, err := regexp.MatchString(*f.Nlike, *val)
-		if err != nil || matched {
 			return false
 		}
 	}
@@ -2342,7 +2335,7 @@ func (f *FilterTime) Eval(val *time.Time) bool {
 		return true
 	}
 
-	if !rootEval(val, f.Exists, f.Eq, f.Neq) {
+	if !rootEval(val, f.Exists, f.Eq) {
 		return false
 	}
 
@@ -2360,7 +2353,7 @@ func (f *FilterTime) Eval(val *time.Time) bool {
 }
 
 // rootEval is a generic function that checks if the provided value matches the filter conditions.
-func rootEval[T comparable](val *T, exists *bool, eq *T, neq *T) bool {
+func rootEval[T comparable](val *T, exists *bool, eq *T) bool {
 	// Check the Exists filter
 	if exists != nil {
 		if *exists && val == nil {
@@ -2378,11 +2371,6 @@ func rootEval[T comparable](val *T, exists *bool, eq *T, neq *T) bool {
 
 	// Check the Eq filter
 	if eq != nil && *eq != *val {
-		return false
-	}
-
-	// Check the Neq filter
-	if neq != nil && *neq == *val {
 		return false
 	}
 
