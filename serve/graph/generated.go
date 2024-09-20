@@ -140,8 +140,8 @@ type ComplexityRoot struct {
 
 	Subscription struct {
 		Blocks          func(childComplexity int, filter model.BlockFilter) int
-		GetBlocks       func(childComplexity int, filter model.FilterBlock) int
-		GetTransactions func(childComplexity int, filter model.FilterTransaction) int
+		GetBlocks       func(childComplexity int, where model.FilterBlock) int
+		GetTransactions func(childComplexity int, where model.FilterTransaction) int
 		Transactions    func(childComplexity int, filter model.TransactionFilter) int
 	}
 
@@ -197,8 +197,8 @@ type QueryResolver interface {
 type SubscriptionResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) (<-chan *model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) (<-chan *model.Block, error)
-	GetTransactions(ctx context.Context, filter model.FilterTransaction) (<-chan *model.Transaction, error)
-	GetBlocks(ctx context.Context, filter model.FilterBlock) (<-chan *model.Block, error)
+	GetTransactions(ctx context.Context, where model.FilterTransaction) (<-chan *model.Transaction, error)
+	GetBlocks(ctx context.Context, where model.FilterBlock) (<-chan *model.Block, error)
 }
 
 type executableSchema struct {
@@ -633,7 +633,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.GetBlocks(childComplexity, args["filter"].(model.FilterBlock)), true
+		return e.complexity.Subscription.GetBlocks(childComplexity, args["where"].(model.FilterBlock)), true
 
 	case "Subscription.getTransactions":
 		if e.complexity.Subscription.GetTransactions == nil {
@@ -645,7 +645,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.GetTransactions(childComplexity, args["filter"].(model.FilterTransaction)), true
+		return e.complexity.Subscription.GetTransactions(childComplexity, args["where"].(model.FilterTransaction)), true
 
 	case "Subscription.transactions":
 		if e.complexity.Subscription.Transactions == nil {
@@ -2716,9 +2716,9 @@ type Subscription {
 	
 	Returns:
 	- Transaction: Each received update is a Transaction object that matches 
-	the filter criteria.
+	the where criteria.
 	"""
-	getTransactions(filter: FilterTransaction!): Transaction!
+	getTransactions(where: FilterTransaction!): Transaction!
 	"""
 	EXPERIMENTAL: Subscribes to real-time updates of Blocks that match the provided
 	filter criteria. Similar to the Transactions subscription,
@@ -2733,7 +2733,7 @@ type Subscription {
 	- Block: Each update consists of a Block object that satisfies the filter criteria,
 	allowing subscribers to process or analyze new Blocks in real time.
 	"""
-	getBlocks(filter: FilterBlock!): Block!
+	getBlocks(where: FilterBlock!): Block!
 }
 """
 Field representing a point on time. It is following the RFC3339Nano format ("2006-01-02T15:04:05.999999999Z07:00")
@@ -3216,28 +3216,28 @@ func (ec *executionContext) field_Subscription_blocks_argsFilter(
 func (ec *executionContext) field_Subscription_getBlocks_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	arg0, err := ec.field_Subscription_getBlocks_argsFilter(ctx, rawArgs)
+	arg0, err := ec.field_Subscription_getBlocks_argsWhere(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["filter"] = arg0
+	args["where"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Subscription_getBlocks_argsFilter(
+func (ec *executionContext) field_Subscription_getBlocks_argsWhere(
 	ctx context.Context,
 	rawArgs map[string]interface{},
 ) (model.FilterBlock, error) {
 	// We won't call the directive if the argument is null.
 	// Set call_argument_directives_with_null to true to call directives
 	// even if the argument is null.
-	_, ok := rawArgs["filter"]
+	_, ok := rawArgs["where"]
 	if !ok {
 		var zeroVal model.FilterBlock
 		return zeroVal, nil
 	}
 
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-	if tmp, ok := rawArgs["filter"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("where"))
+	if tmp, ok := rawArgs["where"]; ok {
 		return ec.unmarshalNFilterBlock2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterBlock(ctx, tmp)
 	}
 
@@ -3248,28 +3248,28 @@ func (ec *executionContext) field_Subscription_getBlocks_argsFilter(
 func (ec *executionContext) field_Subscription_getTransactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	arg0, err := ec.field_Subscription_getTransactions_argsFilter(ctx, rawArgs)
+	arg0, err := ec.field_Subscription_getTransactions_argsWhere(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["filter"] = arg0
+	args["where"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Subscription_getTransactions_argsFilter(
+func (ec *executionContext) field_Subscription_getTransactions_argsWhere(
 	ctx context.Context,
 	rawArgs map[string]interface{},
 ) (model.FilterTransaction, error) {
 	// We won't call the directive if the argument is null.
 	// Set call_argument_directives_with_null to true to call directives
 	// even if the argument is null.
-	_, ok := rawArgs["filter"]
+	_, ok := rawArgs["where"]
 	if !ok {
 		var zeroVal model.FilterTransaction
 		return zeroVal, nil
 	}
 
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-	if tmp, ok := rawArgs["filter"]; ok {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("where"))
+	if tmp, ok := rawArgs["where"]; ok {
 		return ec.unmarshalNFilterTransaction2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransaction(ctx, tmp)
 	}
 
@@ -7280,7 +7280,7 @@ func (ec *executionContext) _Subscription_getTransactions(ctx context.Context, f
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().GetTransactions(rctx, fc.Args["filter"].(model.FilterTransaction))
+		return ec.resolvers.Subscription().GetTransactions(rctx, fc.Args["where"].(model.FilterTransaction))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7373,7 +7373,7 @@ func (ec *executionContext) _Subscription_getBlocks(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().GetBlocks(rctx, fc.Args["filter"].(model.FilterBlock))
+		return ec.resolvers.Subscription().GetBlocks(rctx, fc.Args["where"].(model.FilterBlock))
 	})
 	if err != nil {
 		ec.Error(ctx, err)

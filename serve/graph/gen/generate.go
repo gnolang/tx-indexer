@@ -41,9 +41,9 @@ type Subscription {
 
   Returns:
   - Transaction: Each received update is a Transaction object that matches 
-  the filter criteria.
+  the where criteria.
   """
-  getTransactions(filter: FilterTransaction!): Transaction!
+  getTransactions(where: FilterTransaction!): Transaction!
 
   """
   EXPERIMENTAL: Subscribes to real-time updates of Blocks that match the provided
@@ -59,7 +59,7 @@ type Subscription {
   - Block: Each update consists of a Block object that satisfies the filter criteria,
   allowing subscribers to process or analyze new Blocks in real time.
   """
-  getBlocks(filter: FilterBlock!): Block!
+  getBlocks(where: FilterBlock!): Block!
 }
 `
 

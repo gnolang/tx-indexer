@@ -268,11 +268,11 @@ func (r *subscriptionResolver) Blocks(ctx context.Context, filter model.BlockFil
 }
 
 // GetTransactions is the resolver for the getTransactions field.
-func (r *subscriptionResolver) GetTransactions(ctx context.Context, filter model.FilterTransaction) (<-chan *model.Transaction, error) {
+func (r *subscriptionResolver) GetTransactions(ctx context.Context, where model.FilterTransaction) (<-chan *model.Transaction, error) {
 	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Transaction) {
 		for _, tx := range nb.Results {
 			transaction := model.NewTransaction(tx)
-			if filter.Eval(transaction) {
+			if where.Eval(transaction) {
 				c <- transaction
 			}
 		}
@@ -280,10 +280,10 @@ func (r *subscriptionResolver) GetTransactions(ctx context.Context, filter model
 }
 
 // GetBlocks is the resolver for the getBlocks field.
-func (r *subscriptionResolver) GetBlocks(ctx context.Context, filter model.FilterBlock) (<-chan *model.Block, error) {
+func (r *subscriptionResolver) GetBlocks(ctx context.Context, where model.FilterBlock) (<-chan *model.Block, error) {
 	return handleChannel(ctx, r.manager, func(nb *types.NewBlock, c chan<- *model.Block) {
 		block := model.NewBlock(nb.Block)
-		if filter.Eval(block) {
+		if where.Eval(block) {
 			c <- block
 		}
 	}), nil
