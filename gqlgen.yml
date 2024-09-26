@@ -81,6 +81,9 @@ models:
       - github.com/99designs/gqlgen/graphql.Int
       - github.com/99designs/gqlgen/graphql.Int64
       - github.com/99designs/gqlgen/graphql.Int32
+  Cursor:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.Cursor
   Block:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Block
