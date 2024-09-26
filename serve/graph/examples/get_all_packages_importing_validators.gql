@@ -1,0 +1,19 @@
+query getAllPackagesImportingValidators {
+  getTransactions(
+    where: {messages: {value: {MsgAddPackage: {package: {files: {body: {like: "gno.land/p/sys/validators"}}}}}}}
+  ) {
+    messages {
+      value {
+        ... on MsgAddPackage {
+          creator
+          package {
+            name
+            files {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}

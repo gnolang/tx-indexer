@@ -1,0 +1,26 @@
+query getAllRegisteredUsers {
+  failed: getTransactions(
+    where: {success: {eq: false}, messages: {value: {MsgCall: {func: {eq: "Register"}, pkg_path: {eq: "gno.land/r/demo/users"}}}}}
+  ) {
+    messages {
+      value {
+        ... on MsgCall {
+          caller
+          args
+        }
+      }
+    }
+  }
+  success: getTransactions(
+    where: {success: {eq: true}, messages: {value: {MsgCall: {func: {eq: "Register"}, pkg_path: {eq: "gno.land/r/demo/users"}}}}}
+  ) {
+    messages {
+      value {
+        ... on MsgCall {
+          caller
+          args
+        }
+      }
+    }
+  }
+}
