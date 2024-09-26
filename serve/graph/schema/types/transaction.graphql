@@ -5,38 +5,38 @@ type Transaction {
   """
   A sequential index representing the order of this Transaction within its Block. Unique within the context of its Block.
   """
-  index: Int!
+  index: Int! @filterable(extras:[MINMAX])
 
   """
   Hash from Transaction content in base64 encoding.
   """
-  hash: String!
+  hash: String! @filterable
 
   """
   The success can determine whether the transaction succeeded or failed.
   """
-  success: Boolean!
+  success: Boolean! @filterable
 
   """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
-  block_height: Int!
-
+  block_height: Int! @filterable(extras:[MINMAX])
+  
   """
   The declared amount of computational effort the sender is willing to pay for executing this Transaction.
   """
-  gas_wanted: Int!
+  gas_wanted: Int! @filterable
 
   """
   The actual amount of computational effort consumed to execute this Transaction. It could be less or equal to `gas_wanted`.
   """
-  gas_used: Int!
+  gas_used: Int! @filterable
 
   """
   Fee includes the amount of coins paid in fees and the maximum
   gas to be used by the transaction.
   """
-  gas_fee: Coin
+  gas_fee: Coin @filterable
 
   """
   The payload of the Transaction in a raw format, typically containing the instructions and any data necessary for execution.
@@ -47,20 +47,20 @@ type Transaction {
   The payload of a message shows the contents of the messages in a transaction.
   A message consists of `router`, `type`, and `value` (whose form depends on the `router` and `type`).
   """
-  messages: [TransactionMessage]!
+  messages: [TransactionMessage]! @filterable
 
   """
   `memo` are string information stored within a transaction.
   `memo` can be utilized to find or distinguish transactions.
   For example, when trading a specific exchange, you would utilize the memo field of the transaction.
   """
-  memo: String!
+  memo: String! @filterable
 
   """
   `response` is the processing result of the transaction.
   It has `log`, `info`, `error`, and `data`.
   """
-  response: TransactionResponse!
+  response: TransactionResponse! @filterable
 }
 
 """
@@ -107,19 +107,19 @@ type TransactionMessage {
   The type of transaction message.
   The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
   """
-  typeUrl: String!
+  typeUrl: String! @filterable
 
   """
   The route of transaction message.
   The value of `route` can be `bank`, `vm`.
   """
-  route: String!
+  route: String! @filterable
 
   """
   MessageValue is the content of the transaction.
   `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
   """
-  value: MessageValue!
+  value: MessageValue! @filterable
 }
 
 union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
@@ -133,19 +133,19 @@ type BankMsgSend {
   the bech32 address of the fund sender.
   ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
-  from_address: String!
+  from_address: String! @filterable
 
   """
   the bech32 address of the fund receiver.
   ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
-  to_address: String!
+  to_address: String! @filterable
 
   """
   the denomination and amount of fund sent ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  amount: String!
+  amount: String! @filterable
 }
 
 """
@@ -157,28 +157,28 @@ type MsgCall {
   the bech32 address of the function caller.
   ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
-  caller: String!
+  caller: String! @filterable
 
   """
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  send: String!
+  send: String! @filterable
 
   """
   the gno package path.
   """
-  pkg_path: String!
+  pkg_path: String! @filterable
 
   """
   the function name being invoked.
   """
-  func: String!
+  func: String! @filterable
 
   """
   `args` are the arguments passed to the executed function.
   """
-  args: [String!]
+  args: [String!] @filterable
 }
 
 """
@@ -190,18 +190,18 @@ type MsgAddPackage {
   the bech32 address of the package deployer.
   ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
-  creator: String!
+  creator: String! @filterable
 
   """
   the package being deployed.
   """
-  package: MemPackage!
+  package: MemPackage! @filterable
 
   """
   the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  deposit: String!
+  deposit: String! @filterable
 }
 
 """
@@ -213,18 +213,18 @@ type MsgRun {
   the bech32 address of the function caller.
   ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
   """
-  caller: String!
+  caller: String! @filterable
 
   """
   the amount of funds to be deposited to the package, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  send: String!
+  send: String! @filterable
 
   """
   the package being executed.
   """
-  package: MemPackage!
+  package: MemPackage! @filterable
 }
 
 """
@@ -241,17 +241,17 @@ type MemPackage {
   """
   the name of the package.
   """
-  name: String!
+  name: String! @filterable
 
   """
   the gno path of the package.
   """
-  path: String!
+  path: String! @filterable
 
   """
   the associated package gno source.
   """
-  files: [MemFile!]
+  files: [MemFile!] @filterable
 }
 
 """
@@ -261,12 +261,12 @@ type MemFile {
   """
   the name of the source file.
   """
-  name: String!
+  name: String! @filterable
 
   """
   the content of the source file.
   """
-  body: String!
+  body: String! @filterable
 }
 
 """
@@ -276,12 +276,12 @@ type TxFee {
   """
   gas limit
   """
-  gas_wanted: Int!
+  gas_wanted: Int! @filterable
 
   """
   The gas fee in the transaction.
   """
-  gas_fee: Coin!
+  gas_fee: Coin! @filterable
 }
 
 """
@@ -291,12 +291,12 @@ type Coin {
   """
   The amount of coins.
   """
-  amount: Int!
+  amount: Int! @filterable
 
   """
   The denomination of the coin.
   """
-  denom: String!
+  denom: String! @filterable
 }
 
 """
@@ -307,27 +307,27 @@ type TransactionResponse {
   """
   The log value associated with the Transaction execution, if any.
   """
-  log: String!
+  log: String! @filterable
 
   """
   The Info associated with the Transaction execution, if any.
   """
-  info: String!
+  info: String! @filterable
 
   """
   The error value associated with the Transaction execution, if any.
   """
-  error: String!
+  error: String! @filterable
 
   """
   The response data associated with the Transaction execution, if any.
   """
-  data: String!
+  data: String! @filterable
 
   """
   The emitted events associated with the transaction execution, if any.
   """
-  events: [Event]
+  events: [Event] @filterable
 }
 
 union Event = GnoEvent | UnknownEvent
@@ -340,22 +340,22 @@ type GnoEvent {
   """
   `type` is the type of transaction event emitted.
   """
-  type: String!
+  type: String! @filterable
 
   """
   `pkg_path` is the path to the package that emitted the event.
   """
-  pkg_path: String!
+  pkg_path: String! @filterable
 
   """
   `func` is the name of the function that emitted the event.
   """
-  func: String!
+  func: String! @filterable
 
   """
   `attrs` is the event's attribute information.
   """
-  attrs: [GnoEventAttribute!]
+  attrs: [GnoEventAttribute!] @filterable
 }
 
 """
@@ -366,12 +366,12 @@ type GnoEventAttribute {
   """
   The key of the event attribute.
   """
-  key: String!
+  key: String! @filterable
 
   """
   The value of the event attribute.
   """
-  value: String!
+  value: String! @filterable
 }
 
 """
@@ -382,5 +382,5 @@ type UnknownEvent {
   """
   `value` is a raw event string.
   """
-  value: String!
+  value: String! @filterable
 }
