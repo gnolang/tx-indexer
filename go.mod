@@ -8,7 +8,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/gnolang/gno v0.2.0
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/go-chi/httprate v0.12.1
+	github.com/go-chi/httprate v0.14.1
 	github.com/google/uuid v1.6.0
 	github.com/madz-lab/insertion-queue v0.0.0-20230520191346-295d3348f63a
 	github.com/olahol/melody v1.2.1
