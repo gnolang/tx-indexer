@@ -1116,7 +1116,7 @@ func TestFetcher_Genesis(t *testing.T) {
 		expected := &types.TxResult{
 			Height:   0,
 			Index:    i,
-			Tx:       amino.MustMarshalJSON(txs[i]),
+			Tx:       amino.MustMarshal(txs[i]),
 			Response: abci.ResponseDeliverTx{},
 		}
 		require.Equal(t, expected, tx)
@@ -1397,7 +1397,7 @@ func serializeTxs(t *testing.T, txs []*std.Tx) types.Txs {
 	serializedTxs := make(types.Txs, 0, len(txs))
 
 	for _, tx := range txs {
-		serializedTx, err := amino.MarshalJSON(tx)
+		serializedTx, err := amino.Marshal(tx)
 		require.NoError(t, err)
 
 		serializedTxs = append(serializedTxs, serializedTx)
