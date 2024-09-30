@@ -336,7 +336,7 @@ func getGenesisBlock(client Client) (*bft_types.Block, error) {
 
 	txs := make([]bft_types.Tx, len(genesisState.Txs))
 	for i, tx := range genesisState.Txs {
-		txs[i], err = amino.MarshalJSON(tx)
+		txs[i], err = amino.Marshal(tx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
 		}
