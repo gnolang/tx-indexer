@@ -446,10 +446,22 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*BankMsgSend); ok {
+		matchedType = true
+		if f.BankMsgSend != nil && f.BankMsgSend.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(MsgCall); ok {
 		matchedType = true
 		if f.MsgCall != nil && f.MsgCall.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgCall); ok {
+		matchedType = true
+		if f.MsgCall != nil && f.MsgCall.Eval(uObj) {
 			return true
 		}
 	}
@@ -460,10 +472,22 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*MsgAddPackage); ok {
+		matchedType = true
+		if f.MsgAddPackage != nil && f.MsgAddPackage.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRun); ok {
+		matchedType = true
+		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
 			return true
 		}
 	}
@@ -745,10 +769,22 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*GnoEvent); ok {
+		matchedType = true
+		if f.GnoEvent != nil && f.GnoEvent.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(UnknownEvent); ok {
 		matchedType = true
 		if f.UnknownEvent != nil && f.UnknownEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*UnknownEvent); ok {
+		matchedType = true
+		if f.UnknownEvent != nil && f.UnknownEvent.Eval(uObj) {
 			return true
 		}
 	}
@@ -1571,10 +1607,22 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*BankMsgSend); ok {
+		matchedType = true
+		if f.BankMsgSend != nil && f.BankMsgSend.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(MsgCall); ok {
 		matchedType = true
 		if f.MsgCall != nil && f.MsgCall.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgCall); ok {
+		matchedType = true
+		if f.MsgCall != nil && f.MsgCall.Eval(uObj) {
 			return true
 		}
 	}
@@ -1585,10 +1633,22 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*MsgAddPackage); ok {
+		matchedType = true
+		if f.MsgAddPackage != nil && f.MsgAddPackage.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRun); ok {
+		matchedType = true
+		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
 			return true
 		}
 	}
@@ -1870,10 +1930,22 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 			return true
 		}
 	}
+	if uObj, ok := tobj.(*GnoEvent); ok {
+		matchedType = true
+		if f.GnoEvent != nil && f.GnoEvent.Eval(uObj) {
+			return true
+		}
+	}
 
 	if uObj, ok := tobj.(UnknownEvent); ok {
 		matchedType = true
 		if f.UnknownEvent != nil && f.UnknownEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*UnknownEvent); ok {
+		matchedType = true
+		if f.UnknownEvent != nil && f.UnknownEvent.Eval(uObj) {
 			return true
 		}
 	}
