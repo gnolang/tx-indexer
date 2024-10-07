@@ -1,24 +1,61 @@
+# Query to retrieve all users who attempted to register, separating successful and failed attempts.
 query getAllRegisteredUsers {
+  # Fetch transactions where registration attempts failed.
   failed: getTransactions(
-    where: {success: {eq: false}, messages: {value: {MsgCall: {func: {eq: "Register"}, pkg_path: {eq: "gno.land/r/demo/users"}}}}}
+    where: {
+      # Only include transactions that failed.
+      success: { eq: false }
+      # Filter transactions containing specific MsgCall messages.
+      messages: {
+        value: {
+          # Focus on messages of type MsgCall.
+          MsgCall: {
+            # The function called must be "Register".
+            func: { eq: "Register" }
+            # The package path must be "gno.land/r/demo/users".
+            pkg_path: { eq: "gno.land/r/demo/users" }
+          }
+        }
+      }
+    }
   ) {
+    # Retrieve the messages from each transaction.
     messages {
       value {
+        # Use an inline fragment to access fields specific to MsgCall.
         ... on MsgCall {
-          caller
-          args
+          caller  # The account that attempted the registration.
+          args    # Arguments passed to the Register function.
         }
       }
     }
   }
+  # Fetch transactions where registration attempts succeeded.
   success: getTransactions(
-    where: {success: {eq: true}, messages: {value: {MsgCall: {func: {eq: "Register"}, pkg_path: {eq: "gno.land/r/demo/users"}}}}}
+    where: {
+      # Only include transactions that succeeded.
+      success: { eq: true }
+      # Filter transactions containing specific MsgCall messages.
+      messages: {
+        value: {
+          # Focus on messages of type MsgCall.
+          MsgCall: {
+            # The function called must be "Register".
+            func: { eq: "Register" }
+            # The package path must be "gno.land/r/demo/users".
+            pkg_path: { eq: "gno.land/r/demo/users" }
+          }
+        }
+      }
+    }
   ) {
+    # Retrieve the messages from each transaction.
     messages {
       value {
+        # Use an inline fragment to access fields specific to MsgCall.
         ... on MsgCall {
-          caller
-          args
+          caller  # The account that successfully registered.
+          args    # Arguments passed to the Register function.
         }
       }
     }

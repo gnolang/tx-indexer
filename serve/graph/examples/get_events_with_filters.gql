@@ -1,0 +1,75 @@
+# Get all the transactions that contain the specified Events on them.
+query getEvents {
+  getTransactions(
+    where: {
+      
+      # Filtering by block height will speed up your queries, because it is the main internal index.
+      block_height :{
+        gt:100000
+      }
+      
+      # Only show transactions that succeeded.
+      success: {eq: true}, 
+      response: {
+        events: {
+        
+          # This filter is checking that all transactions will contains a GnoEvent that 
+          # is GNOSWAP type calling SetPoolCreationFee function.
+          GnoEvent: {
+            type: { eq:"GNOSWAP" }
+            func:{ eq: "SetPoolCreationFee" }
+            attrs:{
+          
+              # we are filtering here for keys p_fee that does not contain a 0 as the value. 
+              # Both expressions must be true.
+              _and:[
+              {
+                key:{ eq:"p_fee" }
+              },
+              {
+                _not:{
+                  value: { eq: "0" }
+                }
+              }
+              ]
+          		
+              
+            }
+          }
+        }
+      }
+    }
+  ) {
+    block_height
+    index
+    messages {
+      # You can print __typename to check what types you are receiving 
+      # and after that casting them using the following syntax
+     ... on TransactionMessage{
+      typeUrl
+      route
+      value {
+        ... on MsgCall {
+          caller
+          send
+          pkg_path
+          func
+          args
+        }
+      }
+    }
+    }
+    response {
+      events {
+        ... on GnoEvent {
+          type
+          func
+          attrs {
+            key
+            value
+          }
+        }
+      }
+    }
+  }
+}
