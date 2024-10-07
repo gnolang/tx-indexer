@@ -9,8 +9,8 @@ github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRB
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
 github.com/ajg/form v1.5.1 h1:t9c7v8JUKu/XxOGBU0yjNpaMloxGEJhUkqFRq0ibGeU=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
-github.com/ajnavarro/gqlfiltergen v0.1.1 h1:gii29u7HafhyRzTXu6vcxnipwbETpMg3qSB2M3a7fc0=
-github.com/ajnavarro/gqlfiltergen v0.1.1/go.mod h1:uHvKxvSISkr7QFZnYlrXfpnEDI/UPpodVM/a/XkOjtU=
+github.com/ajnavarro/gqlfiltergen v0.1.2 h1:EeU7SFD/+7TJnh5tiWnoSFBb5oZnAWIAO5YJq4EtkSU=
+github.com/ajnavarro/gqlfiltergen v0.1.2/go.mod h1:uHvKxvSISkr7QFZnYlrXfpnEDI/UPpodVM/a/XkOjtU=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 h1:bvNMNQO63//z+xNgfBlViaCIJKLlCJ6/fmUseuG0wVQ=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
 github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0 h1:jfIu9sQUG6Ig+0+Ap1h4unLjW6YQJpKZVmUzxsD4E/Q=

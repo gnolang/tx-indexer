@@ -126,12 +126,19 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 // GetBlocks is the resolver for the getBlocks field.
 func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock) ([]*model.Block, error) {
 	fromh, toh := where.MinMaxHeight()
+	dfromh := uint64(deref(fromh))
+	dtoh := uint64(deref(toh))
+	if fromh == toh && toh != nil {
+		// min element and max element are the same,
+		// so we only need to iterate over one element
+		dtoh++
+	}
 
 	it, err := r.
 		store.
 		BlockIterator(
-			uint64(deref(fromh)),
-			uint64(deref(toh)),
+			dfromh,
+			dtoh,
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
@@ -196,15 +203,30 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	}
 
 	fromh, toh := where.MinMaxBlockHeight()
+	dfromh := uint64(deref(fromh))
+	dtoh := uint64(deref(toh))
+	if fromh == toh && toh != nil {
+		// min element and max element are the same,
+		// so we only need to iterate over one element
+		dtoh++
+	}
+
 	fromi, toi := where.MinMaxIndex()
+	dfromi := uint32(deref(fromi))
+	dtoi := uint32(deref(toi))
+	if fromi == toi && toi != nil {
+		// min element and max element are the same,
+		// so we only need to iterate over one element
+		dtoi++
+	}
 
 	it, err := r.
 		store.
 		TxIterator(
-			uint64(deref(fromh)),
-			uint64(deref(toh)),
-			uint32(deref(fromi)),
-			uint32(deref(toi)),
+			dfromh,
+			dtoh,
+			dfromi,
+			dtoi,
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
