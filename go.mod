@@ -3,7 +3,7 @@ module github.com/gnolang/tx-indexer
 go 1.22.7
 
 require (
-	github.com/99designs/gqlgen v0.17.54
+	github.com/99designs/gqlgen v0.17.55
 	github.com/ajnavarro/gqlfiltergen v0.1.2
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/gnolang/gno v0.2.1-0.20240927151923-69400d468d7b
