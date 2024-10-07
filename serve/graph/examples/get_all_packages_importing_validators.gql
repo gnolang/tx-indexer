@@ -1,15 +1,35 @@
+# Query to retrieve all packages that import "gno.land/p/sys/validators".
 query getAllPackagesImportingValidators {
   getTransactions(
-    where: {messages: {value: {MsgAddPackage: {package: {files: {body: {like: "gno.land/p/sys/validators"}}}}}}}
+    where: {
+      # Filter transactions containing messages with specific criteria.
+      messages: {
+        value: {
+          # Filter messages of type MsgAddPackage.
+          MsgAddPackage: {
+            package: {
+              files: {
+                # Filter files where the body includes the specified import path.
+                body: {
+                  like: "gno.land/p/sys/validators"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   ) {
+    # Retrieve the messages from each transaction.
     messages {
       value {
+        # Use an inline fragment to access fields specific to MsgAddPackage.
         ... on MsgAddPackage {
-          creator
+          creator          # The creator of the package.
           package {
-            name
+            name           # The name of the package.
             files {
-              name
+              name         # The name of each file in the package.
             }
           }
         }

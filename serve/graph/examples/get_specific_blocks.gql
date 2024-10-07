@@ -1,12 +1,34 @@
+# Query to retrieve specific blocks based on complex height filters using an OR expression.
 query getSpecificBlocksByHeight {
-  getBlocks(where: {_or: [{height: {gt: 1990, lt: 2000}}, {height: {eq: 200}}]}) {
-    hash
-    height
-    time
-    num_txs
-    total_txs
+  getBlocks(
+    where: {
+      # Use _or to specify that any of the conditions can be true.
+      _or: [
+        {
+          # First condition: Blocks with height greater than 1989 and less than 2001.
+          height: {
+            gt: 1989,  # Greater than 1989.
+            lt: 2001   # Less than 2001.
+          }
+        },
+        {
+          # Second condition: Blocks with height equal to 200.
+          height: {
+            eq: 200    # Equal to 200.
+          }
+        }
+      ]
+    }
+  ) {
+    # Fields to retrieve for each block.
+    hash         # The unique hash identifier of the block.
+    height       # The block's height in the blockchain.
+    time         # Timestamp when the block was created.
+    num_txs      # Number of transactions in the block.
+    total_txs    # Total number of transactions up to this block.
+    # Retrieve transactions within each block.
     txs {
-      content_raw
+      content_raw  # The raw content of each transaction.
     }
   }
 }
