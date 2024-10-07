@@ -1294,15 +1294,9 @@ func (f *FilterTransaction) MinMaxIndex() (min *int, max *int) {
 			if min == nil || *f.Index.Gt < *min {
 				min = f.Index.Gt
 			}
-			if max == nil || *f.Index.Gt > *max {
-				max = f.Index.Gt
-			}
 		}
 
 		if f.Index.Lt != nil {
-			if min == nil || *f.Index.Lt < *min {
-				min = f.Index.Lt
-			}
 			if max == nil || *f.Index.Lt > *max {
 				max = f.Index.Lt
 			}
@@ -1354,15 +1348,9 @@ func (f *FilterTransaction) MinMaxBlockHeight() (min *int, max *int) {
 			if min == nil || *f.BlockHeight.Gt < *min {
 				min = f.BlockHeight.Gt
 			}
-			if max == nil || *f.BlockHeight.Gt > *max {
-				max = f.BlockHeight.Gt
-			}
 		}
 
 		if f.BlockHeight.Lt != nil {
-			if min == nil || *f.BlockHeight.Lt < *min {
-				min = f.BlockHeight.Lt
-			}
 			if max == nil || *f.BlockHeight.Lt > *max {
 				max = f.BlockHeight.Lt
 			}
@@ -2234,15 +2222,9 @@ func (f *FilterBlock) MinMaxHeight() (min *int, max *int) {
 			if min == nil || *f.Height.Gt < *min {
 				min = f.Height.Gt
 			}
-			if max == nil || *f.Height.Gt > *max {
-				max = f.Height.Gt
-			}
 		}
 
 		if f.Height.Lt != nil {
-			if min == nil || *f.Height.Lt < *min {
-				min = f.Height.Lt
-			}
 			if max == nil || *f.Height.Lt > *max {
 				max = f.Height.Lt
 			}
