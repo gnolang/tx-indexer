@@ -51,7 +51,6 @@ linters:
     - tagliatelle # Checks struct tags
     - tenv # Detects using os.Setenv instead of t.Setenv
     - testableexamples # Checks if examples are testable (have expected output)
-    - unparam # Finds unused params
     - usestdlibvars # Detects the possibility to use variables/constants from stdlib
     - wastedassign # Finds wasted assignment statements
     - loggercheck # Checks the odd number of key and value pairs for common logger libraries
