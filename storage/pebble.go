@@ -233,6 +233,7 @@ func (s *Pebble) loadTxIterator(
 	if err != nil {
 		return nil, nil, multierr.Append(snap.Close(), err)
 	}
+
 	return it, snap, nil
 }
 
@@ -247,7 +248,14 @@ func (s *Pebble) TxIterator(
 		return nil, err
 	}
 
-	return &PebbleTxIter{pebbleBaseTxIter: pebbleBaseTxIter{i: it, s: snap, fromIndex: fromTxIndex, toIndex: toTxIndex}}, nil
+	return &PebbleTxIter{
+		pebbleBaseTxIter: pebbleBaseTxIter{
+			i:         it,
+			s:         snap,
+			fromIndex: fromTxIndex,
+			toIndex:   toTxIndex,
+		},
+	}, nil
 }
 
 func (s *Pebble) TxReverseIterator(
@@ -261,7 +269,14 @@ func (s *Pebble) TxReverseIterator(
 		return nil, err
 	}
 
-	return &PebbleReverseTxIter{pebbleBaseTxIter: pebbleBaseTxIter{i: it, s: snap, fromIndex: fromTxIndex, toIndex: toTxIndex}}, nil
+	return &PebbleReverseTxIter{
+		pebbleBaseTxIter: pebbleBaseTxIter{
+			i:         it,
+			s:         snap,
+			fromIndex: fromTxIndex,
+			toIndex:   toTxIndex,
+		},
+	}, nil
 }
 
 func (s *Pebble) WriteBatch() Batch {
