@@ -18,7 +18,7 @@ type Query {
    Incomplete results due to errors return both the partial Blocks and 
    the associated errors.
    """
-   getBlocks(where: FilterBlock!, order: TransactionOrder): [Block!]
+   getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
    
    """
    EXPERIMENTAL: Retrieves a list of Transactions that match the given 

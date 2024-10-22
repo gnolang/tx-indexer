@@ -126,7 +126,7 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 }
 
 // GetBlocks is the resolver for the getBlocks field.
-func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.TransactionOrder) ([]*model.Block, error) {
+func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error) {
 	fromh, toh := where.MinMaxHeight()
 	dfromh := uint64(deref(fromh))
 	dtoh := uint64(deref(toh))
@@ -138,7 +138,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 
 	var err error
 	var it storage.Iterator[*bfttypes.Block]
-	if order != nil && order.HeightAndIndex == model.OrderDesc {
+	if order != nil && order.Height == model.OrderDesc {
 		it, err = r.
 			store.
 			BlockReverseIterator(
