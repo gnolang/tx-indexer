@@ -132,7 +132,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Blocks            func(childComplexity int, filter model.BlockFilter) int
-		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.TransactionOrder) int
+		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.BlockOrder) int
 		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
@@ -191,7 +191,7 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
-	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.TransactionOrder) ([]*model.Block, error)
+	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error)
 	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error)
 }
 type SubscriptionResolver interface {
@@ -578,7 +578,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.TransactionOrder)), true
+		return e.complexity.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.BlockOrder)), true
 
 	case "Query.getTransactions":
 		if e.complexity.Query.GetTransactions == nil {
@@ -2665,7 +2665,7 @@ type Query {
 	Incomplete results due to errors return both the partial Blocks and 
 	the associated errors.
 	"""
-	getBlocks(where: FilterBlock!, order: TransactionOrder): [Block!]
+	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 	"""
 	EXPERIMENTAL: Retrieves a list of Transactions that match the given 
 	where criteria. If the result is incomplete due to errors, both partial
@@ -3124,22 +3124,22 @@ func (ec *executionContext) field_Query_getBlocks_argsWhere(
 func (ec *executionContext) field_Query_getBlocks_argsOrder(
 	ctx context.Context,
 	rawArgs map[string]interface{},
-) (*model.TransactionOrder, error) {
+) (*model.BlockOrder, error) {
 	// We won't call the directive if the argument is null.
 	// Set call_argument_directives_with_null to true to call directives
 	// even if the argument is null.
 	_, ok := rawArgs["order"]
 	if !ok {
-		var zeroVal *model.TransactionOrder
+		var zeroVal *model.BlockOrder
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("order"))
 	if tmp, ok := rawArgs["order"]; ok {
-		return ec.unmarshalOTransactionOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionOrder(ctx, tmp)
+		return ec.unmarshalOBlockOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockOrder(ctx, tmp)
 	}
 
-	var zeroVal *model.TransactionOrder
+	var zeroVal *model.BlockOrder
 	return zeroVal, nil
 }
 
@@ -6842,7 +6842,7 @@ func (ec *executionContext) _Query_getBlocks(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetBlocks(rctx, fc.Args["where"].(model.FilterBlock), fc.Args["order"].(*model.TransactionOrder))
+		return ec.resolvers.Query().GetBlocks(rctx, fc.Args["where"].(model.FilterBlock), fc.Args["order"].(*model.BlockOrder))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -16028,6 +16028,14 @@ func (ec *executionContext) marshalOBlock2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑin
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalOBlockOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockOrder(ctx context.Context, v interface{}) (*model.BlockOrder, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputBlockOrder(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalOBlockTransaction2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockTransaction(ctx context.Context, sel ast.SelectionSet, v *model.BlockTransaction) graphql.Marshaler {
