@@ -1146,6 +1146,7 @@ func (e MessageType) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
+// Order defines the output order for hte method, It can be in DESC (descending) or ASC (ascending) order.
 type Order string
 
 const (

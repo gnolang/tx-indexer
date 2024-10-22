@@ -15,10 +15,9 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/gnolang/tx-indexer/serve/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
-
-	"github.com/gnolang/tx-indexer/serve/graph/model"
 )
 
 // region    ************************** generated!.gotpl **************************
@@ -2638,6 +2637,9 @@ input NestedFilterUnknownEvent {
 	"""
 	value: FilterString
 }
+"""
+Order defines the output order for hte method, It can be in DESC (descending) or ASC (ascending) order.
+"""
 enum Order {
 	ASC
 	DESC
