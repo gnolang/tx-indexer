@@ -15,9 +15,10 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/gnolang/tx-indexer/serve/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+
+	"github.com/gnolang/tx-indexer/serve/graph/model"
 )
 
 // region    ************************** generated!.gotpl **************************
@@ -132,8 +133,8 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Blocks            func(childComplexity int, filter model.BlockFilter) int
-		GetBlocks         func(childComplexity int, where model.FilterBlock) int
-		GetTransactions   func(childComplexity int, where model.FilterTransaction) int
+		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.TransactionOrder) int
+		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
 	}
@@ -191,8 +192,8 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
-	GetBlocks(ctx context.Context, where model.FilterBlock) ([]*model.Block, error)
-	GetTransactions(ctx context.Context, where model.FilterTransaction) ([]*model.Transaction, error)
+	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.TransactionOrder) ([]*model.Block, error)
+	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error)
 }
 type SubscriptionResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) (<-chan *model.Transaction, error)
@@ -578,7 +579,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock)), true
+		return e.complexity.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.TransactionOrder)), true
 
 	case "Query.getTransactions":
 		if e.complexity.Query.GetTransactions == nil {
@@ -590,7 +591,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.GetTransactions(childComplexity, args["where"].(model.FilterTransaction)), true
+		return e.complexity.Query.GetTransactions(childComplexity, args["where"].(model.FilterTransaction), args["order"].(*model.TransactionOrder)), true
 
 	case "Query.latestBlockHeight":
 		if e.complexity.Query.LatestBlockHeight == nil {
@@ -831,6 +832,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputAmountInput,
 		ec.unmarshalInputBankMsgSendInput,
 		ec.unmarshalInputBlockFilter,
+		ec.unmarshalInputBlockOrder,
 		ec.unmarshalInputEventAttributeInput,
 		ec.unmarshalInputEventInput,
 		ec.unmarshalInputFilterBankMsgSend,
@@ -879,6 +881,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputTransactionBankMessageInput,
 		ec.unmarshalInputTransactionFilter,
 		ec.unmarshalInputTransactionMessageInput,
+		ec.unmarshalInputTransactionOrder,
 		ec.unmarshalInputTransactionVmMessageInput,
 	)
 	first := true
@@ -1145,6 +1148,9 @@ input BlockFilter {
 	Maximum timestamp up to which to fetch Blocks, exclusive. Only Blocks created before this time are included.
 	"""
 	to_time: Time
+}
+input BlockOrder {
+	height: Order!
 }
 """
 Defines a transaction within a block, its execution specifics and content.
@@ -2632,6 +2638,10 @@ input NestedFilterUnknownEvent {
 	"""
 	value: FilterString
 }
+enum Order {
+	ASC
+	DESC
+}
 """
 Root Query type to fetch data about Blocks and Transactions based on filters or retrieve the latest block height.
 """
@@ -2653,13 +2663,13 @@ type Query {
 	Incomplete results due to errors return both the partial Blocks and 
 	the associated errors.
 	"""
-	getBlocks(where: FilterBlock!): [Block!]
+	getBlocks(where: FilterBlock!, order: TransactionOrder): [Block!]
 	"""
 	EXPERIMENTAL: Retrieves a list of Transactions that match the given 
 	where criteria. If the result is incomplete due to errors, both partial
 	results and errors are returned.
 	"""
-	getTransactions(where: FilterTransaction!): [Transaction!]
+	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
 """
 Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
@@ -2893,6 +2903,9 @@ input TransactionMessageInput {
 	"""
 	vm_param: TransactionVmMessageInput
 }
+input TransactionOrder {
+	heightAndIndex: Order!
+}
 """
 ` + "`" + `TransactionResponse` + "`" + ` is the processing result of the transaction.
 It has ` + "`" + `log` + "`" + `, ` + "`" + `info` + "`" + `, ` + "`" + `error` + "`" + `, and ` + "`" + `data` + "`" + `.
@@ -3077,6 +3090,11 @@ func (ec *executionContext) field_Query_getBlocks_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["where"] = arg0
+	arg1, err := ec.field_Query_getBlocks_argsOrder(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["order"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Query_getBlocks_argsWhere(
@@ -3101,6 +3119,28 @@ func (ec *executionContext) field_Query_getBlocks_argsWhere(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_getBlocks_argsOrder(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (*model.TransactionOrder, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["order"]
+	if !ok {
+		var zeroVal *model.TransactionOrder
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("order"))
+	if tmp, ok := rawArgs["order"]; ok {
+		return ec.unmarshalOTransactionOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionOrder(ctx, tmp)
+	}
+
+	var zeroVal *model.TransactionOrder
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Query_getTransactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -3109,6 +3149,11 @@ func (ec *executionContext) field_Query_getTransactions_args(ctx context.Context
 		return nil, err
 	}
 	args["where"] = arg0
+	arg1, err := ec.field_Query_getTransactions_argsOrder(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["order"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Query_getTransactions_argsWhere(
@@ -3130,6 +3175,28 @@ func (ec *executionContext) field_Query_getTransactions_argsWhere(
 	}
 
 	var zeroVal model.FilterTransaction
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_getTransactions_argsOrder(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (*model.TransactionOrder, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["order"]
+	if !ok {
+		var zeroVal *model.TransactionOrder
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("order"))
+	if tmp, ok := rawArgs["order"]; ok {
+		return ec.unmarshalOTransactionOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionOrder(ctx, tmp)
+	}
+
+	var zeroVal *model.TransactionOrder
 	return zeroVal, nil
 }
 
@@ -6773,7 +6840,7 @@ func (ec *executionContext) _Query_getBlocks(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetBlocks(rctx, fc.Args["where"].(model.FilterBlock))
+		return ec.resolvers.Query().GetBlocks(rctx, fc.Args["where"].(model.FilterBlock), fc.Args["order"].(*model.TransactionOrder))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6861,7 +6928,7 @@ func (ec *executionContext) _Query_getTransactions(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetTransactions(rctx, fc.Args["where"].(model.FilterTransaction))
+		return ec.resolvers.Query().GetTransactions(rctx, fc.Args["where"].(model.FilterTransaction), fc.Args["order"].(*model.TransactionOrder))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -10861,6 +10928,33 @@ func (ec *executionContext) unmarshalInputBlockFilter(ctx context.Context, obj i
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputBlockOrder(ctx context.Context, obj interface{}) (model.BlockOrder, error) {
+	var it model.BlockOrder
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"height"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("height"))
+			data, err := ec.unmarshalNOrder2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐOrder(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Height = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputEventAttributeInput(ctx context.Context, obj interface{}) (model.EventAttributeInput, error) {
 	var it model.EventAttributeInput
 	asMap := map[string]interface{}{}
@@ -13753,6 +13847,33 @@ func (ec *executionContext) unmarshalInputTransactionMessageInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputTransactionOrder(ctx context.Context, obj interface{}) (model.TransactionOrder, error) {
+	var it model.TransactionOrder
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"heightAndIndex"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "heightAndIndex":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("heightAndIndex"))
+			data, err := ec.unmarshalNOrder2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐOrder(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.HeightAndIndex = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.Context, obj interface{}) (model.TransactionVMMessageInput, error) {
 	var it model.TransactionVMMessageInput
 	asMap := map[string]interface{}{}
@@ -15467,6 +15588,16 @@ func (ec *executionContext) marshalNMessageValue2githubᚗcomᚋgnolangᚋtxᚑi
 		return graphql.Null
 	}
 	return ec._MessageValue(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNOrder2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐOrder(ctx context.Context, v interface{}) (model.Order, error) {
+	var res model.Order
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNOrder2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐOrder(ctx context.Context, sel ast.SelectionSet, v model.Order) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -17428,6 +17559,14 @@ func (ec *executionContext) unmarshalOTransactionMessageInput2ᚕᚖgithubᚗcom
 		}
 	}
 	return res, nil
+}
+
+func (ec *executionContext) unmarshalOTransactionOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionOrder(ctx context.Context, v interface{}) (*model.TransactionOrder, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTransactionOrder(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOTransactionVmMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionVMMessageInput(ctx context.Context, v interface{}) (*model.TransactionVMMessageInput, error) {

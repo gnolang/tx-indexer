@@ -18,14 +18,14 @@ type Query {
    Incomplete results due to errors return both the partial Blocks and 
    the associated errors.
    """
-   getBlocks(where: FilterBlock!): [Block!]
+   getBlocks(where: FilterBlock!, order: TransactionOrder): [Block!]
    
    """
    EXPERIMENTAL: Retrieves a list of Transactions that match the given 
    where criteria. If the result is incomplete due to errors, both partial
    results and errors are returned.
    """
-   getTransactions(where: FilterTransaction!): [Transaction!]
+   getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
 
 type Subscription {

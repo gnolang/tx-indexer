@@ -71,6 +71,10 @@ type BlockFilter struct {
 	ToTime *time.Time `json:"to_time,omitempty"`
 }
 
+type BlockOrder struct {
+	Height Order `json:"height"`
+}
+
 // Defines a transaction within a block, its execution specifics and content.
 type BlockTransaction struct {
 	// Hash computes the TMHASH hash of the wire encoded transaction.
@@ -965,6 +969,10 @@ type TransactionMessageInput struct {
 	VMParam *TransactionVMMessageInput `json:"vm_param,omitempty"`
 }
 
+type TransactionOrder struct {
+	HeightAndIndex Order `json:"heightAndIndex"`
+}
+
 // `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
 type TransactionVMMessageInput struct {
 	// `MsgCallInput` represents input parameters required when the message type is `exec`.
@@ -1135,5 +1143,46 @@ func (e *MessageType) UnmarshalGQL(v interface{}) error {
 }
 
 func (e MessageType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type Order string
+
+const (
+	OrderAsc  Order = "ASC"
+	OrderDesc Order = "DESC"
+)
+
+var AllOrder = []Order{
+	OrderAsc,
+	OrderDesc,
+}
+
+func (e Order) IsValid() bool {
+	switch e {
+	case OrderAsc, OrderDesc:
+		return true
+	}
+	return false
+}
+
+func (e Order) String() string {
+	return string(e)
+}
+
+func (e *Order) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = Order(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid Order", str)
+	}
+	return nil
+}
+
+func (e Order) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
