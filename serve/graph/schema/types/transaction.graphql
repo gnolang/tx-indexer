@@ -384,3 +384,7 @@ type UnknownEvent {
   """
   value: String! @filterable
 }
+
+input TransactionOrder {
+  heightAndIndex: Order!
+}

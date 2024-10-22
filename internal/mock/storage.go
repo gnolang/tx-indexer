@@ -66,6 +66,19 @@ func (m *Storage) TxIterator(
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *Storage) BlockReverseIterator(_, _ uint64) (storage.Iterator[*types.Block], error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *Storage) TxReverseIterator(
+	_,
+	_ uint64,
+	_,
+	_ uint32,
+) (storage.Iterator[*types.TxResult], error) {
+	panic("not implemented") // TODO: Implement
+}
+
 // WriteBatch provides a batch intended to do a write action that
 // can be cancelled or committed all at the same time
 func (m *Storage) WriteBatch() storage.Batch {
