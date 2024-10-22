@@ -12,6 +12,6 @@ scalar Time
 Order defines the output order for hte method, It can be in DESC (descending) or ASC (ascending) order.
 """
 enum Order {
-	ASC
+  ASC
   DESC
 }
