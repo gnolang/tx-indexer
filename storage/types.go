@@ -31,9 +31,17 @@ type Reader interface {
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
 	BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
 
+	// BlockReverseIterator iterates over Blocks in reverse order,
+	// limiting the results to be between the provided block numbers
+	BlockReverseIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
+
 	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
 	// and transaction indexes
 	TxIterator(fromBlockNum, toBlockNum uint64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
+
+	// TxReverseIterator iterates over transactions in reverse order,
+	// limiting the results to be between the provided block numbers and transaction indexes
+	TxReverseIterator(fromBlockNum, toBlockNum uint64, fromTxIndex, toTxIndex uint32) (Iterator[*types.TxResult], error)
 }
 
 type Iterator[T any] interface {
