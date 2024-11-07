@@ -164,7 +164,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						Genesis: &types.GenesisDoc{
 							AppState: gnoland.GnoGenesisState{
 								Balances: []gnoland.Balance{},
-								Txs:      []std.Tx{},
+								Txs:      []gnoland.TxWithMetadata{},
 							},
 						},
 					}, nil
@@ -357,7 +357,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 						Genesis: &types.GenesisDoc{
 							AppState: gnoland.GnoGenesisState{
 								Balances: []gnoland.Balance{},
-								Txs:      []std.Tx{},
+								Txs:      []gnoland.TxWithMetadata{},
 							},
 						},
 					}, nil
@@ -556,7 +556,7 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 						Genesis: &types.GenesisDoc{
 							AppState: gnoland.GnoGenesisState{
 								Balances: []gnoland.Balance{},
-								Txs:      []std.Tx{},
+								Txs:      []gnoland.TxWithMetadata{},
 							},
 						},
 					}, nil
@@ -728,7 +728,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Genesis: &types.GenesisDoc{
 							AppState: gnoland.GnoGenesisState{
 								Balances: []gnoland.Balance{},
-								Txs:      []std.Tx{},
+								Txs:      []gnoland.TxWithMetadata{},
 							},
 						},
 					}, nil
@@ -874,7 +874,7 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 						Genesis: &types.GenesisDoc{
 							AppState: gnoland.GnoGenesisState{
 								Balances: []gnoland.Balance{},
-								Txs:      []std.Tx{},
+								Txs:      []gnoland.TxWithMetadata{},
 							},
 						},
 					}, nil
@@ -1007,7 +1007,7 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 					Genesis: &types.GenesisDoc{
 						AppState: gnoland.GnoGenesisState{
 							Balances: []gnoland.Balance{},
-							Txs:      []std.Tx{},
+							Txs:      []gnoland.TxWithMetadata{},
 						},
 					},
 				}, nil
@@ -1039,7 +1039,7 @@ func TestFetcher_Genesis(t *testing.T) {
 
 	var (
 		txCount     = 21
-		txs         = generateTransactions(t, txCount)
+		txs         = generateGenesisTransactions(t, txCount)
 		savedBlocks = map[int64]*types.Block{}
 		savedTxs    = map[string]*types.TxResult{}
 
@@ -1081,7 +1081,7 @@ func TestFetcher_Genesis(t *testing.T) {
 				return 0, nil
 			},
 			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				localTxs := make([]std.Tx, len(txs))
+				localTxs := make([]gnoland.TxWithMetadata, len(txs))
 				for i, tx := range txs {
 					localTxs[i] = *tx
 				}
@@ -1116,7 +1116,7 @@ func TestFetcher_Genesis(t *testing.T) {
 		expected := &types.TxResult{
 			Height:   0,
 			Index:    i,
-			Tx:       amino.MustMarshal(txs[i]),
+			Tx:       amino.MustMarshal(txs[i].Tx),
 			Response: abci.ResponseDeliverTx{},
 		}
 		require.Equal(t, expected, tx)
@@ -1256,7 +1256,7 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 			},
 			getGenesisFn: func() (*core_types.ResultGenesis, error) {
 				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
-					AppState: gnoland.GnoGenesisState{Txs: []std.Tx{{}}},
+					AppState: gnoland.GnoGenesisState{Txs: []gnoland.TxWithMetadata{{}}},
 				}}, nil
 			},
 			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
@@ -1336,7 +1336,7 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 			},
 			getGenesisFn: func() (*core_types.ResultGenesis, error) {
 				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
-					AppState: gnoland.GnoGenesisState{Txs: []std.Tx{{}}},
+					AppState: gnoland.GnoGenesisState{Txs: []gnoland.TxWithMetadata{{}}},
 				}}, nil
 			},
 			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
@@ -1359,6 +1359,23 @@ func generateTransactions(t *testing.T, count int) []*std.Tx {
 	for i := 0; i < count; i++ {
 		txs[i] = &std.Tx{
 			Memo: fmt.Sprintf("memo %d", i),
+		}
+	}
+
+	return txs
+}
+
+// generateGenesisTransactions generates dummy genesis transactions
+func generateGenesisTransactions(t *testing.T, count int) []*gnoland.TxWithMetadata {
+	t.Helper()
+
+	txs := make([]*gnoland.TxWithMetadata, count)
+
+	for i := 0; i < count; i++ {
+		txs[i] = &gnoland.TxWithMetadata{
+			Tx: std.Tx{
+				Memo: fmt.Sprintf("memo %d", i),
+			},
 		}
 	}
 
