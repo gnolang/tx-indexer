@@ -3,7 +3,7 @@ module github.com/gnolang/tx-indexer
 go 1.22.7
 
 require (
-	github.com/99designs/gqlgen v0.17.54
+	github.com/99designs/gqlgen v0.17.56
 	github.com/ajnavarro/gqlfiltergen v0.1.2
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/gnolang/gno v0.0.0-20241106190630-81a88a2976ba
@@ -21,7 +21,10 @@ require (
 	golang.org/x/sync v0.8.0
 )
 
-require github.com/ajg/form v1.5.1 // indirect
+require (
+	github.com/ajg/form v1.5.1 // indirect
+	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
@@ -54,7 +57,6 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
@@ -80,7 +82,7 @@ require (
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240822170219-fc7c04adadcd // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240822170219-fc7c04adadcd // indirect
