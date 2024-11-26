@@ -1,0 +1,124 @@
+package gas
+
+import (
+	"fmt"
+	"math"
+	"strconv"
+
+	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/gnolang/tx-indexer/serve/metadata"
+	"github.com/gnolang/tx-indexer/serve/methods"
+	"github.com/gnolang/tx-indexer/serve/spec"
+)
+
+const DefaultBlockRangeSize = 1_000
+
+type Handler struct {
+	storage Storage
+}
+
+func NewHandler(storage Storage) *Handler {
+	return &Handler{
+		storage: storage,
+	}
+}
+
+func (h *Handler) GetGasPriceHandler(
+	_ *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
+	// Check the params
+	if len(params) != 0 && len(params) != 2 {
+		return nil, spec.GenerateInvalidParamCountError()
+	}
+
+	var toBlockNum, fromBlockNum uint64
+
+	if len(params) == 0 {
+		latestHeight, err := h.storage.GetLatestHeight()
+		if err != nil {
+			return nil, spec.GenerateResponseError(err)
+		}
+
+		fromBlockNum, toBlockNum = initializeDefaultBlockRangeByHeight(latestHeight)
+	} else {
+		fromBlockNum, toBlockNum = parseBlockRangeByParams(params)
+	}
+
+	response, err := h.getGasPriceBy(fromBlockNum, toBlockNum)
+	if err != nil {
+		return nil, spec.GenerateResponseError(err)
+	}
+
+	return response, nil
+}
+
+func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.GasPrice, error) {
+	it, err := h.
+		storage.
+		TxIterator(
+			fromBlockNum,
+			toBlockNum,
+			0,
+			math.MaxUint32,
+		)
+	if err != nil {
+		return nil, gqlerror.Wrap(err)
+	}
+
+	defer it.Close()
+
+	txs := make([]*types.TxResult, 0)
+
+	for {
+		if !it.Next() {
+			break
+		}
+
+		tx, itErr := it.Value()
+		if itErr != nil {
+			return nil, err
+		}
+
+		txs = append(txs, tx)
+	}
+
+	gasPrices, err := methods.GetGasPricesByTxResults(txs)
+	if err != nil {
+		return nil, err
+	}
+
+	return gasPrices, nil
+}
+
+func toUint64(data any) (uint64, error) {
+	return strconv.ParseUint(fmt.Sprintf("%v", data), 10, 64)
+}
+
+func initializeDefaultBlockRangeByHeight(latestHeight uint64) (uint64, uint64) {
+	toBlockNum := latestHeight
+
+	var fromBlockNum uint64
+
+	if latestHeight > DefaultBlockRangeSize {
+		fromBlockNum = latestHeight - DefaultBlockRangeSize
+	}
+
+	return fromBlockNum, toBlockNum
+}
+
+func parseBlockRangeByParams(params []any) (uint64, uint64) {
+	fromBlockNum, err := toUint64(params[0])
+	if err != nil {
+		fromBlockNum = 0
+	}
+
+	toBlockNum, err := toUint64(params[1])
+	if err != nil {
+		toBlockNum = 0
+	}
+
+	return fromBlockNum, toBlockNum
+}
