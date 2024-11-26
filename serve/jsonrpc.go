@@ -16,6 +16,7 @@ import (
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
 	"github.com/gnolang/tx-indexer/serve/filters"
 	"github.com/gnolang/tx-indexer/serve/handlers/block"
+	"github.com/gnolang/tx-indexer/serve/handlers/gas"
 	"github.com/gnolang/tx-indexer/serve/handlers/subs"
 	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/serve/metadata"
@@ -124,6 +125,16 @@ func (j *JSONRPC) RegisterTxEndpoints(db tx.Storage) {
 	j.RegisterHandler(
 		"getTxResultByHash",
 		txHandler.GetTxByHashHandler,
+	)
+}
+
+// RegisterGasPriceEndpoints registers the gas price endpoints
+func (j *JSONRPC) RegisterGasEndpoints(db gas.Storage) {
+	gasPriceHandler := gas.NewHandler(db)
+
+	j.RegisterHandler(
+		"getGasPrice",
+		gasPriceHandler.GetGasPriceHandler,
 	)
 }
 

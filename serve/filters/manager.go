@@ -85,6 +85,11 @@ func (f *Manager) NewTransactionSubscription(conn conns.WSConnection) string {
 	return f.newSubscription(filterSubscription.NewTransactionSubscription(conn))
 }
 
+// NewGasPriceSubscription creates gas fee subscriptions for blocks with transactions (over WS)
+func (f *Manager) NewGasPriceSubscription(conn conns.WSConnection) string {
+	return f.newSubscription(filterSubscription.NewGasPriceSubscription(conn))
+}
+
 // newSubscription adds new subscription to the subscription map
 func (f *Manager) newSubscription(subscription subscription) string {
 	return f.subscriptions.addSubscription(subscription)
@@ -122,6 +127,11 @@ func (f *Manager) subscribeToEvents() {
 
 					// Send events to all `newHeads` subscriptions
 					f.subscriptions.sendEvent(filterSubscription.NewHeadsEvent, newBlock.Block)
+
+					// Send an event to the `newGasPrice` subscription when creating a block with transactions
+					if len(newBlock.Results) > 0 {
+						f.subscriptions.sendEvent(filterSubscription.NewGasPriceEvent, newBlock.Results)
+					}
 
 					for _, txResult := range newBlock.Results {
 						// Apply transaction to filters

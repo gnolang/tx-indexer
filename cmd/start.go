@@ -225,6 +225,9 @@ func setupJSONRPC(
 	// Transaction handlers
 	j.RegisterTxEndpoints(db)
 
+	// Gas handlers
+	j.RegisterGasEndpoints(db)
+
 	// Block handlers
 	j.RegisterBlockEndpoints(db)
 
