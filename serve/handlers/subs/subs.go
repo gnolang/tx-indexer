@@ -136,6 +136,8 @@ func (h *Handler) subscribe(connID, eventType string) (string, error) {
 		return h.filterManager.NewBlockSubscription(conn), nil
 	case subscription.NewTransactionsEvent:
 		return h.filterManager.NewTransactionSubscription(conn), nil
+	case subscription.NewGasPriceEvent:
+		return h.filterManager.NewGasPriceSubscription(conn), nil
 	default:
 		return "", fmt.Errorf("invalid event type: %s", eventType)
 	}
