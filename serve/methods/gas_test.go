@@ -117,14 +117,16 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 
 			for _, responseItem := range response {
 				for _, testCaseResult := range testCase.results {
-					if responseItem.Denom == testCaseResult.Denom {
-						assert.Equal(t, responseItem.Denom, testCaseResult.Denom)
-						assert.Equal(t, responseItem.High, testCaseResult.High)
-						assert.Equal(t, responseItem.Average, testCaseResult.Average)
-						assert.Equal(t, responseItem.Low, testCaseResult.Low)
-
-						count++
+					if responseItem.Denom != testCaseResult.Denom {
+						continue
 					}
+
+					assert.Equal(t, responseItem.Denom, testCaseResult.Denom)
+					assert.Equal(t, responseItem.High, testCaseResult.High)
+					assert.Equal(t, responseItem.Average, testCaseResult.Average)
+					assert.Equal(t, responseItem.Low, testCaseResult.Low)
+
+					count++
 				}
 			}
 
