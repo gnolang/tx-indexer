@@ -113,12 +113,22 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 			assert.Nil(t, err)
 			require.NotNil(t, response)
 
-			for index, responseItem := range response {
-				assert.Equal(t, responseItem.Denom, testCase.results[index].Denom)
-				assert.Equal(t, responseItem.High, testCase.results[index].High)
-				assert.Equal(t, responseItem.Average, testCase.results[index].Average)
-				assert.Equal(t, responseItem.Low, testCase.results[index].Low)
+			count := 0
+
+			for _, responseItem := range response {
+				for _, testCaseResult := range testCase.results {
+					if responseItem.Denom == testCaseResult.Denom {
+						assert.Equal(t, responseItem.Denom, testCaseResult.Denom)
+						assert.Equal(t, responseItem.High, testCaseResult.High)
+						assert.Equal(t, responseItem.Average, testCaseResult.Average)
+						assert.Equal(t, responseItem.Low, testCaseResult.Low)
+
+						count++
+					}
+				}
 			}
+
+			assert.Equal(t, count, len(testCase.results))
 		})
 	}
 }
