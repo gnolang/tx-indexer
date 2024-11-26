@@ -51,7 +51,7 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 		{
 			"single transaction",
 			[]*types.TxResult{
-				makeTxResultHasGasFee(1, "ugnot"),
+				makeTxResultWithGasFee(1, "ugnot"),
 			},
 			[]GasPrice{
 				{
@@ -65,10 +65,10 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 		{
 			"variable amount",
 			[]*types.TxResult{
-				makeTxResultHasGasFee(1, "ugnot"),
-				makeTxResultHasGasFee(2, "ugnot"),
-				makeTxResultHasGasFee(3, "ugnot"),
-				makeTxResultHasGasFee(4, "ugnot"),
+				makeTxResultWithGasFee(1, "ugnot"),
+				makeTxResultWithGasFee(2, "ugnot"),
+				makeTxResultWithGasFee(3, "ugnot"),
+				makeTxResultWithGasFee(4, "ugnot"),
 			},
 			[]GasPrice{
 				{
@@ -82,10 +82,10 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 		{
 			"variable amounts and coins",
 			[]*types.TxResult{
-				makeTxResultHasGasFee(1, "ugnot"),
-				makeTxResultHasGasFee(2, "ugnot"),
-				makeTxResultHasGasFee(3, "uatom"),
-				makeTxResultHasGasFee(4, "uatom"),
+				makeTxResultWithGasFee(1, "ugnot"),
+				makeTxResultWithGasFee(2, "ugnot"),
+				makeTxResultWithGasFee(3, "uatom"),
+				makeTxResultWithGasFee(4, "uatom"),
 			},
 			[]GasPrice{
 				{

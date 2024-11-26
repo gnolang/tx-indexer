@@ -6,7 +6,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
-func makeTxResultHasGasFee(gasFeeAmount int64, gasFeeDenom string) *types.TxResult {
+func makeTxResultWithGasFee(gasFeeAmount int64, gasFeeDenom string) *types.TxResult {
 	tx := std.Tx{
 		Fee: std.Fee{
 			GasFee: std.Coin{
