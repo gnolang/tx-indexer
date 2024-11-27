@@ -6,14 +6,9 @@ import (
 )
 
 type Storage interface {
-	// GetTx returns specified tx from permanent storage
+	// GetLatestHeight returns the latest block height from the storage
 	GetLatestHeight() (uint64, error)
 
-	// GetTxByHash fetches the tx using the transaction hash
-	TxIterator(
-		fromBlockNum,
-		toBlockNum uint64,
-		fromTxIndex,
-		toTxIndex uint32,
-	) (storage.Iterator[*types.TxResult], error)
+	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
+	BlockIterator(fromBlockNum, toBlockNum uint64) (storage.Iterator[*types.Block], error)
 }

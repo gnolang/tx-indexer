@@ -7,11 +7,11 @@ import (
 
 type getLatestHeight func() (uint64, error)
 
-type txIterator func(uint64, uint64, uint32, uint32) (storage.Iterator[*types.TxResult], error)
+type blockIterator func(uint64, uint64) (storage.Iterator[*types.Block], error)
 
 type mockStorage struct {
 	getLatestHeightFn getLatestHeight
-	txIteratorFn      txIterator
+	blockIteratorFn   blockIterator
 }
 
 func (m *mockStorage) GetLatestHeight() (uint64, error) {
@@ -22,14 +22,12 @@ func (m *mockStorage) GetLatestHeight() (uint64, error) {
 	return 0, nil
 }
 
-func (m *mockStorage) TxIterator(
+func (m *mockStorage) BlockIterator(
 	fromBlockNum,
 	toBlockNum uint64,
-	fromTxIndex,
-	toTxIndex uint32,
-) (storage.Iterator[*types.TxResult], error) {
-	if m.txIteratorFn != nil {
-		return m.txIteratorFn(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
+) (storage.Iterator[*types.Block], error) {
+	if m.blockIteratorFn != nil {
+		return m.blockIteratorFn(fromBlockNum, toBlockNum)
 	}
 
 	return nil, nil

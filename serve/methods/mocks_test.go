@@ -6,7 +6,18 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
-func makeTxResultWithGasFee(gasFeeAmount int64, gasFeeDenom string) *types.TxResult {
+func makeBlockWithTxs(height int64, txs []types.Tx) *types.Block {
+	return &types.Block{
+		Header: types.Header{
+			Height: height,
+		},
+		Data: types.Data{
+			Txs: txs,
+		},
+	}
+}
+
+func makeTxResultWithGasFee(gasFeeAmount int64, gasFeeDenom string) types.Tx {
 	tx := std.Tx{
 		Fee: std.Fee{
 			GasFee: std.Coin{
@@ -16,7 +27,5 @@ func makeTxResultWithGasFee(gasFeeAmount int64, gasFeeDenom string) *types.TxRes
 		},
 	}
 
-	return &types.TxResult{
-		Tx: amino.MustMarshal(tx),
-	}
+	return amino.MustMarshal(tx)
 }

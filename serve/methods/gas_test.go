@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetGasPricesByTxResults_EmptyTransactions(t *testing.T) {
+func TestGetGasPricesByBlocks_EmptyTransactions(t *testing.T) {
 	t.Parallel()
 
 	testTable := []struct {
-		name string
-		txs  []*types.TxResult
+		name   string
+		blocks []*types.Block
 	}{
 		{
 			"txs is nil",
@@ -21,7 +21,7 @@ func TestGetGasPricesByTxResults_EmptyTransactions(t *testing.T) {
 		},
 		{
 			"tx is empty",
-			[]*types.TxResult{},
+			make([]*types.Block, 0),
 		},
 	}
 
@@ -29,7 +29,7 @@ func TestGetGasPricesByTxResults_EmptyTransactions(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			response, err := GetGasPricesByTxResults(testCase.txs)
+			response, err := GetGasPricesByBlocks(testCase.blocks)
 
 			assert.Nil(t, err)
 
@@ -40,18 +40,22 @@ func TestGetGasPricesByTxResults_EmptyTransactions(t *testing.T) {
 	}
 }
 
-func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
+func TestGetGasPricesByBlocks_Transactions(t *testing.T) {
 	t.Parallel()
 
 	testTable := []struct {
 		name    string
-		txs     []*types.TxResult
+		blocks  []*types.Block
 		results []GasPrice
 	}{
 		{
 			"single transaction",
-			[]*types.TxResult{
-				makeTxResultWithGasFee(1, "ugnot"),
+			[]*types.Block{
+				makeBlockWithTxs(1,
+					[]types.Tx{
+						makeTxResultWithGasFee(1, "ugnot"),
+					},
+				),
 			},
 			[]GasPrice{
 				{
@@ -64,11 +68,15 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 		},
 		{
 			"variable amount",
-			[]*types.TxResult{
-				makeTxResultWithGasFee(1, "ugnot"),
-				makeTxResultWithGasFee(2, "ugnot"),
-				makeTxResultWithGasFee(3, "ugnot"),
-				makeTxResultWithGasFee(4, "ugnot"),
+			[]*types.Block{
+				makeBlockWithTxs(1,
+					[]types.Tx{
+						makeTxResultWithGasFee(1, "ugnot"),
+						makeTxResultWithGasFee(2, "ugnot"),
+						makeTxResultWithGasFee(3, "ugnot"),
+						makeTxResultWithGasFee(4, "ugnot"),
+					},
+				),
 			},
 			[]GasPrice{
 				{
@@ -81,11 +89,15 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 		},
 		{
 			"variable amounts and coins",
-			[]*types.TxResult{
-				makeTxResultWithGasFee(1, "ugnot"),
-				makeTxResultWithGasFee(2, "ugnot"),
-				makeTxResultWithGasFee(3, "uatom"),
-				makeTxResultWithGasFee(4, "uatom"),
+			[]*types.Block{
+				makeBlockWithTxs(1,
+					[]types.Tx{
+						makeTxResultWithGasFee(1, "ugnot"),
+						makeTxResultWithGasFee(2, "ugnot"),
+						makeTxResultWithGasFee(3, "uatom"),
+						makeTxResultWithGasFee(4, "uatom"),
+					},
+				),
 			},
 			[]GasPrice{
 				{
@@ -102,13 +114,38 @@ func TestGetGasPricesByTxResults_Transactions(t *testing.T) {
 				},
 			},
 		},
+		{
+			"calculate the average value per block",
+			[]*types.Block{
+				makeBlockWithTxs(1,
+					[]types.Tx{
+						makeTxResultWithGasFee(1, "ugnot"),
+					},
+				),
+				makeBlockWithTxs(2,
+					[]types.Tx{
+						makeTxResultWithGasFee(10, "ugnot"),
+						makeTxResultWithGasFee(10, "ugnot"),
+						makeTxResultWithGasFee(10, "ugnot"),
+					},
+				),
+			},
+			[]GasPrice{
+				{
+					Denom:   "ugnot",
+					High:    10,
+					Average: 5,
+					Low:     1,
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testTable {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			response, err := GetGasPricesByTxResults(testCase.txs)
+			response, err := GetGasPricesByBlocks(testCase.blocks)
 
 			assert.Nil(t, err)
 			require.NotNil(t, response)

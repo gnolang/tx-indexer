@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetTx_InvalidParams(t *testing.T) {
+func TestGetGasPriceHandler_InvalidParams(t *testing.T) {
 	t.Parallel()
 
 	testTable := []struct {
@@ -35,7 +35,6 @@ func TestGetTx_InvalidParams(t *testing.T) {
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
-
 			assert.Equal(t, spec.InvalidParamsErrorCode, err.Code)
 		})
 	}

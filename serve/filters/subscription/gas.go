@@ -31,12 +31,12 @@ func (b *GasPriceSubscription) GetType() events.Type {
 }
 
 func (b *GasPriceSubscription) WriteResponse(id string, data any) error {
-	txResults, ok := data.([]*types.TxResult)
+	block, ok := data.(*types.Block)
 	if !ok {
 		return fmt.Errorf("unable to cast txResult, %s", data)
 	}
 
-	gasPrices, err := methods.GetGasPricesByTxResults(txResults)
+	gasPrices, err := methods.GetGasPricesByBlock(block)
 	if err != nil {
 		return err
 	}
