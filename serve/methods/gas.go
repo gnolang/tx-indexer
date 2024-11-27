@@ -68,7 +68,7 @@ func calculateGasFeePerBlock(block *types.Block) map[string]*gasFeeTotalInfo {
 }
 
 // calculateGasFee merges the gas fee statistics from a block into the global statistics.
-func calculateGasFee(currentInfo *gasFeeTotalInfo, blockInfo *gasFeeTotalInfo) *gasFeeTotalInfo {
+func calculateGasFee(currentInfo, blockInfo *gasFeeTotalInfo) *gasFeeTotalInfo {
 	if currentInfo == nil {
 		currentInfo = &gasFeeTotalInfo{}
 	}
@@ -107,6 +107,7 @@ func min(current, newValue int64) int64 {
 	if current == 0 || newValue < current {
 		return newValue
 	}
+
 	return current
 }
 
@@ -115,5 +116,6 @@ func max(current, newValue int64) int64 {
 	if newValue > current {
 		return newValue
 	}
+
 	return current
 }
