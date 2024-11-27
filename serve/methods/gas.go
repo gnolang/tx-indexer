@@ -58,7 +58,7 @@ func calculateGasFeePerBlock(block *types.Block) map[string]*gasFeeTotalInfo {
 			gasFeeInfo[denom] = info
 		}
 
-		info.Low = min(info.Low, amount)
+		info.Low = minInt64WithDefault(info.Low, amount)
 		info.High = max(info.High, amount)
 		info.TotalAmount += amount
 		info.TotalCount++
@@ -73,7 +73,7 @@ func calculateGasFee(currentInfo, blockInfo *gasFeeTotalInfo) *gasFeeTotalInfo {
 		currentInfo = &gasFeeTotalInfo{}
 	}
 
-	currentInfo.Low = min(currentInfo.Low, blockInfo.Low)
+	currentInfo.Low = minInt64WithDefault(currentInfo.Low, blockInfo.Low)
 	currentInfo.High = max(currentInfo.High, blockInfo.High)
 	currentInfo.TotalAmount += blockInfo.TotalAmount / blockInfo.TotalCount
 	currentInfo.TotalCount++
@@ -103,17 +103,8 @@ func calculateGasPrices(gasFeeInfoMap map[string]*gasFeeTotalInfo) []*GasPrice {
 
 // min calculates the smaller of two values, or returns the new value
 // if the current value is uninitialized (0).
-func min(current, newValue int64) int64 {
+func minInt64WithDefault(current, newValue int64) int64 {
 	if current == 0 || newValue < current {
-		return newValue
-	}
-
-	return current
-}
-
-// max calculates the larger of two values.
-func max(current, newValue int64) int64 {
-	if newValue > current {
 		return newValue
 	}
 
