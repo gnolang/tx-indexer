@@ -453,7 +453,6 @@ func (pi *PebbleReverseTxIter) Next() bool {
 			return false
 		}
 
-		// TODO check if this is correct
 		if txIdx >= pi.fromIndex && txIdx < pi.toIndex {
 			return true
 		}
