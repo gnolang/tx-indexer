@@ -153,7 +153,38 @@ func (s *Pebble) GetTxByHash(txHash string) (*types.TxResult, error) {
 	return decodeTx(tx)
 }
 
+func (s *Pebble) loadBlockIterator(fromBlockNum, toBlockNum uint64) (*pebble.Iterator, *pebble.Snapshot, error) {
+	fromKey := keyBlock(fromBlockNum)
+
+	if toBlockNum == 0 {
+		toBlockNum = math.MaxInt64
+	}
+
+	toKey := keyBlock(toBlockNum)
+
+	snap := s.db.NewSnapshot()
+
+	it, err := snap.NewIter(&pebble.IterOptions{
+		LowerBound: fromKey,
+		UpperBound: toKey,
+	})
+	if err != nil {
+		return nil, nil, multierr.Append(snap.Close(), err)
+	}
+
+	return it, snap, nil
+}
+
 func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error) {
+	it, snap, err := s.loadBlockIterator(fromBlockNum, toBlockNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PebbleBlockIter{pebbleBaseBlockIter: pebbleBaseBlockIter{i: it, s: snap}}, nil
+}
+
+func (s *Pebble) BlockReverseIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error) {
 	fromKey := keyBlock(fromBlockNum)
 
 	if toBlockNum == 0 {
@@ -172,15 +203,15 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types
 		return nil, multierr.Append(snap.Close(), err)
 	}
 
-	return &PebbleBlockIter{i: it, s: snap}, nil
+	return &PebbleReverseBlockIter{pebbleBaseBlockIter: pebbleBaseBlockIter{i: it, s: snap}}, nil
 }
 
-func (s *Pebble) TxIterator(
+func (s *Pebble) loadTxIterator(
 	fromBlockNum,
 	toBlockNum uint64,
 	fromTxIndex,
 	toTxIndex uint32,
-) (Iterator[*types.TxResult], error) {
+) (*pebble.Iterator, *pebble.Snapshot, error) {
 	fromKey := keyTx(fromBlockNum, fromTxIndex)
 
 	if toBlockNum == 0 {
@@ -200,10 +231,52 @@ func (s *Pebble) TxIterator(
 		UpperBound: toKey,
 	})
 	if err != nil {
-		return nil, multierr.Append(snap.Close(), err)
+		return nil, nil, multierr.Append(snap.Close(), err)
 	}
 
-	return &PebbleTxIter{i: it, s: snap, fromIndex: fromTxIndex, toIndex: toTxIndex}, nil
+	return it, snap, nil
+}
+
+func (s *Pebble) TxIterator(
+	fromBlockNum,
+	toBlockNum uint64,
+	fromTxIndex,
+	toTxIndex uint32,
+) (Iterator[*types.TxResult], error) {
+	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PebbleTxIter{
+		pebbleBaseTxIter: pebbleBaseTxIter{
+			i:         it,
+			s:         snap,
+			fromIndex: fromTxIndex,
+			toIndex:   toTxIndex,
+		},
+	}, nil
+}
+
+func (s *Pebble) TxReverseIterator(
+	fromBlockNum,
+	toBlockNum uint64,
+	fromTxIndex,
+	toTxIndex uint32,
+) (Iterator[*types.TxResult], error) {
+	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PebbleReverseTxIter{
+		pebbleBaseTxIter: pebbleBaseTxIter{
+			i:         it,
+			s:         snap,
+			fromIndex: fromTxIndex,
+			toIndex:   toTxIndex,
+		},
+	}, nil
 }
 
 func (s *Pebble) WriteBatch() Batch {
@@ -216,13 +289,29 @@ func (s *Pebble) Close() error {
 	return s.db.Close()
 }
 
-var _ Iterator[*types.Block] = &PebbleBlockIter{}
-
-type PebbleBlockIter struct {
+type pebbleBaseBlockIter struct {
 	i *pebble.Iterator
 	s *pebble.Snapshot
 
 	init bool
+}
+
+func (pi *pebbleBaseBlockIter) Error() error {
+	return pi.i.Error()
+}
+
+func (pi *pebbleBaseBlockIter) Value() (*types.Block, error) {
+	return decodeBlock(pi.i.Value())
+}
+
+func (pi *pebbleBaseBlockIter) Close() error {
+	return multierr.Append(pi.i.Close(), pi.s.Close())
+}
+
+var _ Iterator[*types.Block] = &PebbleBlockIter{}
+
+type PebbleBlockIter struct {
+	pebbleBaseBlockIter
 }
 
 func (pi *PebbleBlockIter) Next() bool {
@@ -235,27 +324,51 @@ func (pi *PebbleBlockIter) Next() bool {
 	return pi.i.Valid() && pi.i.Next()
 }
 
-func (pi *PebbleBlockIter) Error() error {
-	return pi.i.Error()
+var _ Iterator[*types.Block] = &PebbleReverseBlockIter{}
+
+type PebbleReverseBlockIter struct {
+	pebbleBaseBlockIter
 }
 
-func (pi *PebbleBlockIter) Value() (*types.Block, error) {
-	return decodeBlock(pi.i.Value())
+func (pi *PebbleReverseBlockIter) Next() bool {
+	if !pi.init {
+		pi.init = true
+
+		return pi.i.Last()
+	}
+
+	return pi.i.Valid() && pi.i.Prev()
 }
 
-func (pi *PebbleBlockIter) Close() error {
-	return multierr.Append(pi.i.Close(), pi.s.Close())
-}
-
-var _ Iterator[*types.TxResult] = &PebbleTxIter{}
-
-type PebbleTxIter struct {
+type pebbleBaseTxIter struct {
 	nextError error
 	i         *pebble.Iterator
 	s         *pebble.Snapshot
 	fromIndex uint32
 	toIndex   uint32
 	init      bool
+}
+
+func (pi *pebbleBaseTxIter) Error() error {
+	if pi.nextError != nil {
+		return pi.nextError
+	}
+
+	return pi.i.Error()
+}
+
+func (pi *pebbleBaseTxIter) Value() (*types.TxResult, error) {
+	return decodeTx(pi.i.Value())
+}
+
+func (pi *pebbleBaseTxIter) Close() error {
+	return multierr.Append(pi.i.Close(), pi.s.Close())
+}
+
+var _ Iterator[*types.TxResult] = &PebbleTxIter{}
+
+type PebbleTxIter struct {
+	pebbleBaseTxIter
 }
 
 func (pi *PebbleTxIter) Next() bool {
@@ -299,20 +412,51 @@ func (pi *PebbleTxIter) Next() bool {
 	}
 }
 
-func (pi *PebbleTxIter) Error() error {
-	if pi.nextError != nil {
-		return pi.nextError
+var _ Iterator[*types.TxResult] = &PebbleReverseTxIter{}
+
+type PebbleReverseTxIter struct {
+	pebbleBaseTxIter
+}
+
+func (pi *PebbleReverseTxIter) Next() bool {
+	for {
+		if !pi.init {
+			if !pi.i.Last() {
+				return false
+			}
+
+			pi.init = true
+		} else if !pi.i.Prev() {
+			return false
+		}
+
+		var buf []byte
+
+		key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
+		if err != nil {
+			pi.nextError = err
+
+			return false
+		}
+
+		key, _, err = decodeUint64Ascending(key)
+		if err != nil {
+			pi.nextError = err
+
+			return false
+		}
+
+		_, txIdx, err := decodeUint32Ascending(key)
+		if err != nil {
+			pi.nextError = err
+
+			return false
+		}
+
+		if txIdx >= pi.fromIndex && txIdx < pi.toIndex {
+			return true
+		}
 	}
-
-	return pi.i.Error()
-}
-
-func (pi *PebbleTxIter) Value() (*types.TxResult, error) {
-	return decodeTx(pi.i.Value())
-}
-
-func (pi *PebbleTxIter) Close() error {
-	return multierr.Append(pi.i.Close(), pi.s.Close())
 }
 
 var _ Batch = &PebbleBatch{}

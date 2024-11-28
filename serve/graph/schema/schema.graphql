@@ -7,3 +7,11 @@ schema {
 Field representing a point on time. It is following the RFC3339Nano format ("2006-01-02T15:04:05.999999999Z07:00")
 """
 scalar Time
+
+"""
+Order defines the output order for hte method, It can be in DESC (descending) or ASC (ascending) order.
+"""
+enum Order {
+  ASC
+  DESC
+}

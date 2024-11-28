@@ -42,6 +42,8 @@ func encodeUint32Ascending(b []byte, v uint32) []byte {
 // decodeUint32Ascending decodes a uint32 from the input buffer, treating
 // the input as a big-endian 4 byte uint32 representation. The remainder
 // of the input buffer and the decoded uint32 are returned.
+//
+//nolint:unparam // We want to keep all returning params
 func decodeUint32Ascending(b []byte) ([]byte, uint32, error) {
 	if len(b) < 4 {
 		return nil, 0, fmt.Errorf("insufficient bytes to decode uint32 int value")
@@ -156,6 +158,8 @@ func unsafeConvertStringToBytes(s string) []byte {
 // temporary buffer in order to avoid memory allocations. The remainder of the
 // input buffer and the decoded string are returned. Note that the returned
 // string may share storage with the input buffer.
+//
+//nolint:unparam // We want to keep all returning params
 func decodeUnsafeStringAscending(b, r []byte) ([]byte, string, error) {
 	b, r, err := decodeBytesAscending(b, r)
 

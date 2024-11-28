@@ -8,7 +8,9 @@ import (
 	"context"
 
 	"github.com/99designs/gqlgen/graphql"
+	bfttypes "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
+	"github.com/gnolang/tx-indexer/storage"
 	"github.com/gnolang/tx-indexer/types"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
@@ -124,7 +126,7 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 }
 
 // GetBlocks is the resolver for the getBlocks field.
-func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock) ([]*model.Block, error) {
+func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error) {
 	fromh, toh := where.MinMaxHeight()
 	dfromh := uint64(deref(fromh))
 	dtoh := uint64(deref(toh))
@@ -134,12 +136,24 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock) 
 		dtoh++
 	}
 
-	it, err := r.
-		store.
-		BlockIterator(
-			dfromh,
-			dtoh,
-		)
+	var err error
+	var it storage.Iterator[*bfttypes.Block]
+	if order != nil && order.Height == model.OrderDesc {
+		it, err = r.
+			store.
+			BlockReverseIterator(
+				dfromh,
+				dtoh,
+			)
+	} else {
+		it, err = r.
+			store.
+			BlockIterator(
+				dfromh,
+				dtoh,
+			)
+	}
+
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
 	}
@@ -182,7 +196,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock) 
 }
 
 // GetTransactions is the resolver for the getTransactions field.
-func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction) ([]*model.Transaction, error) {
+func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error) {
 	// corner case
 	if where.Hash != nil &&
 		where.Hash.Eq != nil &&
@@ -220,14 +234,28 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 		dtoi++
 	}
 
-	it, err := r.
-		store.
-		TxIterator(
-			dfromh,
-			dtoh,
-			dfromi,
-			dtoi,
-		)
+	var err error
+	var it storage.Iterator[*bfttypes.TxResult]
+	if order != nil && order.HeightAndIndex == model.OrderDesc {
+		it, err = r.
+			store.
+			TxReverseIterator(
+				dfromh,
+				dtoh,
+				dfromi,
+				dtoi,
+			)
+	} else {
+		it, err = r.
+			store.
+			TxIterator(
+				dfromh,
+				dtoh,
+				dfromi,
+				dtoi,
+			)
+	}
+
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
 	}
