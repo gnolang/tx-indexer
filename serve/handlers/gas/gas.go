@@ -90,10 +90,6 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 	return gasPrices, nil
 }
 
-func toUint64(data any) (uint64, error) {
-	return strconv.ParseUint(fmt.Sprintf("%v", data), 10, 64)
-}
-
 func initializeDefaultBlockRangeByHeight(latestHeight uint64) (uint64, uint64) {
 	toBlockNum := latestHeight
 
@@ -107,12 +103,12 @@ func initializeDefaultBlockRangeByHeight(latestHeight uint64) (uint64, uint64) {
 }
 
 func parseBlockRangeByParams(params []any) (uint64, uint64) {
-	fromBlockNum, err := toUint64(params[0])
+	fromBlockNum, err := strconv.ParseUint(fmt.Sprintf("%v", params[0]), 10, 64)
 	if err != nil {
 		fromBlockNum = 0
 	}
 
-	toBlockNum, err := toUint64(params[1])
+	toBlockNum, err := strconv.ParseUint(fmt.Sprintf("%v", params[1]), 10, 64)
 	if err != nil {
 		toBlockNum = 0
 	}
