@@ -1,6 +1,8 @@
 package methods
 
 import (
+	"fmt"
+
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
@@ -30,8 +32,15 @@ func GetGasPricesByBlocks(blocks []*types.Block) ([]*GasPrice, error) {
 		blockGasFeeInfo := calculateGasFeePerBlock(block)
 
 		for denom, gasFeeInfo := range blockGasFeeInfo {
-			currentGasFeeInfo := gasFeeInfoMap[denom]
-			gasFeeInfoMap[denom] = calculateGasFee(currentGasFeeInfo, gasFeeInfo)
+			_, exists := gasFeeInfoMap[denom]
+			if !exists {
+				gasFeeInfoMap[denom] = &gasFeeTotalInfo{}
+			}
+
+			err := modifyAggregatedInfo(gasFeeInfoMap[denom], gasFeeInfo)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -67,10 +76,10 @@ func calculateGasFeePerBlock(block *types.Block) map[string]*gasFeeTotalInfo {
 	return gasFeeInfo
 }
 
-// calculateGasFee merges the gas fee statistics from a block into the global statistics.
-func calculateGasFee(currentInfo, blockInfo *gasFeeTotalInfo) *gasFeeTotalInfo {
+// modifyAggregatedInfo updates the aggregated gas fee statistics by merging the block's statistics.
+func modifyAggregatedInfo(currentInfo, blockInfo *gasFeeTotalInfo) error {
 	if currentInfo == nil {
-		currentInfo = &gasFeeTotalInfo{}
+		return fmt.Errorf("not initialized aggregated data")
 	}
 
 	currentInfo.Low = minInt64WithDefault(currentInfo.Low, blockInfo.Low)
@@ -78,7 +87,7 @@ func calculateGasFee(currentInfo, blockInfo *gasFeeTotalInfo) *gasFeeTotalInfo {
 	currentInfo.TotalAmount += blockInfo.TotalAmount / blockInfo.TotalCount
 	currentInfo.TotalCount++
 
-	return currentInfo
+	return nil
 }
 
 // calculateGasPrices generates the final gas price statistics (low, high, average)
