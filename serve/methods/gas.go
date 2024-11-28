@@ -67,7 +67,7 @@ func calculateGasFeePerBlock(block *types.Block) map[string]*gasFeeTotalInfo {
 			gasFeeInfo[denom] = info
 		}
 
-		info.Low = minInt64WithDefault(info.Low, amount)
+		info.Low = minWithDefault(info.Low, amount)
 		info.High = max(info.High, amount)
 		info.TotalAmount += amount
 		info.TotalCount++
@@ -82,7 +82,7 @@ func modifyAggregatedInfo(currentInfo, blockInfo *gasFeeTotalInfo) error {
 		return fmt.Errorf("not initialized aggregated data")
 	}
 
-	currentInfo.Low = minInt64WithDefault(currentInfo.Low, blockInfo.Low)
+	currentInfo.Low = minWithDefault(currentInfo.Low, blockInfo.Low)
 	currentInfo.High = max(currentInfo.High, blockInfo.High)
 	currentInfo.TotalAmount += blockInfo.TotalAmount / blockInfo.TotalCount
 	currentInfo.TotalCount++
@@ -112,10 +112,10 @@ func calculateGasPrices(gasFeeInfoMap map[string]*gasFeeTotalInfo) []*GasPrice {
 
 // min calculates the smaller of two values, or returns the new value
 // if the current value is uninitialized (0).
-func minInt64WithDefault(current, newValue int64) int64 {
-	if current == 0 || newValue < current {
+func minWithDefault(current, newValue int64) int64 {
+	if current <= 0 {
 		return newValue
 	}
 
-	return current
+	return min(current, newValue)
 }
