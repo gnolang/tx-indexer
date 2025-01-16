@@ -42,6 +42,7 @@ type Config struct {
 type ResolverRoot interface {
 	Query() QueryResolver
 	Subscription() SubscriptionResolver
+	Transaction() TransactionResolver
 }
 
 type DirectiveRoot struct {
@@ -146,6 +147,7 @@ type ComplexityRoot struct {
 	}
 
 	Transaction struct {
+		Block       func(childComplexity int) int
 		BlockHeight func(childComplexity int) int
 		ContentRaw  func(childComplexity int) int
 		GasFee      func(childComplexity int) int
@@ -199,6 +201,9 @@ type SubscriptionResolver interface {
 	Blocks(ctx context.Context, filter model.BlockFilter) (<-chan *model.Block, error)
 	GetTransactions(ctx context.Context, where model.FilterTransaction) (<-chan *model.Transaction, error)
 	GetBlocks(ctx context.Context, where model.FilterBlock) (<-chan *model.Block, error)
+}
+type TransactionResolver interface {
+	Block(ctx context.Context, obj *model.Transaction) (*model.Block, error)
 }
 
 type executableSchema struct {
@@ -658,6 +663,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Subscription.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+
+	case "Transaction.block":
+		if e.complexity.Transaction.Block == nil {
+			break
+		}
+
+		return e.complexity.Transaction.Block(childComplexity), true
 
 	case "Transaction.block_height":
 		if e.complexity.Transaction.BlockHeight == nil {
@@ -2788,6 +2800,10 @@ type Transaction {
 	It has ` + "`" + `log` + "`" + `, ` + "`" + `info` + "`" + `, ` + "`" + `error` + "`" + `, and ` + "`" + `data` + "`" + `.
 	"""
 	response: TransactionResponse! @filterable
+	"""
+	References the Block that contains this Transaction.
+	"""
+	block: Block
 }
 """
 ` + "`" + `TransactionBankMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `bank` + "`" + `.
@@ -6678,6 +6694,8 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "block":
+				return ec.fieldContext_Transaction_block(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -6974,6 +6992,8 @@ func (ec *executionContext) fieldContext_Query_getTransactions(ctx context.Conte
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "block":
+				return ec.fieldContext_Transaction_block(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -7196,6 +7216,8 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "block":
+				return ec.fieldContext_Transaction_block(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -7394,6 +7416,8 @@ func (ec *executionContext) fieldContext_Subscription_getTransactions(ctx contex
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "block":
+				return ec.fieldContext_Transaction_block(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -8249,6 +8273,83 @@ func (ec *executionContext) fieldContext_Transaction_response(_ context.Context,
 				return ec.fieldContext_TransactionResponse_events(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type TransactionResponse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_block(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Transaction_block(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Transaction().Block(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Block)
+	fc.Result = res
+	return ec.marshalOBlock2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlock(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Transaction_block(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hash":
+				return ec.fieldContext_Block_hash(ctx, field)
+			case "height":
+				return ec.fieldContext_Block_height(ctx, field)
+			case "version":
+				return ec.fieldContext_Block_version(ctx, field)
+			case "chain_id":
+				return ec.fieldContext_Block_chain_id(ctx, field)
+			case "time":
+				return ec.fieldContext_Block_time(ctx, field)
+			case "num_txs":
+				return ec.fieldContext_Block_num_txs(ctx, field)
+			case "total_txs":
+				return ec.fieldContext_Block_total_txs(ctx, field)
+			case "app_version":
+				return ec.fieldContext_Block_app_version(ctx, field)
+			case "last_block_hash":
+				return ec.fieldContext_Block_last_block_hash(ctx, field)
+			case "last_commit_hash":
+				return ec.fieldContext_Block_last_commit_hash(ctx, field)
+			case "validators_hash":
+				return ec.fieldContext_Block_validators_hash(ctx, field)
+			case "next_validators_hash":
+				return ec.fieldContext_Block_next_validators_hash(ctx, field)
+			case "consensus_hash":
+				return ec.fieldContext_Block_consensus_hash(ctx, field)
+			case "app_hash":
+				return ec.fieldContext_Block_app_hash(ctx, field)
+			case "last_results_hash":
+				return ec.fieldContext_Block_last_results_hash(ctx, field)
+			case "proposer_address_raw":
+				return ec.fieldContext_Block_proposer_address_raw(ctx, field)
+			case "txs":
+				return ec.fieldContext_Block_txs(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Block", field.Name)
 		},
 	}
 	return fc, nil
@@ -14785,55 +14886,88 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 		case "index":
 			out.Values[i] = ec._Transaction_index(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "hash":
 			out.Values[i] = ec._Transaction_hash(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "success":
 			out.Values[i] = ec._Transaction_success(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "block_height":
 			out.Values[i] = ec._Transaction_block_height(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "gas_wanted":
 			out.Values[i] = ec._Transaction_gas_wanted(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "gas_used":
 			out.Values[i] = ec._Transaction_gas_used(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "gas_fee":
 			out.Values[i] = ec._Transaction_gas_fee(ctx, field, obj)
 		case "content_raw":
 			out.Values[i] = ec._Transaction_content_raw(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "messages":
 			out.Values[i] = ec._Transaction_messages(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "memo":
 			out.Values[i] = ec._Transaction_memo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "response":
 			out.Values[i] = ec._Transaction_response(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "block":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Transaction_block(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16028,6 +16162,13 @@ func (ec *executionContext) marshalOBlock2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑin
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalOBlock2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlock(ctx context.Context, sel ast.SelectionSet, v *model.Block) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Block(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOBlockOrder2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockOrder(ctx context.Context, v interface{}) (*model.BlockOrder, error) {

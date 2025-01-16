@@ -87,6 +87,9 @@ models:
   Transaction:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Transaction
+    fields:
+      block:
+        resolver: true
   TransactionMessage:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.TransactionMessage
