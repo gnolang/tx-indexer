@@ -19,3 +19,4 @@ jobs:
         with:
           args:
             --config=./.github/golangci.yaml
+          version: v1.64

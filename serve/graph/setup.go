@@ -4,11 +4,15 @@ import (
 	"context"
 	embed "embed"
 	"io/fs"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/go-chi/chi/v5"
+	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
@@ -18,8 +22,8 @@ import (
 //go:embed examples/*.gql
 var examples embed.FS
 
-func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
-	srv := handler.NewDefaultServer(NewExecutableSchema(
+func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux, disableIntrospection bool) *chi.Mux {
+	srv := handler.New(NewExecutableSchema(
 		Config{
 			Resolvers: NewResolver(s, manager),
 			Directives: DirectiveRoot{
@@ -35,7 +39,22 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux) *chi.Mux {
 		},
 	))
 
-	srv.AddTransport(&transport.Websocket{})
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 10 * time.Second,
+	})
+	srv.AddTransport(transport.Options{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.MultipartForm{})
+
+	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+	srv.Use(extension.AutomaticPersistedQuery{
+		Cache: lru.New[string](100),
+	})
+
+	if !disableIntrospection {
+		srv.Use(extension.Introspection{})
+	}
 
 	es, err := examplesToSlice()
 	if err != nil {

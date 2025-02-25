@@ -37,6 +37,8 @@ type startCfg struct {
 	maxChunkSize int64
 
 	rateLimit int
+
+	disableIntrospection bool
 }
 
 // newStartCmd creates the indexer start command
@@ -107,6 +109,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"http-rate-limit",
 		0,
 		"the maximum HTTP requests allowed per minute per IP, unlimited by default",
+	)
+
+	fs.BoolVar(
+		&c.disableIntrospection,
+		"disable-introspection",
+		false,
+		"disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground",
 	)
 }
 
@@ -187,7 +196,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, mux)
+	mux = graph.Setup(db, em, mux, c.disableIntrospection)
 	mux = health.Setup(db, mux)
 
 	// Create the HTTP server
