@@ -1,9 +1,8 @@
 run:
   concurrency: 8
   timeout: 10m
-  issue-exit-code: 1
+  issues-exit-code: 1
   tests: true
-  skip-dirs-use-default: true
   modules-download-mode: readonly
   allow-parallel-runners: false
   go: ""
@@ -14,6 +13,7 @@ output:
   sort-results: true
 
 issues:
+  exclude-use-default: true
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false
