@@ -339,11 +339,24 @@ func (r *subscriptionResolver) GetBlocks(ctx context.Context, where model.Filter
 	}), nil
 }
 
+// Block is the resolver for the block field.
+func (r *transactionResolver) Block(ctx context.Context, obj *model.Transaction) (*model.Block, error) {
+	block, err := r.store.GetBlock(uint64(obj.BlockHeight()))
+	if err != nil {
+		return nil, gqlerror.Wrap(err)
+	}
+	return model.NewBlock(block), nil
+}
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 // Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
 
+// Transaction returns TransactionResolver implementation.
+func (r *Resolver) Transaction() TransactionResolver { return &transactionResolver{r} }
+
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+type transactionResolver struct{ *Resolver }

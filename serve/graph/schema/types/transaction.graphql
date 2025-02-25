@@ -61,6 +61,11 @@ type Transaction {
   It has `log`, `info`, `error`, and `data`.
   """
   response: TransactionResponse! @filterable
+
+  """
+  References the Block that contains this Transaction.
+  """
+  block: Block
 }
 
 """
