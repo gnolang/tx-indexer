@@ -9,11 +9,10 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	bfttypes "github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/vektah/gqlparser/v2/gqlerror"
-
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/gnolang/tx-indexer/types"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 // Transactions is the resolver for the transactions field.
