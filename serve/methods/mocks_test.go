@@ -2,30 +2,30 @@ package methods
 
 import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
+	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
-func makeBlockWithTxs(height int64, txs []types.Tx) *types.Block {
-	return &types.Block{
-		Header: types.Header{
-			Height: height,
-		},
-		Data: types.Data{
-			Txs: txs,
-		},
-	}
-}
-
-func makeTxResultWithGasFee(gasFeeAmount int64, gasFeeDenom string) types.Tx {
-	tx := std.Tx{
-		Fee: std.Fee{
-			GasFee: std.Coin{
-				Denom:  gasFeeDenom,
-				Amount: gasFeeAmount,
+func makeTxResult(
+	height,
+	gasFeeAmount int64,
+	gasFeeDenom string,
+	gasUsed int64,
+) *types.TxResult {
+	return &types.TxResult{
+		Height: height,
+		Index:  0,
+		Tx: amino.MustMarshal(std.Tx{
+			Fee: std.Fee{
+				GasFee: std.Coin{
+					Denom:  gasFeeDenom,
+					Amount: gasFeeAmount,
+				},
 			},
+		}),
+		Response: abci.ResponseDeliverTx{
+			GasUsed: gasUsed,
 		},
 	}
-
-	return amino.MustMarshal(tx)
 }

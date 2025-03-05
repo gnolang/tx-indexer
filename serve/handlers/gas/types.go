@@ -9,6 +9,12 @@ type Storage interface {
 	// GetLatestHeight returns the latest block height from the storage
 	GetLatestHeight() (uint64, error)
 
-	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-	BlockIterator(fromBlockNum, toBlockNum uint64) (storage.Iterator[*types.Block], error)
+	// TxIterator iterates over transactions, limiting the results to be between the provided block numbers
+	// and transaction indexes
+	TxReverseIterator(
+		fromBlockNum,
+		toBlockNum uint64,
+		fromTxIndex,
+		toTxIndex uint32,
+	) (storage.Iterator[*types.TxResult], error)
 }

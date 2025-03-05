@@ -18,7 +18,7 @@ func TestGasPriceSubscription_WriteResponse(t *testing.T) {
 	var (
 		capturedWrite any
 
-		mockBlock     = &types.Block{}
+		mockTxResults = []*types.TxResult{}
 		mockGasPrices = []*methods.GasPrice{}
 	)
 
@@ -36,7 +36,7 @@ func TestGasPriceSubscription_WriteResponse(t *testing.T) {
 	gasPriceSubscription := NewGasPriceSubscription(mockConn)
 
 	// Write the response
-	require.NoError(t, gasPriceSubscription.WriteResponse("", mockBlock))
+	require.NoError(t, gasPriceSubscription.WriteResponse("", mockTxResults))
 
 	// Make sure the captured data matches
 	require.NotNil(t, capturedWrite)
