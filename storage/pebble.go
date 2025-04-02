@@ -214,14 +214,6 @@ func (s *Pebble) loadTxIterator(
 ) (*pebble.Iterator, *pebble.Snapshot, error) {
 	fromKey := keyTx(fromBlockNum, fromTxIndex)
 
-	if toBlockNum == 0 {
-		toBlockNum = math.MaxInt64
-	}
-
-	if toTxIndex == 0 {
-		toTxIndex = math.MaxUint32
-	}
-
 	toKey := keyTx(toBlockNum, toTxIndex)
 
 	snap := s.db.NewSnapshot()
@@ -243,6 +235,14 @@ func (s *Pebble) TxIterator(
 	fromTxIndex,
 	toTxIndex uint32,
 ) (Iterator[*types.TxResult], error) {
+	if toBlockNum == 0 {
+		toBlockNum = math.MaxInt64
+	}
+
+	if toTxIndex == 0 {
+		toTxIndex = math.MaxUint32
+	}
+
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
 	if err != nil {
 		return nil, err
@@ -264,6 +264,14 @@ func (s *Pebble) TxReverseIterator(
 	fromTxIndex,
 	toTxIndex uint32,
 ) (Iterator[*types.TxResult], error) {
+	if toBlockNum == 0 {
+		toBlockNum = math.MaxInt64
+	}
+
+	if toTxIndex == 0 {
+		toTxIndex = math.MaxUint32
+	}
+
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
 	if err != nil {
 		return nil, err

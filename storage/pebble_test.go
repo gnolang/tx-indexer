@@ -183,7 +183,7 @@ func TestStorageIters(t *testing.T) {
 			break
 		}
 
-		_, err := it.Value()
+		_, err = it.Value()
 		require.NoError(t, err)
 		require.NoError(t, it.Error())
 
@@ -191,6 +191,28 @@ func TestStorageIters(t *testing.T) {
 	}
 
 	require.Equal(t, 0, txCount)
+
+	// corner case: get all transactions from genesis
+	it, err = s.TxIterator(0, 0, 0, 0)
+	require.NoError(t, err)
+
+	txCount = 0
+
+	for {
+		if !it.Next() {
+			require.NoError(t, it.Error())
+
+			break
+		}
+
+		_, err := it.Value()
+		require.NoError(t, err)
+		require.NoError(t, it.Error())
+
+		txCount++
+	}
+
+	require.Equal(t, 100, txCount)
 }
 
 // generateRandomBlocks generates dummy blocks
