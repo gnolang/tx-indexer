@@ -129,8 +129,8 @@ func (f *Manager) subscribeToEvents() {
 					f.subscriptions.sendEvent(filterSubscription.NewHeadsEvent, newBlock.Block)
 
 					// Send an event to the `newGasPrice` subscription when creating a block with transactions
-					if len(newBlock.Block.Txs) > 0 {
-						f.subscriptions.sendEvent(filterSubscription.NewGasPriceEvent, newBlock.Block)
+					if len(newBlock.Results) > 0 {
+						f.subscriptions.sendEvent(filterSubscription.NewGasPriceEvent, newBlock.Results)
 					}
 
 					for _, txResult := range newBlock.Results {
