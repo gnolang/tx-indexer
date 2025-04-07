@@ -1,6 +1,7 @@
 module github.com/gnolang/tx-indexer
 
 go 1.22.7
+toolchain go1.24.1
 
 require (
 	github.com/99designs/gqlgen v0.17.56
@@ -18,7 +19,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.19
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.13.0
 )
 
 require (
