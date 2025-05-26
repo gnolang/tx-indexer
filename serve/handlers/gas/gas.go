@@ -2,6 +2,7 @@ package gas
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -57,9 +58,11 @@ func (h *Handler) GetGasPriceHandler(
 func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.GasPrice, error) {
 	it, err := h.
 		storage.
-		BlockIterator(
+		TxReverseIterator(
 			fromBlockNum,
 			toBlockNum,
+			0,
+			math.MaxUint32,
 		)
 	if err != nil {
 		return nil, gqlerror.Wrap(err)
@@ -67,22 +70,22 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 
 	defer it.Close()
 
-	blocks := make([]*types.Block, 0)
+	txResults := make([]*types.TxResult, 0)
 
 	for {
 		if !it.Next() {
 			break
 		}
 
-		block, itErr := it.Value()
+		tx, itErr := it.Value()
 		if itErr != nil {
 			return nil, err
 		}
 
-		blocks = append(blocks, block)
+		txResults = append(txResults, tx)
 	}
 
-	gasPrices, err := methods.GetGasPricesByBlocks(blocks)
+	gasPrices, err := methods.GetGasPricesByTxResults(txResults)
 	if err != nil {
 		return nil, err
 	}
