@@ -339,6 +339,10 @@ type FilterMsgAddPackage struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for deposit field.
 	Deposit *FilterString `json:"deposit,omitempty"`
+	// filter for send field.
+	Send *FilterString `json:"send,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // filter for MsgCall objects
@@ -562,6 +566,12 @@ type MsgAddPackage struct {
 	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
 	Deposit string `json:"deposit"`
+	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	Send string `json:"send"`
+	// the maximum amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	MaxDeposit string `json:"max_deposit"`
 }
 
 func (MsgAddPackage) IsMessageValue() {}
@@ -800,6 +810,10 @@ type NestedFilterMsgAddPackage struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for deposit field.
 	Deposit *FilterString `json:"deposit,omitempty"`
+	// filter for send field.
+	Send *FilterString `json:"send,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // filter for MsgCall objects

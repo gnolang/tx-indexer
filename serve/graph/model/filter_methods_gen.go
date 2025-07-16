@@ -376,9 +376,21 @@ func (f *NestedFilterMsgAddPackage) Eval(obj *MsgAddPackage) bool {
 
 	// Evaluate individual field filters
 
+	// Handle Send field
+	toEvalSend := obj.Send
+	if f.Send != nil && !f.Send.Eval(&toEvalSend) {
+		return false
+	}
+
 	// Handle Package field
 	toEvalPackage := obj.Package
 	if f.Package != nil && !f.Package.Eval(toEvalPackage) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 
@@ -1525,9 +1537,21 @@ func (f *FilterMsgAddPackage) Eval(obj *MsgAddPackage) bool {
 
 	// Evaluate individual field filters
 
+	// Handle Send field
+	toEvalSend := obj.Send
+	if f.Send != nil && !f.Send.Eval(&toEvalSend) {
+		return false
+	}
+
 	// Handle Package field
 	toEvalPackage := obj.Package
 	if f.Package != nil && !f.Package.Eval(toEvalPackage) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 

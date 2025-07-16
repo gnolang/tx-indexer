@@ -327,7 +327,9 @@ func makeVMAddPackage(value std.Msg) MsgAddPackage {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
-		Deposit: decodedMessage.Deposit.String(),
+		Deposit:    decodedMessage.Send.String(),
+		Send:       decodedMessage.Send.String(),
+		MaxDeposit: decodedMessage.MaxDeposit.String(),
 	}
 }
 

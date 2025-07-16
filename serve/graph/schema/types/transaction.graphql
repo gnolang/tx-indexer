@@ -201,7 +201,19 @@ type MsgAddPackage {
   the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
-  deposit: String! @filterable
+  deposit: String! @filterable @deprecated(reason: "Use `send` instead.")
+
+  """
+  the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  send: String! @filterable
+
+  """
+  the maximum amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  max_deposit: String! @filterable
 }
 
 """
