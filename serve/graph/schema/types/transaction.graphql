@@ -179,6 +179,12 @@ type MsgCall {
   `args` are the arguments passed to the executed function.
   """
   args: [String!] @filterable
+
+  """
+  the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  max_deposit: String! @filterable
 }
 
 """
@@ -210,7 +216,7 @@ type MsgAddPackage {
   send: String! @filterable
 
   """
-  the maximum amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+  the maximum amount of funds to be deposited at deployment used for storage, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
   max_deposit: String! @filterable
@@ -237,6 +243,12 @@ type MsgRun {
   the package being executed.
   """
   package: MemPackage! @filterable
+
+  """
+  the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  max_deposit: String! @filterable
 }
 
 """

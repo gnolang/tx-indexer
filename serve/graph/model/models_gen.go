@@ -363,6 +363,8 @@ type FilterMsgCall struct {
 	Func *FilterString `json:"func,omitempty"`
 	// filter for args field.
 	Args *FilterString `json:"args,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // filter for MsgRun objects
@@ -379,6 +381,8 @@ type FilterMsgRun struct {
 	Send *FilterString `json:"send,omitempty"`
 	// filter for package field.
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
@@ -569,7 +573,7 @@ type MsgAddPackage struct {
 	// the amount of funds to be deposited at deployment, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
 	Send string `json:"send"`
-	// the maximum amount of funds to be deposited at deployment, if any ("<amount><denomination>").
+	// the maximum amount of funds to be deposited at deployment used for storage, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
 	MaxDeposit string `json:"max_deposit"`
 }
@@ -604,6 +608,9 @@ type MsgCall struct {
 	Func string `json:"func"`
 	// `args` are the arguments passed to the executed function.
 	Args []string `json:"args,omitempty"`
+	// the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	MaxDeposit string `json:"max_deposit"`
 }
 
 func (MsgCall) IsMessageValue() {}
@@ -639,6 +646,9 @@ type MsgRun struct {
 	Send string `json:"send"`
 	// the package being executed.
 	Package *MemPackage `json:"package"`
+	// the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	MaxDeposit string `json:"max_deposit"`
 }
 
 func (MsgRun) IsMessageValue() {}
@@ -834,6 +844,8 @@ type NestedFilterMsgCall struct {
 	Func *FilterString `json:"func,omitempty"`
 	// filter for args field.
 	Args *FilterString `json:"args,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // filter for MsgRun objects
@@ -850,6 +862,8 @@ type NestedFilterMsgRun struct {
 	Send *FilterString `json:"send,omitempty"`
 	// filter for package field.
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
+	// filter for max_deposit field.
+	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
 // filter for TransactionMessage objects

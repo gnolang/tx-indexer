@@ -298,11 +298,12 @@ func makeVMMsgCall(value std.Msg) MsgCall {
 	}
 
 	return MsgCall{
-		Caller:  decodedMessage.Caller.String(),
-		Send:    decodedMessage.Send.String(),
-		PkgPath: decodedMessage.PkgPath,
-		Func:    decodedMessage.Func,
-		Args:    decodedMessage.Args,
+		Caller:     decodedMessage.Caller.String(),
+		Send:       decodedMessage.Send.String(),
+		MaxDeposit: decodedMessage.MaxDeposit.String(),
+		PkgPath:    decodedMessage.PkgPath,
+		Func:       decodedMessage.Func,
+		Args:       decodedMessage.Args,
 	}
 }
 
@@ -348,8 +349,9 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 	}
 
 	return MsgRun{
-		Caller: decodedMessage.Caller.String(),
-		Send:   decodedMessage.Send.String(),
+		Caller:     decodedMessage.Caller.String(),
+		Send:       decodedMessage.Send.String(),
+		MaxDeposit: decodedMessage.MaxDeposit.String(),
 		Package: &MemPackage{
 			Name:  decodedMessage.Package.Name,
 			Path:  decodedMessage.Package.Path,
