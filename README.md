@@ -105,9 +105,12 @@ http://<listen-address>/graphql/query
 ```
 http://<listen-address>/graphql
 ```  
-The playground includes built-in documentation for available queries, fields, and filters.  
+The playground includes built-in documentation for available queries, fields, and filters. 
 
 **Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).  
+
+#### Hosted Example
+- [Test6 Playground](https://indexer.test6.testnets.gno.land/graphql) 
 
 ### Examples
 
