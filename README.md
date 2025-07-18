@@ -93,7 +93,7 @@ FLAGS
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
 ```
 
-### GraphQL Endpoint  
+## GraphQL Endpoint  
 The indexer provides a **GraphQL endpoint** for querying blockchain data (transactions, blocks) and subscribing to real-time events:  
 
 **Endpoint:**  
