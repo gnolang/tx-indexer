@@ -161,6 +161,8 @@ func (s *Pebble) loadBlockIterator(fromBlockNum, toBlockNum uint64) (*pebble.Ite
 
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	toKey := keyBlock(toBlockNum)
@@ -192,6 +194,8 @@ func (s *Pebble) BlockReverseIterator(fromBlockNum, toBlockNum uint64) (Iterator
 
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	toKey := keyBlock(toBlockNum)
@@ -240,10 +244,14 @@ func (s *Pebble) TxIterator(
 ) (Iterator[*types.TxResult], error) {
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	if toTxIndex == 0 {
 		toTxIndex = math.MaxUint32
+	} else {
+		toTxIndex++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
@@ -269,10 +277,14 @@ func (s *Pebble) TxReverseIterator(
 ) (Iterator[*types.TxResult], error) {
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	if toTxIndex == 0 {
 		toTxIndex = math.MaxUint32
+	} else {
+		toTxIndex++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
