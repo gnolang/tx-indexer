@@ -263,6 +263,12 @@ func (f *NestedFilterMsgRun) Eval(obj *MsgRun) bool {
 		return false
 	}
 
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
+		return false
+	}
+
 	// Handle Caller field
 	toEvalCaller := obj.Caller
 	if f.Caller != nil && !f.Caller.Eval(&toEvalCaller) {
@@ -312,6 +318,12 @@ func (f *NestedFilterMsgCall) Eval(obj *MsgCall) bool {
 	// Handle PkgPath field
 	toEvalPkgPath := obj.PkgPath
 	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 
@@ -376,9 +388,21 @@ func (f *NestedFilterMsgAddPackage) Eval(obj *MsgAddPackage) bool {
 
 	// Evaluate individual field filters
 
+	// Handle Send field
+	toEvalSend := obj.Send
+	if f.Send != nil && !f.Send.Eval(&toEvalSend) {
+		return false
+	}
+
 	// Handle Package field
 	toEvalPackage := obj.Package
 	if f.Package != nil && !f.Package.Eval(toEvalPackage) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 
@@ -1412,6 +1436,12 @@ func (f *FilterMsgRun) Eval(obj *MsgRun) bool {
 		return false
 	}
 
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
+		return false
+	}
+
 	// Handle Caller field
 	toEvalCaller := obj.Caller
 	if f.Caller != nil && !f.Caller.Eval(&toEvalCaller) {
@@ -1461,6 +1491,12 @@ func (f *FilterMsgCall) Eval(obj *MsgCall) bool {
 	// Handle PkgPath field
 	toEvalPkgPath := obj.PkgPath
 	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 
@@ -1525,9 +1561,21 @@ func (f *FilterMsgAddPackage) Eval(obj *MsgAddPackage) bool {
 
 	// Evaluate individual field filters
 
+	// Handle Send field
+	toEvalSend := obj.Send
+	if f.Send != nil && !f.Send.Eval(&toEvalSend) {
+		return false
+	}
+
 	// Handle Package field
 	toEvalPackage := obj.Package
 	if f.Package != nil && !f.Package.Eval(toEvalPackage) {
+		return false
+	}
+
+	// Handle MaxDeposit field
+	toEvalMaxDeposit := obj.MaxDeposit
+	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
 		return false
 	}
 
