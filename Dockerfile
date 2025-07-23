@@ -23,7 +23,8 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 # Stage 2: Run
 #===============
 
-FROM alpine:3.20 AS tx-indexer
+FROM cgr.dev/chainguard/static:latest AS tx-indexer
 
+WORKDIR /var/lib/app
 COPY --from=builder /app/indexer /usr/local/bin/indexer
 ENTRYPOINT [ "/usr/local/bin/indexer" ]
