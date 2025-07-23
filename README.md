@@ -55,19 +55,19 @@ make build
 3. **Run the indexer**
 
 ```bash
-./build/tx-indexer start --remote https://rpc.test4.gno.land --db-path indexer-db
+./build/tx-indexer start --remote https://rpc.test6.testnets.gno.land --db-path indexer-db
 ```
 
 or:
 
 ```bash
-go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test4.gno.land --db-path indexer-db
+go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test6.testnets.gno.land --db-path indexer-db
 ```
 
 The `--remote` flag specifies the JSON-RPC URL of the chain the indexer should index, and the `--db-path` specifies the
 on-disk location for the indexed data.
 
-**Note**: the websocket endpoint exposed is always: `ws://<listen-address>/ws`
+**Note**: the websocket endpoint exposed is always: `ws://<listen-address>/ws`, where `<listen-address>` is set via the `--listen-address` flag when starting the indexer (default: `0.0.0.0:8546`).
 
 For a full list of available features and flags, execute the `--help` command:
 
@@ -84,6 +84,7 @@ Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
+  -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
   -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-level info                 the log level for the CLI output
@@ -92,11 +93,24 @@ FLAGS
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
 ```
 
-## GraphQL Endpoint
+## GraphQL Endpoint  
+The indexer provides a **GraphQL endpoint** for querying blockchain data (transactions, blocks) and subscribing to real-time events:  
 
-A GraphQL endpoint is available at `/graphql/query`. It supports standard queries for transactions and blocks and subscriptions for real-time events.
+**Endpoint:**  
+```
+http://<listen-address>/graphql/query
+```  
 
-A GraphQL playground is available at `/graphql`. There you have all the documentation needed explaining the different fields and available filters.
+**Playground (Interactive UI):**  
+```
+http://<listen-address>/graphql
+```  
+The playground includes built-in documentation for available queries, fields, and filters. 
+
+**Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).  
+
+#### Hosted Example
+- [Test6 Playground](https://indexer.test6.testnets.gno.land/graphql) 
 
 ### Examples
 
