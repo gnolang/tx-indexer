@@ -30,6 +30,7 @@ const (
 
 func keyTx(blockNum uint64, txIndex uint32) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyTxs)
 	key = encodeUint64Ascending(key, blockNum)
 	key = encodeUint32Ascending(key, txIndex)
@@ -39,6 +40,7 @@ func keyTx(blockNum uint64, txIndex uint32) []byte {
 
 func keyHashTx(hash string) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyTxByHash)
 	key = encodeStringAscending(key, hash)
 
@@ -47,6 +49,7 @@ func keyHashTx(hash string) []byte {
 
 func keyBlock(blockNum uint64) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyBlocks)
 	key = encodeUint64Ascending(key, blockNum)
 
@@ -475,6 +478,7 @@ type PebbleBatch struct {
 
 func (b *PebbleBatch) SetLatestHeight(h uint64) error {
 	var val []byte
+
 	val = encodeUint64Ascending(val, h)
 
 	return b.b.Set([]byte(keyLatestHeight), val, pebble.NoSync)

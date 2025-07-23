@@ -69,11 +69,7 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 
 	blocks := make([]*types.Block, 0)
 
-	for {
-		if !it.Next() {
-			break
-		}
-
+	for it.Next() {
 		block, itErr := it.Value()
 		if itErr != nil {
 			return nil, err
