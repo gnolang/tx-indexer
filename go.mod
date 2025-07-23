@@ -18,7 +18,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.19
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.16.0
 )
 
 require (
