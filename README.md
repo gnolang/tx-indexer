@@ -55,13 +55,13 @@ make build
 3. **Run the indexer**
 
 ```bash
-./build/tx-indexer start --remote https://rpc.test6.testnets.gno.land --db-path indexer-db
+./build/tx-indexer start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
 ```
 
 or:
 
 ```bash
-go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test6.testnets.gno.land --db-path indexer-db
+go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
 ```
 
 The `--remote` flag specifies the JSON-RPC URL of the chain the indexer should index, and the `--db-path` specifies the
@@ -110,7 +110,7 @@ The playground includes built-in documentation for available queries, fields, an
 **Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).  
 
 #### Hosted Example
-- [Test6 Playground](https://indexer.test7.testnets.gno.land/graphql) 
+- [Test7 Playground](https://indexer.test7.testnets.gno.land/graphql) 
 
 ### Examples
 
