@@ -7,7 +7,11 @@ updates:
     schedule:
       interval: "daily"
     labels:
-      - "github_actions"
+      - "dependencies"
+    groups:
+      actions:
+        patterns:
+          - "*"
 
   # Maintain dependencies for top level Go modules
   - package-ecosystem: gomod
@@ -17,8 +21,16 @@ updates:
       interval: weekly
     labels:
       - "dependencies"
+    groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      everything-else:
+        patterns:
+          - "*"
     open-pull-requests-limit: 10
     pull-request-branch-name:
       separator: "-"
     reviewers:
       - "zivkovicmilos"
+      - "ajnavarro"

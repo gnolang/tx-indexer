@@ -30,6 +30,7 @@ const (
 
 func keyTx(blockNum uint64, txIndex uint32) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyTxs)
 	key = encodeUint64Ascending(key, blockNum)
 	key = encodeUint32Ascending(key, txIndex)
@@ -39,6 +40,7 @@ func keyTx(blockNum uint64, txIndex uint32) []byte {
 
 func keyHashTx(hash string) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyTxByHash)
 	key = encodeStringAscending(key, hash)
 
@@ -47,6 +49,7 @@ func keyHashTx(hash string) []byte {
 
 func keyBlock(blockNum uint64) []byte {
 	var key []byte
+
 	key = encodeStringAscending(key, prefixKeyBlocks)
 	key = encodeUint64Ascending(key, blockNum)
 
@@ -158,6 +161,8 @@ func (s *Pebble) loadBlockIterator(fromBlockNum, toBlockNum uint64) (*pebble.Ite
 
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	toKey := keyBlock(toBlockNum)
@@ -189,6 +194,8 @@ func (s *Pebble) BlockReverseIterator(fromBlockNum, toBlockNum uint64) (Iterator
 
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	toKey := keyBlock(toBlockNum)
@@ -237,10 +244,14 @@ func (s *Pebble) TxIterator(
 ) (Iterator[*types.TxResult], error) {
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	if toTxIndex == 0 {
 		toTxIndex = math.MaxUint32
+	} else {
+		toTxIndex++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
@@ -266,10 +277,14 @@ func (s *Pebble) TxReverseIterator(
 ) (Iterator[*types.TxResult], error) {
 	if toBlockNum == 0 {
 		toBlockNum = math.MaxInt64
+	} else {
+		toBlockNum++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	if toTxIndex == 0 {
 		toTxIndex = math.MaxUint32
+	} else {
+		toTxIndex++ // adding one to the range because the UpperBound is exclusive
 	}
 
 	it, snap, err := s.loadTxIterator(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
@@ -475,6 +490,7 @@ type PebbleBatch struct {
 
 func (b *PebbleBatch) SetLatestHeight(h uint64) error {
 	var val []byte
+
 	val = encodeUint64Ascending(val, h)
 
 	return b.b.Set([]byte(keyLatestHeight), val, pebble.NoSync)

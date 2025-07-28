@@ -145,7 +145,7 @@ func TestStorageIters(t *testing.T) {
 		txCount++
 	}
 
-	require.Equal(t, 3, txCount)
+	require.Equal(t, 4, txCount) // txs 0, 1, 2 AND 3
 
 	defer require.NoError(t, it.Close())
 
@@ -167,7 +167,7 @@ func TestStorageIters(t *testing.T) {
 		blockCount++
 	}
 
-	require.Equal(t, 2, blockCount)
+	require.Equal(t, 3, blockCount) // blocks 0, 1, AND 2
 
 	defer require.NoError(t, it2.Close())
 

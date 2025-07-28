@@ -35,6 +35,7 @@ func handleChannel[T any](
 	writeToChannel func(*types.NewBlock, chan<- T),
 ) <-chan T {
 	ch := make(chan T)
+
 	go func() {
 		defer close(ch)
 

@@ -70,6 +70,7 @@ func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux, disableIntros
 func examplesToSlice() ([]string, error) {
 	var out []string
 
+	//nolint:staticcheck // The overwrite is fine
 	err := fs.WalkDir(examples, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
