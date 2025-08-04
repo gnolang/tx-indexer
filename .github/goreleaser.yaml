@@ -106,14 +106,14 @@ docker_manifests:
     image_templates:
       - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-amd64
       - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-arm64v8
-      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv6
-      - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv7
+      # - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv6
+      # - ghcr.io/gnolang/{{ .ProjectName }}:{{ .Version }}-armv7
   - name_template: ghcr.io/gnolang/{{ .ProjectName }}:latest
     image_templates:
       - ghcr.io/gnolang/{{ .ProjectName }}:latest-amd64
       - ghcr.io/gnolang/{{ .ProjectName }}:latest-arm64v8
-      - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv6
-      - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv7
+      # - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv6
+      # - ghcr.io/gnolang/{{ .ProjectName }}:latest-armv7
     
 docker_signs:
   - cmd: cosign
