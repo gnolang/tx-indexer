@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 
 FROM cgr.dev/chainguard/static:latest AS tx-indexer
 
+# Set WORKDIR to prevent writing to root filesystem
+# Chainguard images restrict root FS writes; indexer creates a DB file on startup
 WORKDIR /var/lib/app
 COPY --from=builder /app/indexer /usr/local/bin/indexer
 ENTRYPOINT [ "/usr/local/bin/indexer" ]
