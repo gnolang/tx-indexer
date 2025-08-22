@@ -324,7 +324,8 @@ func (f *Fetcher) writeSlot(s *slot) error {
 
 func (f *Fetcher) IsReady() (bool, error) {
 	if f.latestChunkSize == int(f.maxChunkSize) {
-		return false, fmt.Errorf("the data synchronization process is still in progress and hasn't caught up with the current blockchain state. Chunk size: %d", f.latestChunkSize)
+		return false, fmt.Errorf("the data synchronization process is still in progress and hasn't "+
+			"caught up with the current blockchain state. Chunk size: %d", f.latestChunkSize)
 	}
 
 	_, err := f.client.GetLatestBlockNumber()
