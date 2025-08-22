@@ -1,6 +1,9 @@
 # This Dockerfile is only useful for Goreleaser task
 # https://goreleaser.com/customization/docker/
-FROM scratch
+FROM cgr.dev/chainguard/static:latest
 COPY tx-indexer /
+# Set WORKDIR to prevent writing to root filesystem
+# Chainguard images restrict root FS writes; indexer creates a DB file on startup
+WORKDIR /var/lib/app
 ENTRYPOINT [ "/tx-indexer" ]
 CMD [ "start" ]
