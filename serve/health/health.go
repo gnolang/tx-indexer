@@ -1,7 +1,6 @@
 package health
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,14 +13,12 @@ import (
 
 func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		e := json.NewEncoder(w)
-
 		h, err := s.GetLatestHeight()
 		if err != nil {
-			e.Encode(&response{
+			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("storage is not reachable: %s", err.Error()),
 				Info: map[string]any{
-					"time": fmt.Sprintf("%s", time.Now()),
+					"time": time.Now().String(),
 				},
 			})
 
@@ -30,36 +27,33 @@ func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 			return
 		}
 
-		e.Encode(&response{
+		render.JSON(w, r, &response{
 			Message: "Server is responding",
 			Info: map[string]any{
-				"time":   fmt.Sprintf("%s", time.Now()),
+				"time":   time.Now().String(),
 				"height": h,
 			},
 		})
 	})
 
 	m.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		e := json.NewEncoder(w)
-
 		ok, err := rc.IsReady()
 		if !ok {
-			e.Encode(&response{
+			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("node not ready: %s", err.Error()),
 				Info: map[string]any{
-					"time": fmt.Sprintf("%s", time.Now()),
+					"time": time.Now().String(),
 				},
 			})
-
 			render.Status(r, http.StatusInternalServerError)
 
 			return
 		}
 
-		e.Encode(&response{
+		render.JSON(w, r, &response{
 			Message: "node is ready",
 			Info: map[string]any{
-				"time": fmt.Sprintf("%s", time.Now()),
+				"time": time.Now().String(),
 			},
 		})
 	})
