@@ -25,5 +25,6 @@ func WithMaxSlots(maxSlots int) Option {
 func WithMaxChunkSize(maxChunkSize int64) Option {
 	return func(f *Fetcher) {
 		f.maxChunkSize = maxChunkSize
+		f.latestChunkSize = int(maxChunkSize)
 	}
 }
