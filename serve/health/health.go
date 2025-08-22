@@ -62,8 +62,8 @@ func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 }
 
 type response struct {
-	Message string         `json:"message"`
 	Info    map[string]any `json:"info"`
+	Message string         `json:"message"`
 }
 
 type ReadyChecker interface {
