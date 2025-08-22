@@ -8,12 +8,12 @@ import (
 	"sort"
 	"time"
 
-	queue "github.com/madz-lab/insertion-queue"
-	"go.uber.org/zap"
-
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
+	queue "github.com/madz-lab/insertion-queue"
+	"go.uber.org/zap"
+
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -36,8 +36,9 @@ type Fetcher struct {
 	logger      *zap.Logger
 	chunkBuffer *slots
 
-	maxSlots     int
-	maxChunkSize int64
+	maxSlots        int
+	maxChunkSize    int64
+	latestChunkSize int
 
 	queryInterval time.Duration // block query interval
 }
@@ -316,7 +317,22 @@ func (f *Fetcher) writeSlot(s *slot) error {
 		return fmt.Errorf("error persisting block information into storage, %w", err)
 	}
 
+	f.latestChunkSize = len(s.chunk.blocks)
+
 	return nil
+}
+
+func (f *Fetcher) IsReady() (bool, error) {
+	if f.latestChunkSize == int(f.maxChunkSize) {
+		return false, fmt.Errorf("the data synchronization process is still in progress and hasn't caught up with the current blockchain state. Chunk size: %d", f.latestChunkSize)
+	}
+
+	_, err := f.client.GetLatestBlockNumber()
+	if err != nil {
+		return false, fmt.Errorf("node RPC method is not reachable: %w", err)
+	}
+
+	return true, nil
 }
 
 func getGenesisBlock(client Client) (*bft_types.Block, error) {

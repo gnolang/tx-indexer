@@ -1,6 +1,7 @@
 package health
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -11,20 +12,66 @@ import (
 	"github.com/gnolang/tx-indexer/storage"
 )
 
-func Setup(s storage.Storage, m *chi.Mux) *chi.Mux {
+func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		e := json.NewEncoder(w)
+
 		h, err := s.GetLatestHeight()
 		if err != nil {
-			fmt.Fprintf(w, "ERROR: %s\n", err)
+			e.Encode(&response{
+				Message: fmt.Sprintf("storage is not reachable: %s", err.Error()),
+				Info: map[string]any{
+					"time": fmt.Sprintf("%s", time.Now()),
+				},
+			})
+
 			render.Status(r, http.StatusInternalServerError)
 
 			return
 		}
 
-		fmt.Fprintf(w, "Server is responding\n")
-		fmt.Fprintf(w, "- Time: %s\n", time.Now())
-		fmt.Fprintf(w, "- Latest Height: %d\n", h)
+		e.Encode(&response{
+			Message: "Server is responding",
+			Info: map[string]any{
+				"time":   fmt.Sprintf("%s", time.Now()),
+				"height": h,
+			},
+		})
+	})
+
+	m.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		e := json.NewEncoder(w)
+
+		ok, err := rc.IsReady()
+		if !ok {
+			e.Encode(&response{
+				Message: fmt.Sprintf("node not ready: %s", err.Error()),
+				Info: map[string]any{
+					"time": fmt.Sprintf("%s", time.Now()),
+				},
+			})
+
+			render.Status(r, http.StatusInternalServerError)
+
+			return
+		}
+
+		e.Encode(&response{
+			Message: "node is ready",
+			Info: map[string]any{
+				"time": fmt.Sprintf("%s", time.Now()),
+			},
+		})
 	})
 
 	return m
+}
+
+type response struct {
+	Message string         `json:"message"`
+	Info    map[string]any `json:"info"`
+}
+
+type ReadyChecker interface {
+	IsReady() (bool, error)
 }
