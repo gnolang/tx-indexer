@@ -1,0 +1,49 @@
+on:
+  workflow_call:
+    inputs:
+      app-name:
+        required: true
+        type: string
+      env:
+        required: true
+        type: string
+    secrets:
+      AWS_IAM_OIDC:
+        required: true
+      PAT_TOKEN:
+        required: true
+      REGION:
+        required: true
+permissions:
+  contents: write
+  id-token: write
+jobs:
+#  build:
+#    name: Go Build
+#    uses: ./.github/workflows/build_template.yml
+#    with:
+#      go-version: '1.22.x'
+#  test:
+#    name: Go Test
+#    uses: ./.github/workflows/test_template.yml
+#    with:
+#      go-version: '1.22.x'
+#      tests-timeout: '30m'
+  docker-build:
+    name: Docker Build
+    uses: ./.github/workflows/docker_build_template.yml
+    with:
+      go-version: '1.23.x'
+      app-name: ${{ inputs.app-name }}
+      env: ${{ inputs.env }}
+    secrets:
+      AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
+      REGION: ${{ secrets.REGION }}
+  helm_chart_push:
+    name: helm chart image tag push
+    uses: ./.github/workflows/helm_chart_push.yml
+    with:
+      app-name: ${{ inputs.app-name }}
+      env: ${{ inputs.env }}
+    secrets:
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
