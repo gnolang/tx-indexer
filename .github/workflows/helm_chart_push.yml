@@ -1,0 +1,50 @@
+on:
+  workflow_call:
+    inputs:
+      app-name:
+        required: true
+        type: string
+      env:
+        required: true
+        type: string
+    secrets:
+      PAT_TOKEN:
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  helm_chart_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repo onbloc-helm-chart
+        run: |
+          echo ${{ secrets.PAT_TOKEN }}
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/onbloc/onbloc-helm-chart.git onbloc-helm-chart
+
+      - name: Make changes to onbloc-helm-chart Repo
+        run: |
+          cd onbloc-helm-chart/
+          git checkout -b deploy-${{ github.run_id }}-${{ inputs.app-name }} origin/${{ inputs.env }}
+          cd ${{ inputs.app-name }}
+          sed -i "s/^\(\s*tag\s*:\s*\).*/\1'${{ github.sha }}'/" values-${{ inputs.env }}.yaml
+
+      - name: Commit and push changes to helm repository
+        run: |
+          cd onbloc-helm-chart/
+          git config --global user.email "gnoswap@onbloc.xyz"
+          git config --global user.name "onbloc"
+          git add .
+          git commit -m "Pushed onbloc-${{ inputs.app-name }}-${{ inputs.env }}:${{ github.sha }}"
+          git push origin deploy-${{ github.run_id }}-${{ inputs.app-name }}
+          git checkout ${{ inputs.env }}
+          git pull --rebase origin deploy-${{ github.run_id }}-${{ inputs.app-name }} || git rebase --abort
+          git push origin ${{ inputs.env }}
+          git branch -d deploy-${{ github.run_id }}-${{ inputs.app-name }}
+          git push origin --delete deploy-${{ github.run_id }}-${{ inputs.app-name }}
+          echo "  ____                     _ "
+          echo " |  _ \  ___  _ __   ___  | |"
+          echo " | | | |/ _ \| '_ \ / _ \ | |"
+          echo " | |_| | (_) | | | |  __/ |_|"
+          echo " |____/ \___/|_| |_|\___| (_)"
