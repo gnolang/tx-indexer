@@ -142,6 +142,20 @@ type ComplexityRoot struct {
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
 	}
 
+	StorageDepositEvent struct {
+		BytesDelta func(childComplexity int) int
+		FeeDelta   func(childComplexity int) int
+		PkgPath    func(childComplexity int) int
+		Type       func(childComplexity int) int
+	}
+
+	StorageUnlockEvent struct {
+		BytesDelta func(childComplexity int) int
+		FeeRefund  func(childComplexity int) int
+		PkgPath    func(childComplexity int) int
+		Type       func(childComplexity int) int
+	}
+
 	Subscription struct {
 		Blocks          func(childComplexity int, filter model.BlockFilter) int
 		GetBlocks       func(childComplexity int, where model.FilterBlock) int
@@ -642,6 +656,62 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+
+	case "StorageDepositEvent.bytes_delta":
+		if e.complexity.StorageDepositEvent.BytesDelta == nil {
+			break
+		}
+
+		return e.complexity.StorageDepositEvent.BytesDelta(childComplexity), true
+
+	case "StorageDepositEvent.fee_delta":
+		if e.complexity.StorageDepositEvent.FeeDelta == nil {
+			break
+		}
+
+		return e.complexity.StorageDepositEvent.FeeDelta(childComplexity), true
+
+	case "StorageDepositEvent.pkg_path":
+		if e.complexity.StorageDepositEvent.PkgPath == nil {
+			break
+		}
+
+		return e.complexity.StorageDepositEvent.PkgPath(childComplexity), true
+
+	case "StorageDepositEvent.type":
+		if e.complexity.StorageDepositEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.StorageDepositEvent.Type(childComplexity), true
+
+	case "StorageUnlockEvent.bytes_delta":
+		if e.complexity.StorageUnlockEvent.BytesDelta == nil {
+			break
+		}
+
+		return e.complexity.StorageUnlockEvent.BytesDelta(childComplexity), true
+
+	case "StorageUnlockEvent.fee_refund":
+		if e.complexity.StorageUnlockEvent.FeeRefund == nil {
+			break
+		}
+
+		return e.complexity.StorageUnlockEvent.FeeRefund(childComplexity), true
+
+	case "StorageUnlockEvent.pkg_path":
+		if e.complexity.StorageUnlockEvent.PkgPath == nil {
+			break
+		}
+
+		return e.complexity.StorageUnlockEvent.PkgPath(childComplexity), true
+
+	case "StorageUnlockEvent.type":
+		if e.complexity.StorageUnlockEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.StorageUnlockEvent.Type(childComplexity), true
 
 	case "Subscription.blocks":
 		if e.complexity.Subscription.Blocks == nil {
@@ -1219,7 +1289,7 @@ type Coin {
 	"""
 	denom: String! @filterable
 }
-union Event = GnoEvent | UnknownEvent
+union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
 """
 Transaction event's attribute to filter transaction.
 "EventAttributeInput" can be configured as a filter with a event attribute's ` + "`" + `key` + "`" + ` and ` + "`" + `value` + "`" + `.
@@ -2756,6 +2826,50 @@ type Query {
 	results and errors are returned.
 	"""
 	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
+}
+"""
+` + "`" + `StorageDepositEvent` + "`" + ` is emitted when a storage deposit fee is locked.
+It has ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_delta` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
+"""
+type StorageDepositEvent {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String!
+	"""
+	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes used.
+	"""
+	bytes_delta: Int!
+	"""
+	` + "`" + `fee_delta` + "`" + ` is the amount of coins paid in fees.
+	"""
+	fee_delta: Coin!
+	"""
+	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	"""
+	pkg_path: String!
+}
+"""
+` + "`" + `StorageUnlockEvent` + "`" + ` is emitted when a storage deposit fee is unlocked.
+It has ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
+"""
+type StorageUnlockEvent {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String!
+	"""
+	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes released.
+	"""
+	bytes_delta: Int!
+	"""
+	` + "`" + `fee_refund` + "`" + ` is the amount of coins refunded in fees.
+	"""
+	fee_refund: Coin!
+	"""
+	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	"""
+	pkg_path: String!
 }
 """
 Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
@@ -7464,6 +7578,370 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageDepositEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.StorageDepositEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageDepositEvent_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Type, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageDepositEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageDepositEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageDepositEvent_bytes_delta(ctx context.Context, field graphql.CollectedField, obj *model.StorageDepositEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageDepositEvent_bytes_delta(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BytesDelta, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageDepositEvent_bytes_delta(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageDepositEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageDepositEvent_fee_delta(ctx context.Context, field graphql.CollectedField, obj *model.StorageDepositEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageDepositEvent_fee_delta(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FeeDelta, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Coin)
+	fc.Result = res
+	return ec.marshalNCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageDepositEvent_fee_delta(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageDepositEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "amount":
+				return ec.fieldContext_Coin_amount(ctx, field)
+			case "denom":
+				return ec.fieldContext_Coin_denom(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Coin", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageDepositEvent_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.StorageDepositEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageDepositEvent_pkg_path(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PkgPath, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageDepositEvent_pkg_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageDepositEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageUnlockEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.StorageUnlockEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageUnlockEvent_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Type, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageUnlockEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageUnlockEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageUnlockEvent_bytes_delta(ctx context.Context, field graphql.CollectedField, obj *model.StorageUnlockEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageUnlockEvent_bytes_delta(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.BytesDelta, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageUnlockEvent_bytes_delta(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageUnlockEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageUnlockEvent_fee_refund(ctx context.Context, field graphql.CollectedField, obj *model.StorageUnlockEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageUnlockEvent_fee_refund(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FeeRefund, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Coin)
+	fc.Result = res
+	return ec.marshalNCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoin(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageUnlockEvent_fee_refund(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageUnlockEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "amount":
+				return ec.fieldContext_Coin_amount(ctx, field)
+			case "denom":
+				return ec.fieldContext_Coin_denom(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Coin", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StorageUnlockEvent_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.StorageUnlockEvent) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StorageUnlockEvent_pkg_path(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PkgPath, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StorageUnlockEvent_pkg_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageUnlockEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -14336,6 +14814,20 @@ func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, ob
 			return graphql.Null
 		}
 		return ec._GnoEvent(ctx, sel, obj)
+	case model.StorageDepositEvent:
+		return ec._StorageDepositEvent(ctx, sel, &obj)
+	case *model.StorageDepositEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StorageDepositEvent(ctx, sel, obj)
+	case model.StorageUnlockEvent:
+		return ec._StorageUnlockEvent(ctx, sel, &obj)
+	case *model.StorageUnlockEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StorageUnlockEvent(ctx, sel, obj)
 	case model.UnknownEvent:
 		return ec._UnknownEvent(ctx, sel, &obj)
 	case *model.UnknownEvent:
@@ -15146,6 +15638,114 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var storageDepositEventImplementors = []string{"StorageDepositEvent", "Event"}
+
+func (ec *executionContext) _StorageDepositEvent(ctx context.Context, sel ast.SelectionSet, obj *model.StorageDepositEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, storageDepositEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StorageDepositEvent")
+		case "type":
+			out.Values[i] = ec._StorageDepositEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bytes_delta":
+			out.Values[i] = ec._StorageDepositEvent_bytes_delta(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fee_delta":
+			out.Values[i] = ec._StorageDepositEvent_fee_delta(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_path":
+			out.Values[i] = ec._StorageDepositEvent_pkg_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var storageUnlockEventImplementors = []string{"StorageUnlockEvent", "Event"}
+
+func (ec *executionContext) _StorageUnlockEvent(ctx context.Context, sel ast.SelectionSet, obj *model.StorageUnlockEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, storageUnlockEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StorageUnlockEvent")
+		case "type":
+			out.Values[i] = ec._StorageUnlockEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bytes_delta":
+			out.Values[i] = ec._StorageUnlockEvent_bytes_delta(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fee_refund":
+			out.Values[i] = ec._StorageUnlockEvent_fee_refund(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_path":
+			out.Values[i] = ec._StorageUnlockEvent_pkg_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

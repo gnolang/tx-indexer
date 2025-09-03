@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
+	gnostd "github.com/gnolang/gno/gnovm/stdlibs/std"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -267,10 +268,33 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 		return nil, err
 	}
 
-	var gnoEvent *GnoEvent
+	switch abciEvent.(type) {
+	case gnostd.GnoEvent:
+		var gnoEvent *GnoEvent
 
-	if err = json.Unmarshal(data, &gnoEvent); err == nil {
-		return gnoEvent, nil
+		if err = json.Unmarshal(data, &gnoEvent); err == nil {
+			return gnoEvent, nil
+		}
+	case gnostd.StorageDepositEvent:
+		var storageDepositEvent *StorageDepositEvent
+
+		if err = json.Unmarshal(data, &storageDepositEvent); err == nil {
+			// Since the event type is not included in this kind of event data,
+			// and events could be of different types,
+			// we set it here so it will be easier to filter events.
+			storageDepositEvent.Type = "StorageDepositEvent"
+			return storageDepositEvent, nil
+		}
+	case gnostd.StorageUnlockEvent:
+		var storageUnlockEvent *StorageUnlockEvent
+
+		if err = json.Unmarshal(data, &storageUnlockEvent); err == nil {
+			// Since the event type is not included in this kind of event data,
+			// and events could be of different types,
+			// we set it here so it will be easier to filter events.
+			storageUnlockEvent.Type = "StorageUnlockEvent"
+			return storageUnlockEvent, nil
+		}
 	}
 
 	return &UnknownEvent{

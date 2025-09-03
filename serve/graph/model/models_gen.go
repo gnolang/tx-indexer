@@ -932,6 +932,36 @@ type NestedFilterUnknownEvent struct {
 type Query struct {
 }
 
+// `StorageDepositEvent` is emitted when a storage deposit fee is locked.
+// It has `bytes_delta`, `fee_delta`, and `pkg_path`.
+type StorageDepositEvent struct {
+	// `type` is the type of transaction event emitted.
+	Type string `json:"type"`
+	// `bytes_delta` is the amount of bytes used.
+	BytesDelta int `json:"bytes_delta"`
+	// `fee_delta` is the amount of coins paid in fees.
+	FeeDelta *Coin `json:"fee_delta"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath string `json:"pkg_path"`
+}
+
+func (StorageDepositEvent) IsEvent() {}
+
+// `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
+// It has `bytes_delta`, `fee_refund`, and `pkg_path`.
+type StorageUnlockEvent struct {
+	// `type` is the type of transaction event emitted.
+	Type string `json:"type"`
+	// `bytes_delta` is the amount of bytes released.
+	BytesDelta int `json:"bytes_delta"`
+	// `fee_refund` is the amount of coins refunded in fees.
+	FeeRefund *Coin `json:"fee_refund"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath string `json:"pkg_path"`
+}
+
+func (StorageUnlockEvent) IsEvent() {}
+
 // Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
 // Subscribers will only receive updates for events occurring after the subscription is established.
 type Subscription struct {
