@@ -220,6 +220,122 @@ func (f *NestedFilterTransactionMessage) Eval(obj *TransactionMessage) bool {
 	return true
 }
 
+func (f *NestedFilterStorageUnlockEvent) Eval(obj *StorageUnlockEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle FeeRefund field
+	toEvalFeeRefund := obj.FeeRefund
+	if f.FeeRefund != nil && !f.FeeRefund.Eval(toEvalFeeRefund) {
+		return false
+	}
+
+	// Handle BytesDelta field
+	toEvalBytesDelta := toIntPtr(obj.BytesDelta)
+	if f.BytesDelta != nil && !f.BytesDelta.Eval(toEvalBytesDelta) {
+		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterStorageDepositEvent) Eval(obj *StorageDepositEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle FeeDelta field
+	toEvalFeeDelta := obj.FeeDelta
+	if f.FeeDelta != nil && !f.FeeDelta.Eval(toEvalFeeDelta) {
+		return false
+	}
+
+	// Handle BytesDelta field
+	toEvalBytesDelta := toIntPtr(obj.BytesDelta)
+	if f.BytesDelta != nil && !f.BytesDelta.Eval(toEvalBytesDelta) {
+		return false
+	}
+
+	return true
+}
+
 func (f *NestedFilterMsgRun) Eval(obj *MsgRun) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -776,7 +892,7 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.GnoEvent != nil || f.UnknownEvent != nil || false
+	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.UnknownEvent != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -796,6 +912,32 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	if uObj, ok := tobj.(*GnoEvent); ok {
 		matchedType = true
 		if f.GnoEvent != nil && f.GnoEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(StorageDepositEvent); ok {
+		matchedType = true
+		if f.StorageDepositEvent != nil && f.StorageDepositEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*StorageDepositEvent); ok {
+		matchedType = true
+		if f.StorageDepositEvent != nil && f.StorageDepositEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(StorageUnlockEvent); ok {
+		matchedType = true
+		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*StorageUnlockEvent); ok {
+		matchedType = true
+		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(uObj) {
 			return true
 		}
 	}
@@ -1393,6 +1535,122 @@ func (f *FilterTransaction) MinMaxBlockHeight() (min *int, max *int) {
 	return min, max
 }
 
+func (f *FilterStorageUnlockEvent) Eval(obj *StorageUnlockEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle FeeRefund field
+	toEvalFeeRefund := obj.FeeRefund
+	if f.FeeRefund != nil && !f.FeeRefund.Eval(toEvalFeeRefund) {
+		return false
+	}
+
+	// Handle BytesDelta field
+	toEvalBytesDelta := toIntPtr(obj.BytesDelta)
+	if f.BytesDelta != nil && !f.BytesDelta.Eval(toEvalBytesDelta) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterStorageDepositEvent) Eval(obj *StorageDepositEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle FeeDelta field
+	toEvalFeeDelta := obj.FeeDelta
+	if f.FeeDelta != nil && !f.FeeDelta.Eval(toEvalFeeDelta) {
+		return false
+	}
+
+	// Handle BytesDelta field
+	toEvalBytesDelta := toIntPtr(obj.BytesDelta)
+	if f.BytesDelta != nil && !f.BytesDelta.Eval(toEvalBytesDelta) {
+		return false
+	}
+
+	return true
+}
+
 func (f *FilterMsgRun) Eval(obj *MsgRun) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -1949,7 +2207,7 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.GnoEvent != nil || f.UnknownEvent != nil || false
+	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.UnknownEvent != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -1969,6 +2227,32 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	if uObj, ok := tobj.(*GnoEvent); ok {
 		matchedType = true
 		if f.GnoEvent != nil && f.GnoEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(StorageDepositEvent); ok {
+		matchedType = true
+		if f.StorageDepositEvent != nil && f.StorageDepositEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*StorageDepositEvent); ok {
+		matchedType = true
+		if f.StorageDepositEvent != nil && f.StorageDepositEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(StorageUnlockEvent); ok {
+		matchedType = true
+		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*StorageUnlockEvent); ok {
+		matchedType = true
+		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(uObj) {
 			return true
 		}
 	}

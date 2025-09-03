@@ -97,6 +97,14 @@ type Coin struct {
 	Denom string `json:"denom"`
 }
 
+// Define the quantity and denomination of a coin.
+type CoinInput struct {
+	// The amount of coins.
+	Amount *int `json:"amount,omitempty"`
+	// The denomination of the coin.
+	Denom *string `json:"denom,omitempty"`
+}
+
 // Transaction event's attribute to filter transaction.
 // "EventAttributeInput" can be configured as a filter with a event attribute's `key` and `value`.
 type EventAttributeInput struct {
@@ -107,18 +115,14 @@ type EventAttributeInput struct {
 }
 
 // Transaction's event to filter transactions.
-// "EventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+// Event can be of different types.
 type EventInput struct {
-	// `type` is the type of transaction event emitted.
-	Type *string `json:"type,omitempty"`
-	// `pkg_path` is the path to the package that emitted the event.
-	PkgPath *string `json:"pkg_path,omitempty"`
-	// `func` is the name of the function that emitted the event.
-	Func *string `json:"func,omitempty"`
-	// `attrs` filters transactions whose events contain attributes.
-	// `attrs` is entered as an array and works exclusively.
-	// ex) `attrs[0] || attrs[1] || attrs[2]`
-	Attrs []*EventAttributeInput `json:"attrs,omitempty"`
+	// `gno_event` input for events of type of GnoEvent.
+	GnoEvent *GnoEventInput `json:"gno_event,omitempty"`
+	// `storage_deposit_event` input for events of type of StorageDepositEvent.
+	StorageDepositEvent *StorageDepositEventInput `json:"storage_deposit_event,omitempty"`
+	// `storage_unlock_event` input for events of type of StorageUnlockEvent.
+	StorageUnlockEvent *StorageUnlockEventInput `json:"storage_unlock_event,omitempty"`
 }
 
 // filter for BankMsgSend objects
@@ -229,6 +233,10 @@ type FilterEvent struct {
 	Not *FilterEvent `json:"_not,omitempty"`
 	// filter for GnoEvent union type.
 	GnoEvent *NestedFilterGnoEvent `json:"GnoEvent,omitempty"`
+	// filter for StorageDepositEvent union type.
+	StorageDepositEvent *NestedFilterStorageDepositEvent `json:"StorageDepositEvent,omitempty"`
+	// filter for StorageUnlockEvent union type.
+	StorageUnlockEvent *NestedFilterStorageUnlockEvent `json:"StorageUnlockEvent,omitempty"`
 	// filter for UnknownEvent union type.
 	UnknownEvent *NestedFilterUnknownEvent `json:"UnknownEvent,omitempty"`
 }
@@ -385,6 +393,42 @@ type FilterMsgRun struct {
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
+// filter for StorageDepositEvent objects
+type FilterStorageDepositEvent struct {
+	// logical operator for StorageDepositEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterStorageDepositEvent `json:"_and,omitempty"`
+	// logical operator for StorageDepositEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterStorageDepositEvent `json:"_or,omitempty"`
+	// logical operator for StorageDepositEvent that will reverse conditions.
+	Not *FilterStorageDepositEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for bytes_delta field.
+	BytesDelta *FilterInt `json:"bytes_delta,omitempty"`
+	// filter for fee_delta field.
+	FeeDelta *NestedFilterCoin `json:"fee_delta,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+}
+
+// filter for StorageUnlockEvent objects
+type FilterStorageUnlockEvent struct {
+	// logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterStorageUnlockEvent `json:"_and,omitempty"`
+	// logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterStorageUnlockEvent `json:"_or,omitempty"`
+	// logical operator for StorageUnlockEvent that will reverse conditions.
+	Not *FilterStorageUnlockEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for bytes_delta field.
+	BytesDelta *FilterInt `json:"bytes_delta,omitempty"`
+	// filter for fee_refund field.
+	FeeRefund *NestedFilterCoin `json:"fee_refund,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+}
+
 // Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
 type FilterString struct {
 	// Filter a string field checking if it exists or not.
@@ -521,6 +565,21 @@ type GnoEventAttribute struct {
 	Key string `json:"key"`
 	// The value of the event attribute.
 	Value string `json:"value"`
+}
+
+// Transaction's event of type of GnoEvent to filter transactions.
+// "GnoEventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+type GnoEventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath *string `json:"pkg_path,omitempty"`
+	// `func` is the name of the function that emitted the event.
+	Func *string `json:"func,omitempty"`
+	// `attrs` filters transactions whose events contain attributes.
+	// `attrs` is entered as an array and works exclusively.
+	// ex) `attrs[0] || attrs[1] || attrs[2]`
+	Attrs []*EventAttributeInput `json:"attrs,omitempty"`
 }
 
 // `MemFile` is the metadata information tied to a single gno package / realm file
@@ -722,6 +781,10 @@ type NestedFilterEvent struct {
 	Not *NestedFilterEvent `json:"_not,omitempty"`
 	// filter for GnoEvent union type.
 	GnoEvent *NestedFilterGnoEvent `json:"GnoEvent,omitempty"`
+	// filter for StorageDepositEvent union type.
+	StorageDepositEvent *NestedFilterStorageDepositEvent `json:"StorageDepositEvent,omitempty"`
+	// filter for StorageUnlockEvent union type.
+	StorageUnlockEvent *NestedFilterStorageUnlockEvent `json:"StorageUnlockEvent,omitempty"`
 	// filter for UnknownEvent union type.
 	UnknownEvent *NestedFilterUnknownEvent `json:"UnknownEvent,omitempty"`
 }
@@ -866,6 +929,42 @@ type NestedFilterMsgRun struct {
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
+// filter for StorageDepositEvent objects
+type NestedFilterStorageDepositEvent struct {
+	// logical operator for StorageDepositEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterStorageDepositEvent `json:"_and,omitempty"`
+	// logical operator for StorageDepositEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterStorageDepositEvent `json:"_or,omitempty"`
+	// logical operator for StorageDepositEvent that will reverse conditions.
+	Not *NestedFilterStorageDepositEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for bytes_delta field.
+	BytesDelta *FilterInt `json:"bytes_delta,omitempty"`
+	// filter for fee_delta field.
+	FeeDelta *NestedFilterCoin `json:"fee_delta,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+}
+
+// filter for StorageUnlockEvent objects
+type NestedFilterStorageUnlockEvent struct {
+	// logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterStorageUnlockEvent `json:"_and,omitempty"`
+	// logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterStorageUnlockEvent `json:"_or,omitempty"`
+	// logical operator for StorageUnlockEvent that will reverse conditions.
+	Not *NestedFilterStorageUnlockEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for bytes_delta field.
+	BytesDelta *FilterInt `json:"bytes_delta,omitempty"`
+	// filter for fee_refund field.
+	FeeRefund *NestedFilterCoin `json:"fee_refund,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+}
+
 // filter for TransactionMessage objects
 type NestedFilterTransactionMessage struct {
 	// logical operator for TransactionMessage that will combine two or more conditions, returning true if all of them are true.
@@ -933,7 +1032,7 @@ type Query struct {
 }
 
 // `StorageDepositEvent` is emitted when a storage deposit fee is locked.
-// It has `bytes_delta`, `fee_delta`, and `pkg_path`.
+// It has `type`, `bytes_delta`, `fee_delta`, and `pkg_path`.
 type StorageDepositEvent struct {
 	// `type` is the type of transaction event emitted.
 	Type string `json:"type"`
@@ -947,8 +1046,21 @@ type StorageDepositEvent struct {
 
 func (StorageDepositEvent) IsEvent() {}
 
+// Transaction's event of type of StorageDepositEvent to filter transactions.
+// "StorageDepositEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_delta` and `pkg_path`.
+type StorageDepositEventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `bytes_delta` is the amount of bytes used.
+	BytesDelta *int `json:"bytes_delta,omitempty"`
+	// `fee_delta` is the amount of coins paid in fees.
+	FeeDelta *CoinInput `json:"fee_delta,omitempty"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath *string `json:"pkg_path,omitempty"`
+}
+
 // `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
-// It has `bytes_delta`, `fee_refund`, and `pkg_path`.
+// It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
 type StorageUnlockEvent struct {
 	// `type` is the type of transaction event emitted.
 	Type string `json:"type"`
@@ -961,6 +1073,19 @@ type StorageUnlockEvent struct {
 }
 
 func (StorageUnlockEvent) IsEvent() {}
+
+// Transaction's event of type of StorageUnlockEvent to filter transactions.
+// "StorageUnlockEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_refund` and `pkg_path`.
+type StorageUnlockEventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `bytes_delta` is the amount of bytes used.
+	BytesDelta *int `json:"bytes_delta,omitempty"`
+	// `fee_refund` is the amount of coins refunded in fees.
+	FeeRefund *CoinInput `json:"fee_refund,omitempty"`
+	// `pkg_path` is the path to the package that emitted the event.
+	PkgPath *string `json:"pkg_path,omitempty"`
+}
 
 // Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
 // Subscribers will only receive updates for events occurring after the subscription is established.

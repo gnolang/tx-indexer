@@ -934,6 +934,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputBankMsgSendInput,
 		ec.unmarshalInputBlockFilter,
 		ec.unmarshalInputBlockOrder,
+		ec.unmarshalInputCoinInput,
 		ec.unmarshalInputEventAttributeInput,
 		ec.unmarshalInputEventInput,
 		ec.unmarshalInputFilterBankMsgSend,
@@ -951,6 +952,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterMsgAddPackage,
 		ec.unmarshalInputFilterMsgCall,
 		ec.unmarshalInputFilterMsgRun,
+		ec.unmarshalInputFilterStorageDepositEvent,
+		ec.unmarshalInputFilterStorageUnlockEvent,
 		ec.unmarshalInputFilterString,
 		ec.unmarshalInputFilterTime,
 		ec.unmarshalInputFilterTransaction,
@@ -958,6 +961,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterTransactionResponse,
 		ec.unmarshalInputFilterTxFee,
 		ec.unmarshalInputFilterUnknownEvent,
+		ec.unmarshalInputGnoEventInput,
 		ec.unmarshalInputMemFileInput,
 		ec.unmarshalInputMemPackageInput,
 		ec.unmarshalInputMsgAddPackageInput,
@@ -975,10 +979,14 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputNestedFilterMsgAddPackage,
 		ec.unmarshalInputNestedFilterMsgCall,
 		ec.unmarshalInputNestedFilterMsgRun,
+		ec.unmarshalInputNestedFilterStorageDepositEvent,
+		ec.unmarshalInputNestedFilterStorageUnlockEvent,
 		ec.unmarshalInputNestedFilterTransactionMessage,
 		ec.unmarshalInputNestedFilterTransactionResponse,
 		ec.unmarshalInputNestedFilterTxFee,
 		ec.unmarshalInputNestedFilterUnknownEvent,
+		ec.unmarshalInputStorageDepositEventInput,
+		ec.unmarshalInputStorageUnlockEventInput,
 		ec.unmarshalInputTransactionBankMessageInput,
 		ec.unmarshalInputTransactionFilter,
 		ec.unmarshalInputTransactionMessageInput,
@@ -1289,6 +1297,19 @@ type Coin {
 	"""
 	denom: String! @filterable
 }
+"""
+Define the quantity and denomination of a coin.
+"""
+input CoinInput {
+	"""
+	The amount of coins.
+	"""
+	amount: Int
+	"""
+	The denomination of the coin.
+	"""
+	denom: String
+}
 union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
 """
 Transaction event's attribute to filter transaction.
@@ -1306,27 +1327,21 @@ input EventAttributeInput {
 }
 """
 Transaction's event to filter transactions.
-"EventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + ` and ` + "`" + `pkg_path` + "`" + ` and ` + "`" + `func` + "`" + `, and ` + "`" + `attrs` + "`" + `.
+Event can be of different types.
 """
 input EventInput {
 	"""
-	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	` + "`" + `gno_event` + "`" + ` input for events of type of GnoEvent.
 	"""
-	type: String
+	gno_event: GnoEventInput
 	"""
-	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	` + "`" + `storage_deposit_event` + "`" + ` input for events of type of StorageDepositEvent.
 	"""
-	pkg_path: String
+	storage_deposit_event: StorageDepositEventInput
 	"""
-	` + "`" + `func` + "`" + ` is the name of the function that emitted the event.
+	` + "`" + `storage_unlock_event` + "`" + ` input for events of type of StorageUnlockEvent.
 	"""
-	func: String
-	"""
-	` + "`" + `attrs` + "`" + ` filters transactions whose events contain attributes.
-	` + "`" + `attrs` + "`" + ` is entered as an array and works exclusively.
-	ex) ` + "`" + `attrs[0] || attrs[1] || attrs[2]` + "`" + `
-	"""
-	attrs: [EventAttributeInput!]
+	storage_unlock_event: StorageUnlockEventInput
 }
 """
 filter for BankMsgSend objects
@@ -1529,6 +1544,14 @@ input FilterEvent {
 	filter for GnoEvent union type.
 	"""
 	GnoEvent: NestedFilterGnoEvent
+	"""
+	filter for StorageDepositEvent union type.
+	"""
+	StorageDepositEvent: NestedFilterStorageDepositEvent
+	"""
+	filter for StorageUnlockEvent union type.
+	"""
+	StorageUnlockEvent: NestedFilterStorageUnlockEvent
 	"""
 	filter for UnknownEvent union type.
 	"""
@@ -1812,6 +1835,72 @@ input FilterMsgRun {
 	max_deposit: FilterString
 }
 """
+filter for StorageDepositEvent objects
+"""
+input FilterStorageDepositEvent {
+	"""
+	logical operator for StorageDepositEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterStorageDepositEvent]
+	"""
+	logical operator for StorageDepositEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterStorageDepositEvent]
+	"""
+	logical operator for StorageDepositEvent that will reverse conditions.
+	"""
+	_not: FilterStorageDepositEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for bytes_delta field.
+	"""
+	bytes_delta: FilterInt
+	"""
+	filter for fee_delta field.
+	"""
+	fee_delta: NestedFilterCoin
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+}
+"""
+filter for StorageUnlockEvent objects
+"""
+input FilterStorageUnlockEvent {
+	"""
+	logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterStorageUnlockEvent]
+	"""
+	logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterStorageUnlockEvent]
+	"""
+	logical operator for StorageUnlockEvent that will reverse conditions.
+	"""
+	_not: FilterStorageUnlockEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for bytes_delta field.
+	"""
+	bytes_delta: FilterInt
+	"""
+	filter for fee_refund field.
+	"""
+	fee_refund: NestedFilterCoin
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+}
+"""
 Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
 """
 input FilterString {
@@ -2060,6 +2149,30 @@ type GnoEventAttribute {
 	The value of the event attribute.
 	"""
 	value: String! @filterable
+}
+"""
+Transaction's event of type of GnoEvent to filter transactions.
+"GnoEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + ` and ` + "`" + `pkg_path` + "`" + ` and ` + "`" + `func` + "`" + `, and ` + "`" + `attrs` + "`" + `.
+"""
+input GnoEventInput {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String
+	"""
+	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	"""
+	pkg_path: String
+	"""
+	` + "`" + `func` + "`" + ` is the name of the function that emitted the event.
+	"""
+	func: String
+	"""
+	` + "`" + `attrs` + "`" + ` filters transactions whose events contain attributes.
+	` + "`" + `attrs` + "`" + ` is entered as an array and works exclusively.
+	ex) ` + "`" + `attrs[0] || attrs[1] || attrs[2]` + "`" + `
+	"""
+	attrs: [EventAttributeInput!]
 }
 """
 ` + "`" + `MemFile` + "`" + ` is the metadata information tied to a single gno package / realm file
@@ -2419,6 +2532,14 @@ input NestedFilterEvent {
 	"""
 	GnoEvent: NestedFilterGnoEvent
 	"""
+	filter for StorageDepositEvent union type.
+	"""
+	StorageDepositEvent: NestedFilterStorageDepositEvent
+	"""
+	filter for StorageUnlockEvent union type.
+	"""
+	StorageUnlockEvent: NestedFilterStorageUnlockEvent
+	"""
 	filter for UnknownEvent union type.
 	"""
 	UnknownEvent: NestedFilterUnknownEvent
@@ -2680,6 +2801,72 @@ input NestedFilterMsgRun {
 	max_deposit: FilterString
 }
 """
+filter for StorageDepositEvent objects
+"""
+input NestedFilterStorageDepositEvent {
+	"""
+	logical operator for StorageDepositEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterStorageDepositEvent]
+	"""
+	logical operator for StorageDepositEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterStorageDepositEvent]
+	"""
+	logical operator for StorageDepositEvent that will reverse conditions.
+	"""
+	_not: NestedFilterStorageDepositEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for bytes_delta field.
+	"""
+	bytes_delta: FilterInt
+	"""
+	filter for fee_delta field.
+	"""
+	fee_delta: NestedFilterCoin
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+}
+"""
+filter for StorageUnlockEvent objects
+"""
+input NestedFilterStorageUnlockEvent {
+	"""
+	logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterStorageUnlockEvent]
+	"""
+	logical operator for StorageUnlockEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterStorageUnlockEvent]
+	"""
+	logical operator for StorageUnlockEvent that will reverse conditions.
+	"""
+	_not: NestedFilterStorageUnlockEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for bytes_delta field.
+	"""
+	bytes_delta: FilterInt
+	"""
+	filter for fee_refund field.
+	"""
+	fee_refund: NestedFilterCoin
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+}
+"""
 filter for TransactionMessage objects
 """
 input NestedFilterTransactionMessage {
@@ -2829,47 +3016,91 @@ type Query {
 }
 """
 ` + "`" + `StorageDepositEvent` + "`" + ` is emitted when a storage deposit fee is locked.
-It has ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_delta` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
+It has ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_delta` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
 """
 type StorageDepositEvent {
 	"""
 	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
 	"""
-	type: String!
+	type: String! @filterable
 	"""
 	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes used.
 	"""
-	bytes_delta: Int!
+	bytes_delta: Int! @filterable
 	"""
 	` + "`" + `fee_delta` + "`" + ` is the amount of coins paid in fees.
 	"""
-	fee_delta: Coin!
+	fee_delta: Coin! @filterable
 	"""
 	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
 	"""
-	pkg_path: String!
+	pkg_path: String! @filterable
+}
+"""
+Transaction's event of type of StorageDepositEvent to filter transactions.
+"StorageDepositEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_delta` + "`" + ` and ` + "`" + `pkg_path` + "`" + `.
+"""
+input StorageDepositEventInput {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String
+	"""
+	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes used.
+	"""
+	bytes_delta: Int
+	"""
+	` + "`" + `fee_delta` + "`" + ` is the amount of coins paid in fees.
+	"""
+	fee_delta: CoinInput
+	"""
+	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	"""
+	pkg_path: String
 }
 """
 ` + "`" + `StorageUnlockEvent` + "`" + ` is emitted when a storage deposit fee is unlocked.
-It has ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
+It has ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
 """
 type StorageUnlockEvent {
 	"""
 	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
 	"""
-	type: String!
+	type: String! @filterable
 	"""
 	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes released.
 	"""
-	bytes_delta: Int!
+	bytes_delta: Int! @filterable
 	"""
 	` + "`" + `fee_refund` + "`" + ` is the amount of coins refunded in fees.
 	"""
-	fee_refund: Coin!
+	fee_refund: Coin! @filterable
 	"""
 	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
 	"""
-	pkg_path: String!
+	pkg_path: String! @filterable
+}
+"""
+Transaction's event of type of StorageUnlockEvent to filter transactions.
+"StorageUnlockEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + ` and ` + "`" + `pkg_path` + "`" + `.
+"""
+input StorageUnlockEventInput {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String
+	"""
+	` + "`" + `bytes_delta` + "`" + ` is the amount of bytes used.
+	"""
+	bytes_delta: Int
+	"""
+	` + "`" + `fee_refund` + "`" + ` is the amount of coins refunded in fees.
+	"""
+	fee_refund: CoinInput
+	"""
+	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
+	"""
+	pkg_path: String
 }
 """
 Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
@@ -7596,8 +7827,30 @@ func (ec *executionContext) _StorageDepositEvent_type(ctx context.Context, field
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Type, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.Type, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal string
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(string); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7640,8 +7893,30 @@ func (ec *executionContext) _StorageDepositEvent_bytes_delta(ctx context.Context
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BytesDelta, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.BytesDelta, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal int
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(int); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be int`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7684,8 +7959,30 @@ func (ec *executionContext) _StorageDepositEvent_fee_delta(ctx context.Context, 
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.FeeDelta, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.FeeDelta, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal *model.Coin
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*model.Coin); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/gnolang/tx-indexer/serve/graph/model.Coin`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7734,8 +8031,30 @@ func (ec *executionContext) _StorageDepositEvent_pkg_path(ctx context.Context, f
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PkgPath, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.PkgPath, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal string
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(string); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7778,8 +8097,30 @@ func (ec *executionContext) _StorageUnlockEvent_type(ctx context.Context, field 
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Type, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.Type, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal string
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(string); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7822,8 +8163,30 @@ func (ec *executionContext) _StorageUnlockEvent_bytes_delta(ctx context.Context,
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.BytesDelta, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.BytesDelta, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal int
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(int); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be int`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7866,8 +8229,30 @@ func (ec *executionContext) _StorageUnlockEvent_fee_refund(ctx context.Context, 
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.FeeRefund, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.FeeRefund, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal *model.Coin
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*model.Coin); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/gnolang/tx-indexer/serve/graph/model.Coin`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7916,8 +8301,30 @@ func (ec *executionContext) _StorageUnlockEvent_pkg_path(ctx context.Context, fi
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PkgPath, nil
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return obj.PkgPath, nil
+		}
+
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Filterable == nil {
+				var zeroVal string
+				return zeroVal, errors.New("directive filterable is not implemented")
+			}
+			return ec.directives.Filterable(ctx, obj, directive0, nil)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(string); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -11783,6 +12190,40 @@ func (ec *executionContext) unmarshalInputBlockOrder(ctx context.Context, obj in
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCoinInput(ctx context.Context, obj interface{}) (model.CoinInput, error) {
+	var it model.CoinInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"amount", "denom"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "amount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Amount = data
+		case "denom":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("denom"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Denom = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputEventAttributeInput(ctx context.Context, obj interface{}) (model.EventAttributeInput, error) {
 	var it model.EventAttributeInput
 	asMap := map[string]interface{}{}
@@ -11824,41 +12265,34 @@ func (ec *executionContext) unmarshalInputEventInput(ctx context.Context, obj in
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "pkg_path", "func", "attrs"}
+	fieldsInOrder := [...]string{"gno_event", "storage_deposit_event", "storage_unlock_event"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "type":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+		case "gno_event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gno_event"))
+			data, err := ec.unmarshalOGnoEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Type = data
-		case "pkg_path":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			it.GnoEvent = data
+		case "storage_deposit_event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("storage_deposit_event"))
+			data, err := ec.unmarshalOStorageDepositEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐStorageDepositEventInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.PkgPath = data
-		case "func":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			it.StorageDepositEvent = data
+		case "storage_unlock_event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("storage_unlock_event"))
+			data, err := ec.unmarshalOStorageUnlockEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐStorageUnlockEventInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Func = data
-		case "attrs":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
-			data, err := ec.unmarshalOEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInputᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Attrs = data
+			it.StorageUnlockEvent = data
 		}
 	}
 
@@ -12245,7 +12679,7 @@ func (ec *executionContext) unmarshalInputFilterEvent(ctx context.Context, obj i
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "UnknownEvent"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "UnknownEvent"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12280,6 +12714,20 @@ func (ec *executionContext) unmarshalInputFilterEvent(ctx context.Context, obj i
 				return it, err
 			}
 			it.GnoEvent = data
+		case "StorageDepositEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("StorageDepositEvent"))
+			data, err := ec.unmarshalONestedFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StorageDepositEvent = data
+		case "StorageUnlockEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("StorageUnlockEvent"))
+			data, err := ec.unmarshalONestedFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StorageUnlockEvent = data
 		case "UnknownEvent":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("UnknownEvent"))
 			data, err := ec.unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterUnknownEvent(ctx, v)
@@ -12879,6 +13327,144 @@ func (ec *executionContext) unmarshalInputFilterMsgRun(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputFilterStorageDepositEvent(ctx context.Context, obj interface{}) (model.FilterStorageDepositEvent, error) {
+	var it model.FilterStorageDepositEvent
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_delta", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_delta"))
+			data, err := ec.unmarshalONestedFilterCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterCoin(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeDelta = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterStorageUnlockEvent(ctx context.Context, obj interface{}) (model.FilterStorageUnlockEvent, error) {
+	var it model.FilterStorageUnlockEvent
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_refund":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_refund"))
+			data, err := ec.unmarshalONestedFilterCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterCoin(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeRefund = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFilterString(ctx context.Context, obj interface{}) (model.FilterString, error) {
 	var it model.FilterString
 	asMap := map[string]interface{}{}
@@ -13320,6 +13906,54 @@ func (ec *executionContext) unmarshalInputFilterUnknownEvent(ctx context.Context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputGnoEventInput(ctx context.Context, obj interface{}) (model.GnoEventInput, error) {
+	var it model.GnoEventInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "pkg_path", "func", "attrs"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		case "func":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Func = data
+		case "attrs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
+			data, err := ec.unmarshalOEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Attrs = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMemFileInput(ctx context.Context, obj interface{}) (model.MemFileInput, error) {
 	var it model.MemFileInput
 	asMap := map[string]interface{}{}
@@ -13718,7 +14352,7 @@ func (ec *executionContext) unmarshalInputNestedFilterEvent(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "UnknownEvent"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "UnknownEvent"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -13753,6 +14387,20 @@ func (ec *executionContext) unmarshalInputNestedFilterEvent(ctx context.Context,
 				return it, err
 			}
 			it.GnoEvent = data
+		case "StorageDepositEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("StorageDepositEvent"))
+			data, err := ec.unmarshalONestedFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StorageDepositEvent = data
+		case "StorageUnlockEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("StorageUnlockEvent"))
+			data, err := ec.unmarshalONestedFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StorageUnlockEvent = data
 		case "UnknownEvent":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("UnknownEvent"))
 			data, err := ec.unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterUnknownEvent(ctx, v)
@@ -14304,6 +14952,144 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgRun(ctx context.Context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputNestedFilterStorageDepositEvent(ctx context.Context, obj interface{}) (model.NestedFilterStorageDepositEvent, error) {
+	var it model.NestedFilterStorageDepositEvent
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_delta", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_delta"))
+			data, err := ec.unmarshalONestedFilterCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterCoin(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeDelta = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterStorageUnlockEvent(ctx context.Context, obj interface{}) (model.NestedFilterStorageUnlockEvent, error) {
+	var it model.NestedFilterStorageUnlockEvent
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_refund":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_refund"))
+			data, err := ec.unmarshalONestedFilterCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterCoin(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeRefund = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputNestedFilterTransactionMessage(ctx context.Context, obj interface{}) (model.NestedFilterTransactionMessage, error) {
 	var it model.NestedFilterTransactionMessage
 	asMap := map[string]interface{}{}
@@ -14539,6 +15325,102 @@ func (ec *executionContext) unmarshalInputNestedFilterUnknownEvent(ctx context.C
 				return it, err
 			}
 			it.Value = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputStorageDepositEventInput(ctx context.Context, obj interface{}) (model.StorageDepositEventInput, error) {
+	var it model.StorageDepositEventInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "bytes_delta", "fee_delta", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_delta"))
+			data, err := ec.unmarshalOCoinInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoinInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeDelta = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputStorageUnlockEventInput(ctx context.Context, obj interface{}) (model.StorageUnlockEventInput, error) {
+	var it model.StorageUnlockEventInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "bytes_delta", "fee_refund", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "bytes_delta":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bytes_delta"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BytesDelta = data
+		case "fee_refund":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fee_refund"))
+			data, err := ec.unmarshalOCoinInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoinInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeeRefund = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
 		}
 	}
 
@@ -17102,6 +17984,14 @@ func (ec *executionContext) marshalOCoin2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexe
 	return ec._Coin(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOCoinInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐCoinInput(ctx context.Context, v interface{}) (*model.CoinInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputCoinInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalOEvent2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v model.Event) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -17570,6 +18460,62 @@ func (ec *executionContext) unmarshalOFilterMsgRun2ᚖgithubᚗcomᚋgnolangᚋt
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx context.Context, v interface{}) ([]*model.FilterStorageDepositEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.FilterStorageDepositEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageDepositEvent(ctx context.Context, v interface{}) (*model.FilterStorageDepositEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterStorageDepositEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx context.Context, v interface{}) ([]*model.FilterStorageUnlockEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.FilterStorageUnlockEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterStorageUnlockEvent(ctx context.Context, v interface{}) (*model.FilterStorageUnlockEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterStorageUnlockEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx context.Context, v interface{}) (*model.FilterString, error) {
 	if v == nil {
 		return nil, nil
@@ -17838,6 +18784,14 @@ func (ec *executionContext) marshalOGnoEventAttribute2ᚕᚖgithubᚗcomᚋgnola
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalOGnoEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐGnoEventInput(ctx context.Context, v interface{}) (*model.GnoEventInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputGnoEventInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
@@ -18331,6 +19285,62 @@ func (ec *executionContext) unmarshalONestedFilterMsgRun2ᚖgithubᚗcomᚋgnola
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalONestedFilterStorageDepositEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx context.Context, v interface{}) ([]*model.NestedFilterStorageDepositEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.NestedFilterStorageDepositEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterStorageDepositEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageDepositEvent(ctx context.Context, v interface{}) (*model.NestedFilterStorageDepositEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterStorageDepositEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterStorageUnlockEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx context.Context, v interface{}) ([]*model.NestedFilterStorageUnlockEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]*model.NestedFilterStorageUnlockEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterStorageUnlockEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterStorageUnlockEvent(ctx context.Context, v interface{}) (*model.NestedFilterStorageUnlockEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterStorageUnlockEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalONestedFilterTransactionMessage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransactionMessage(ctx context.Context, v interface{}) ([]*model.NestedFilterTransactionMessage, error) {
 	if v == nil {
 		return nil, nil
@@ -18440,6 +19450,22 @@ func (ec *executionContext) unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcom�
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputNestedFilterUnknownEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOStorageDepositEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐStorageDepositEventInput(ctx context.Context, v interface{}) (*model.StorageDepositEventInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputStorageDepositEventInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOStorageUnlockEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐStorageUnlockEventInput(ctx context.Context, v interface{}) (*model.StorageUnlockEventInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputStorageUnlockEventInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 

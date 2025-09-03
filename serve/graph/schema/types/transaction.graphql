@@ -405,54 +405,54 @@ type GnoEventAttribute {
 
 """
 `StorageDepositEvent` is emitted when a storage deposit fee is locked.
-It has `bytes_delta`, `fee_delta`, and `pkg_path`.
+It has `type`, `bytes_delta`, `fee_delta`, and `pkg_path`.
 """
 type StorageDepositEvent {
   """
   `type` is the type of transaction event emitted.
   """
-  type: String!
+  type: String! @filterable
 
   """
   `bytes_delta` is the amount of bytes used.
   """
-  bytes_delta: Int!
+  bytes_delta: Int! @filterable
 
   """
   `fee_delta` is the amount of coins paid in fees.
   """
-  fee_delta: Coin!
+  fee_delta: Coin! @filterable
 
   """
   `pkg_path` is the path to the package that emitted the event.
   """
-  pkg_path: String!
+  pkg_path: String! @filterable
 }
 
 """
 `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
-It has `bytes_delta`, `fee_refund`, and `pkg_path`.
+It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
 """
 type StorageUnlockEvent {
   """
   `type` is the type of transaction event emitted.
   """
-  type: String!
+  type: String! @filterable
 
   """
   `bytes_delta` is the amount of bytes released.
   """
-  bytes_delta: Int!
+  bytes_delta: Int! @filterable
 
   """
   `fee_refund` is the amount of coins refunded in fees.
   """
-  fee_refund: Coin!
+  fee_refund: Coin! @filterable
 
   """
   `pkg_path` is the path to the package that emitted the event.
   """
-  pkg_path: String!
+  pkg_path: String! @filterable
 }
 
 """

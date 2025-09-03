@@ -79,9 +79,30 @@ input TransactionFilter {
 
 """
 Transaction's event to filter transactions.
-"EventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+Event can be of different types.
 """
 input EventInput {
+  """
+  `gno_event` input for events of type of GnoEvent.
+  """
+  gno_event: GnoEventInput
+
+  """
+  `storage_deposit_event` input for events of type of StorageDepositEvent.
+  """
+  storage_deposit_event: StorageDepositEventInput
+
+  """
+  `storage_unlock_event` input for events of type of StorageUnlockEvent.
+  """
+  storage_unlock_event: StorageUnlockEventInput
+}
+
+"""
+Transaction's event of type of GnoEvent to filter transactions.
+"GnoEventInput" can be configured as a filter with a transaction event's `type` and `pkg_path` and `func`, and `attrs`.
+"""
+input GnoEventInput {
   """
   `type` is the type of transaction event emitted.
   """
@@ -119,6 +140,73 @@ input EventAttributeInput {
   `value` is the value of the event attribute.
   """
   value: String
+}
+
+"""
+Transaction's event of type of StorageDepositEvent to filter transactions.
+"StorageDepositEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_delta` and `pkg_path`.
+"""
+input StorageDepositEventInput {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String
+
+  """
+  `bytes_delta` is the amount of bytes used.
+  """
+  bytes_delta: Int
+
+  """
+  `fee_delta` is the amount of coins paid in fees.
+  """
+  fee_delta: CoinInput
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String
+}
+
+"""
+Transaction's event of type of StorageUnlockEvent to filter transactions.
+"StorageUnlockEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_refund` and `pkg_path`.
+"""
+input StorageUnlockEventInput {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String
+
+  """
+  `bytes_delta` is the amount of bytes used.
+  """
+  bytes_delta: Int
+
+  """
+  `fee_refund` is the amount of coins refunded in fees.
+  """
+  fee_refund: CoinInput
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String
+}
+
+"""
+Define the quantity and denomination of a coin.
+"""
+input CoinInput {
+  """
+  The amount of coins.
+  """
+  amount: Int
+
+  """
+  The denomination of the coin.
+  """
+  denom: String
 }
 
 """
