@@ -89,7 +89,6 @@ type ComplexityRoot struct {
 
 	GnoEvent struct {
 		Attrs   func(childComplexity int) int
-		Func    func(childComplexity int) int
 		PkgPath func(childComplexity int) int
 		Type    func(childComplexity int) int
 	}
@@ -426,13 +425,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.GnoEvent.Attrs(childComplexity), true
-
-	case "GnoEvent.func":
-		if e.complexity.GnoEvent.Func == nil {
-			break
-		}
-
-		return e.complexity.GnoEvent.Func(childComplexity), true
 
 	case "GnoEvent.pkg_path":
 		if e.complexity.GnoEvent.PkgPath == nil {
@@ -1582,10 +1574,6 @@ input FilterGnoEvent {
 	"""
 	pkg_path: FilterString
 	"""
-	filter for func field.
-	"""
-	func: FilterString
-	"""
 	filter for attrs field.
 	"""
 	attrs: NestedFilterGnoEventAttribute
@@ -2128,10 +2116,6 @@ type GnoEvent {
 	"""
 	pkg_path: String! @filterable
 	"""
-	` + "`" + `func` + "`" + ` is the name of the function that emitted the event.
-	"""
-	func: String! @filterable
-	"""
 	` + "`" + `attrs` + "`" + ` is the event's attribute information.
 	"""
 	attrs: [GnoEventAttribute!] @filterable
@@ -2163,10 +2147,6 @@ input GnoEventInput {
 	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
 	"""
 	pkg_path: String
-	"""
-	` + "`" + `func` + "`" + ` is the name of the function that emitted the event.
-	"""
-	func: String
 	"""
 	` + "`" + `attrs` + "`" + ` filters transactions whose events contain attributes.
 	` + "`" + `attrs` + "`" + ` is entered as an array and works exclusively.
@@ -2568,10 +2548,6 @@ input NestedFilterGnoEvent {
 	filter for pkg_path field.
 	"""
 	pkg_path: FilterString
-	"""
-	filter for func field.
-	"""
-	func: FilterString
 	"""
 	filter for attrs field.
 	"""
@@ -5698,72 +5674,6 @@ func (ec *executionContext) _GnoEvent_pkg_path(ctx context.Context, field graphq
 }
 
 func (ec *executionContext) fieldContext_GnoEvent_pkg_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "GnoEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _GnoEvent_func(ctx context.Context, field graphql.CollectedField, obj *model.GnoEvent) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_GnoEvent_func(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		directive0 := func(rctx context.Context) (interface{}, error) {
-			ctx = rctx // use context from middleware stack in children
-			return obj.Func, nil
-		}
-
-		directive1 := func(ctx context.Context) (interface{}, error) {
-			if ec.directives.Filterable == nil {
-				var zeroVal string
-				return zeroVal, errors.New("directive filterable is not implemented")
-			}
-			return ec.directives.Filterable(ctx, obj, directive0, nil)
-		}
-
-		tmp, err := directive1(rctx)
-		if err != nil {
-			return nil, graphql.ErrorOnPath(ctx, err)
-		}
-		if tmp == nil {
-			return nil, nil
-		}
-		if data, ok := tmp.(string); ok {
-			return data, nil
-		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_GnoEvent_func(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "GnoEvent",
 		Field:      field,
@@ -12748,7 +12658,7 @@ func (ec *executionContext) unmarshalInputFilterGnoEvent(ctx context.Context, ob
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "pkg_path", "func", "attrs"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "pkg_path", "attrs"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12790,13 +12700,6 @@ func (ec *executionContext) unmarshalInputFilterGnoEvent(ctx context.Context, ob
 				return it, err
 			}
 			it.PkgPath = data
-		case "func":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
-			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Func = data
 		case "attrs":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
 			data, err := ec.unmarshalONestedFilterGnoEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterGnoEventAttribute(ctx, v)
@@ -13913,7 +13816,7 @@ func (ec *executionContext) unmarshalInputGnoEventInput(ctx context.Context, obj
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "pkg_path", "func", "attrs"}
+	fieldsInOrder := [...]string{"type", "pkg_path", "attrs"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -13934,13 +13837,6 @@ func (ec *executionContext) unmarshalInputGnoEventInput(ctx context.Context, obj
 				return it, err
 			}
 			it.PkgPath = data
-		case "func":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Func = data
 		case "attrs":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
 			data, err := ec.unmarshalOEventAttributeInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐEventAttributeInputᚄ(ctx, v)
@@ -14421,7 +14317,7 @@ func (ec *executionContext) unmarshalInputNestedFilterGnoEvent(ctx context.Conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "pkg_path", "func", "attrs"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "pkg_path", "attrs"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -14463,13 +14359,6 @@ func (ec *executionContext) unmarshalInputNestedFilterGnoEvent(ctx context.Conte
 				return it, err
 			}
 			it.PkgPath = data
-		case "func":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("func"))
-			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Func = data
 		case "attrs":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attrs"))
 			data, err := ec.unmarshalONestedFilterGnoEventAttribute2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterGnoEventAttribute(ctx, v)
@@ -16054,11 +15943,6 @@ func (ec *executionContext) _GnoEvent(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "pkg_path":
 			out.Values[i] = ec._GnoEvent_pkg_path(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "func":
-			out.Values[i] = ec._GnoEvent_func(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

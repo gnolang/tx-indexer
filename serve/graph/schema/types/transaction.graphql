@@ -377,11 +377,6 @@ type GnoEvent {
   pkg_path: String! @filterable
 
   """
-  `func` is the name of the function that emitted the event.
-  """
-  func: String! @filterable
-
-  """
   `attrs` is the event's attribute information.
   """
   attrs: [GnoEventAttribute!] @filterable

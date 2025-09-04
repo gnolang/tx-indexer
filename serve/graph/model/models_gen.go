@@ -253,8 +253,6 @@ type FilterGnoEvent struct {
 	Type *FilterString `json:"type,omitempty"`
 	// filter for pkg_path field.
 	PkgPath *FilterString `json:"pkg_path,omitempty"`
-	// filter for func field.
-	Func *FilterString `json:"func,omitempty"`
 	// filter for attrs field.
 	Attrs *NestedFilterGnoEventAttribute `json:"attrs,omitempty"`
 }
@@ -550,8 +548,6 @@ type GnoEvent struct {
 	Type string `json:"type"`
 	// `pkg_path` is the path to the package that emitted the event.
 	PkgPath string `json:"pkg_path"`
-	// `func` is the name of the function that emitted the event.
-	Func string `json:"func"`
 	// `attrs` is the event's attribute information.
 	Attrs []*GnoEventAttribute `json:"attrs,omitempty"`
 }
@@ -574,8 +570,6 @@ type GnoEventInput struct {
 	Type *string `json:"type,omitempty"`
 	// `pkg_path` is the path to the package that emitted the event.
 	PkgPath *string `json:"pkg_path,omitempty"`
-	// `func` is the name of the function that emitted the event.
-	Func *string `json:"func,omitempty"`
 	// `attrs` filters transactions whose events contain attributes.
 	// `attrs` is entered as an array and works exclusively.
 	// ex) `attrs[0] || attrs[1] || attrs[2]`
@@ -801,8 +795,6 @@ type NestedFilterGnoEvent struct {
 	Type *FilterString `json:"type,omitempty"`
 	// filter for pkg_path field.
 	PkgPath *FilterString `json:"pkg_path,omitempty"`
-	// filter for func field.
-	Func *FilterString `json:"func,omitempty"`
 	// filter for attrs field.
 	Attrs *NestedFilterGnoEventAttribute `json:"attrs,omitempty"`
 }

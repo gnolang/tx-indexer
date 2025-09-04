@@ -100,10 +100,6 @@ func filteredGnoEvent(event *model.GnoEvent, eventInput *model.EventInput) bool 
 		return false
 	}
 
-	if eventInput.GnoEvent.Func != nil && deref(eventInput.GnoEvent.Func) != event.Func {
-		return false
-	}
-
 	if eventInput.GnoEvent.Attrs != nil && !filteredGnoEventAttributesBy(event.Attrs, eventInput.GnoEvent.Attrs) {
 		return false
 	}

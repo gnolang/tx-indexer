@@ -836,12 +836,6 @@ func (f *NestedFilterGnoEvent) Eval(obj *GnoEvent) bool {
 		return false
 	}
 
-	// Handle Func field
-	toEvalFunc := obj.Func
-	if f.Func != nil && !f.Func.Eval(&toEvalFunc) {
-		return false
-	}
-
 	// Handle Attrs slice
 	if f.Attrs != nil {
 		elemMatchAttrs := false
@@ -2148,12 +2142,6 @@ func (f *FilterGnoEvent) Eval(obj *GnoEvent) bool {
 	// Handle PkgPath field
 	toEvalPkgPath := obj.PkgPath
 	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
-		return false
-	}
-
-	// Handle Func field
-	toEvalFunc := obj.Func
-	if f.Func != nil && !f.Func.Eval(&toEvalFunc) {
 		return false
 	}
 

@@ -114,11 +114,6 @@ input GnoEventInput {
   pkg_path: String
 
   """
-  `func` is the name of the function that emitted the event.
-  """
-  func: String
-
-  """
   `attrs` filters transactions whose events contain attributes.
   `attrs` is entered as an array and works exclusively.
   ex) `attrs[0] || attrs[1] || attrs[2]`
