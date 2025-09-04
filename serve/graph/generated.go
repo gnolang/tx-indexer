@@ -2735,23 +2735,23 @@ type Query {
 	"""
 	Retrieves a list of Transactions that match the given filter criteria. If the result is incomplete due to errors, both partial results and errors are returned.
 	"""
-	transactions(filter: TransactionFilter!): [Transaction!]
+	transactions(filter: TransactionFilter!): [Transaction!] @deprecated(reason: "Use ` + "`" + `getTransactions` + "`" + ` instead.")
 	"""
 	Fetches Blocks matching the specified filter criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
 	"""
-	blocks(filter: BlockFilter!): [Block!]
+	blocks(filter: BlockFilter!): [Block!] @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
 	Returns the height of the most recently processed Block by the blockchain indexer, indicating the current length of the blockchain.
 	"""
 	latestBlockHeight: Int!
 	"""
-	EXPERIMENTAL: Fetches Blocks matching the specified where criteria. 
+	Fetches Blocks matching the specified where criteria. 
 	Incomplete results due to errors return both the partial Blocks and 
 	the associated errors.
 	"""
 	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 	"""
-	EXPERIMENTAL: Retrieves a list of Transactions that match the given 
+	Retrieves a list of Transactions that match the given 
 	where criteria. If the result is incomplete due to errors, both partial
 	results and errors are returned.
 	"""
@@ -2772,7 +2772,7 @@ type Subscription {
 	Returns:
 	- Transaction: Each received update is a Transaction object that matches the filter criteria.
 	"""
-	transactions(filter: TransactionFilter!): Transaction!
+	transactions(filter: TransactionFilter!): Transaction! @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
 	Subscribes to real-time updates of Blocks that match the provided filter criteria. Similar to the Transactions subscription,
 	this subscription is active immediately upon creation and only includes Blocks added after the subscription begins.
@@ -2783,9 +2783,9 @@ type Subscription {
 	Returns:
 	- Block: Each update consists of a Block object that satisfies the filter criteria, allowing subscribers to process or analyze new Blocks in real time.
 	"""
-	blocks(filter: BlockFilter!): Block!
+	blocks(filter: BlockFilter!): Block! @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
-	EXPERIMENTAL: Subscribes to real-time updates of Transactions that 
+	Subscribes to real-time updates of Transactions that 
 	match the provided filter criteria. This subscription starts immediately
 	and only includes Transactions added to the blockchain after the subscription
 	is active.
@@ -2800,7 +2800,7 @@ type Subscription {
 	"""
 	getTransactions(where: FilterTransaction!): Transaction!
 	"""
-	EXPERIMENTAL: Subscribes to real-time updates of Blocks that match the provided
+	Subscribes to real-time updates of Blocks that match the provided
 	filter criteria. Similar to the Transactions subscription,
 	this subscription is active immediately upon creation and only includes Blocks
 	added after the subscription begins.
