@@ -13,7 +13,7 @@ type Subscription {
   Returns:
   - Transaction: Each received update is a Transaction object that matches the filter criteria.
   """
-  transactions(filter: TransactionFilter!): Transaction!
+  transactions(filter: TransactionFilter!): Transaction! @deprecated(reason: "Use `getTransactions` instead.")
 
   """
   Subscribes to real-time updates of Blocks that match the provided filter criteria. Similar to the Transactions subscription,
@@ -25,5 +25,7 @@ type Subscription {
   Returns:
   - Block: Each update consists of a Block object that satisfies the filter criteria, allowing subscribers to process or analyze new Blocks in real time.
   """
-  blocks(filter: BlockFilter!): Block!
+  blocks(filter: BlockFilter!): Block! @deprecated(reason: "Use `getBlocks` instead.")
 }
+
+# Check graph/gen/generate.go to see Subscription methods using the auto-generated filters

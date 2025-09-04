@@ -14,14 +14,14 @@ import (
 var queriesInject = `
 type Query {
    """
-   EXPERIMENTAL: Fetches Blocks matching the specified where criteria. 
+   Fetches Blocks matching the specified where criteria. 
    Incomplete results due to errors return both the partial Blocks and 
    the associated errors.
    """
    getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
    
    """
-   EXPERIMENTAL: Retrieves a list of Transactions that match the given 
+   Retrieves a list of Transactions that match the given 
    where criteria. If the result is incomplete due to errors, both partial
    results and errors are returned.
    """
@@ -30,7 +30,7 @@ type Query {
 
 type Subscription {
   """
-  EXPERIMENTAL: Subscribes to real-time updates of Transactions that 
+  Subscribes to real-time updates of Transactions that 
   match the provided filter criteria. This subscription starts immediately
   and only includes Transactions added to the blockchain after the subscription
   is active.
@@ -46,7 +46,7 @@ type Subscription {
   getTransactions(where: FilterTransaction!): Transaction!
 
   """
-  EXPERIMENTAL: Subscribes to real-time updates of Blocks that match the provided
+  Subscribes to real-time updates of Blocks that match the provided
   filter criteria. Similar to the Transactions subscription,
   this subscription is active immediately upon creation and only includes Blocks
   added after the subscription begins.
