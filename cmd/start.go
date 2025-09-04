@@ -152,7 +152,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	em := events.NewManager()
 
 	// Create a TM2 client
-	tm2Client, err := client.NewClient(c.remote)
+	tm2Client, err := client.NewClient(ctx, c.remote)
 	if err != nil {
 		return fmt.Errorf("unable to create client, %w", err)
 	}
