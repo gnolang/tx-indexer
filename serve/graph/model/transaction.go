@@ -283,6 +283,7 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 			// and events could be of different types,
 			// we set it here so it will be easier to filter events.
 			storageDepositEvent.Type = "StorageDepositEvent"
+
 			return storageDepositEvent, nil
 		}
 	case gnostd.StorageUnlockEvent:
@@ -293,6 +294,7 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 			// and events could be of different types,
 			// we set it here so it will be easier to filter events.
 			storageUnlockEvent.Type = "StorageUnlockEvent"
+
 			return storageUnlockEvent, nil
 		}
 	}

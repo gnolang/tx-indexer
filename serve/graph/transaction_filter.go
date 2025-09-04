@@ -107,25 +107,30 @@ func filteredGnoEvent(event *model.GnoEvent, eventInput *model.EventInput) bool 
 	return true
 }
 
+//nolint:dupl // not a duplicate: StorageDepositeEvent vs StorageUnlockEvent
 func filteredStorageDepositEvent(event *model.StorageDepositEvent, eventInput *model.EventInput) bool {
 	if eventInput.StorageDepositEvent == nil {
 		return false
 	}
 
-	if eventInput.StorageDepositEvent.Type != nil && deref(eventInput.StorageDepositEvent.Type) != event.Type {
+	if eventInput.StorageDepositEvent.Type != nil &&
+		deref(eventInput.StorageDepositEvent.Type) != event.Type {
 		return false
 	}
 
-	if eventInput.StorageDepositEvent.BytesDelta != nil && deref(eventInput.StorageDepositEvent.BytesDelta) != event.BytesDelta {
+	if eventInput.StorageDepositEvent.BytesDelta != nil &&
+		deref(eventInput.StorageDepositEvent.BytesDelta) != event.BytesDelta {
 		return false
 	}
 
 	if eventInput.StorageDepositEvent.FeeDelta != nil {
-		if eventInput.StorageDepositEvent.FeeDelta.Amount != nil && deref(eventInput.StorageDepositEvent.FeeDelta.Amount) != event.FeeDelta.Amount {
+		if eventInput.StorageDepositEvent.FeeDelta.Amount != nil &&
+			deref(eventInput.StorageDepositEvent.FeeDelta.Amount) != event.FeeDelta.Amount {
 			return false
 		}
 
-		if eventInput.StorageDepositEvent.FeeDelta.Denom != nil && deref(eventInput.StorageDepositEvent.FeeDelta.Denom) != event.FeeDelta.Denom {
+		if eventInput.StorageDepositEvent.FeeDelta.Denom != nil &&
+			deref(eventInput.StorageDepositEvent.FeeDelta.Denom) != event.FeeDelta.Denom {
 			return false
 		}
 	}
@@ -137,30 +142,36 @@ func filteredStorageDepositEvent(event *model.StorageDepositEvent, eventInput *m
 	return true
 }
 
+//nolint:dupl // not a duplicate: StorageDepositeEvent vs StorageUnlockEvent
 func filteredStorageUnlockEvent(event *model.StorageUnlockEvent, eventInput *model.EventInput) bool {
 	if eventInput.StorageUnlockEvent == nil {
 		return false
 	}
 
-	if eventInput.StorageUnlockEvent.Type != nil && deref(eventInput.StorageUnlockEvent.Type) != event.Type {
+	if eventInput.StorageUnlockEvent.Type != nil &&
+		deref(eventInput.StorageUnlockEvent.Type) != event.Type {
 		return false
 	}
 
-	if eventInput.StorageUnlockEvent.BytesDelta != nil && deref(eventInput.StorageUnlockEvent.BytesDelta) != event.BytesDelta {
+	if eventInput.StorageUnlockEvent.BytesDelta != nil &&
+		deref(eventInput.StorageUnlockEvent.BytesDelta) != event.BytesDelta {
 		return false
 	}
 
 	if eventInput.StorageUnlockEvent.FeeRefund != nil {
-		if eventInput.StorageUnlockEvent.FeeRefund.Amount != nil && deref(eventInput.StorageUnlockEvent.FeeRefund.Amount) != event.FeeRefund.Amount {
+		if eventInput.StorageUnlockEvent.FeeRefund.Amount != nil &&
+			deref(eventInput.StorageUnlockEvent.FeeRefund.Amount) != event.FeeRefund.Amount {
 			return false
 		}
 
-		if eventInput.StorageUnlockEvent.FeeRefund.Denom != nil && deref(eventInput.StorageUnlockEvent.FeeRefund.Denom) != event.FeeRefund.Denom {
+		if eventInput.StorageUnlockEvent.FeeRefund.Denom != nil &&
+			deref(eventInput.StorageUnlockEvent.FeeRefund.Denom) != event.FeeRefund.Denom {
 			return false
 		}
 	}
 
-	if eventInput.StorageUnlockEvent.PkgPath != nil && deref(eventInput.StorageUnlockEvent.PkgPath) != event.PkgPath {
+	if eventInput.StorageUnlockEvent.PkgPath != nil &&
+		deref(eventInput.StorageUnlockEvent.PkgPath) != event.PkgPath {
 		return false
 	}
 

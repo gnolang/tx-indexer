@@ -99,13 +99,13 @@ func TestEventsFilters(t *testing.T) {
 	ugno := "ugno"
 	gnoEventType := "Registered"
 	gnoEventPkgPath := "gno.land/r/sys/users"
-	gnoEventAttributeKey := "name"
+	gnoEventAttributeKey := "name" //nolint:goconst // need a pointer
 	gnoEventAttributeValue := "gno"
-	storageDepositeType := "StorageDepositEvent"
+	storageDepositeType := "StorageDepositEvent" //nolint:goconst // need a pointer
 	storageDepositeBytesDelta := 100
 	storageDepositeFeeDeltaAmount := 10
 	storageDepositePkgPath := "gno.land/r/gnoland/users/v1"
-	storageUnlockType := "StorageUnlockEvent"
+	storageUnlockType := "StorageUnlockEvent" //nolint:goconst // need a pointer
 	storageUnlockBytesDelta := 100
 	storageUnlockFeeRefundAmount := 10
 	storageUnlockPkgPath := "gno.land/r/gnoland/users/v1"
@@ -483,7 +483,9 @@ func TestEventsFilters(t *testing.T) {
 				}
 			}
 
-			require.Equal(t, len(tt.expected), len(succeeded), "The number of filtered transactions should match the expected number")
+			require.Equal(t, len(tt.expected), len(succeeded),
+				"The number of filtered transactions should match the expected number")
+
 			for i, txExpected := range tt.expected {
 				assert.Equal(
 					t, txExpected, succeeded[i],
