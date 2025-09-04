@@ -2772,7 +2772,7 @@ type Subscription {
 	Returns:
 	- Transaction: Each received update is a Transaction object that matches the filter criteria.
 	"""
-	transactions(filter: TransactionFilter!): Transaction! @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
+	transactions(filter: TransactionFilter!): Transaction! @deprecated(reason: "Use ` + "`" + `getTransactions` + "`" + ` instead.")
 	"""
 	Subscribes to real-time updates of Blocks that match the provided filter criteria. Similar to the Transactions subscription,
 	this subscription is active immediately upon creation and only includes Blocks added after the subscription begins.
