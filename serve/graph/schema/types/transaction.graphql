@@ -5,7 +5,7 @@ type Transaction {
   """
   A sequential index representing the order of this Transaction within its Block. Unique within the context of its Block.
   """
-  index: Int! @filterable(extras:[MINMAX])
+  index: Int! @filterable(extras: [MINMAX])
 
   """
   Hash from Transaction content in base64 encoding.
@@ -20,8 +20,8 @@ type Transaction {
   """
   The height of the Block in which this Transaction is included. Links the Transaction to its containing Block.
   """
-  block_height: Int! @filterable(extras:[MINMAX])
-  
+  block_height: Int! @filterable(extras: [MINMAX])
+
   """
   The declared amount of computational effort the sender is willing to pay for executing this Transaction.
   """
@@ -122,7 +122,12 @@ type TransactionMessage {
   value: MessageValue! @filterable
 }
 
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue =
+  | BankMsgSend
+  | MsgCall
+  | MsgAddPackage
+  | MsgRun
+  | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
@@ -354,7 +359,7 @@ type TransactionResponse {
   events: [Event] @filterable
 }
 
-union Event = GnoEvent | UnknownEvent
+union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
 
 """
 `GnoEvent` is the event information exported by the Gno VM.
@@ -370,11 +375,6 @@ type GnoEvent {
   `pkg_path` is the path to the package that emitted the event.
   """
   pkg_path: String! @filterable
-
-  """
-  `func` is the name of the function that emitted the event.
-  """
-  func: String! @filterable
 
   """
   `attrs` is the event's attribute information.
@@ -396,6 +396,58 @@ type GnoEventAttribute {
   The value of the event attribute.
   """
   value: String! @filterable
+}
+
+"""
+`StorageDepositEvent` is emitted when a storage deposit fee is locked.
+It has `type`, `bytes_delta`, `fee_delta`, and `pkg_path`.
+"""
+type StorageDepositEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String! @filterable
+
+  """
+  `bytes_delta` is the amount of bytes used.
+  """
+  bytes_delta: Int! @filterable
+
+  """
+  `fee_delta` is the amount of coins paid in fees.
+  """
+  fee_delta: Coin! @filterable
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String! @filterable
+}
+
+"""
+`StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
+It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
+"""
+type StorageUnlockEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String! @filterable
+
+  """
+  `bytes_delta` is the amount of bytes released.
+  """
+  bytes_delta: Int! @filterable
+
+  """
+  `fee_refund` is the amount of coins refunded in fees.
+  """
+  fee_refund: Coin! @filterable
+
+  """
+  `pkg_path` is the path to the package that emitted the event.
+  """
+  pkg_path: String! @filterable
 }
 
 """
