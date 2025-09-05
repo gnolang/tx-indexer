@@ -1,0 +1,22 @@
+name: test8 push onbloc-tx-indexer
+
+on:
+  push:
+    branches:
+      - test8
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  main_batch_db_watcher:
+    name: Run tx-indexer app
+    uses: ./.github/workflows/app_template.yml
+    with:
+      app-name: 'tx-indexer'
+      env: 'test8'
+    secrets:
+      AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      REGION: ${{ secrets.DEV_REGION }}
