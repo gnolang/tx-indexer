@@ -152,7 +152,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	em := events.NewManager()
 
 	// Create a TM2 client
-	tm2Client, err := client.NewClient(ctx, c.remote)
+	tm2Client, err := client.NewClient(c.remote)
 	if err != nil {
 		return fmt.Errorf("unable to create client, %w", err)
 	}
@@ -197,7 +197,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, mux, c.disableIntrospection)
-	mux = health.Setup(db, f, mux)
+	mux = health.Setup(ctx, db, f, mux)
 
 	// Create the HTTP server
 	hs := serve.NewHTTPServer(mux, c.listenAddress, logger.Named("http-server"))

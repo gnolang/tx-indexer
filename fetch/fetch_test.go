@@ -1100,9 +1100,13 @@ func TestFetcher_Genesis(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData())
+	require.NoError(t, f.fetchGenesisData(ctx))
 
 	require.Len(t, capturedEvents, 1)
 
@@ -1138,9 +1142,13 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 		mockClient = &mockClient{}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData())
+	require.NoError(t, f.fetchGenesisData(ctx))
 }
 
 func TestFetcher_GenesisFetchError(t *testing.T) {
@@ -1181,9 +1189,13 @@ func TestFetcher_GenesisFetchError(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(ctx), remoteErr)
 }
 
 func TestFetcher_GenesisInvalidState(t *testing.T) {
@@ -1222,9 +1234,13 @@ func TestFetcher_GenesisInvalidState(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorContains(t, f.fetchGenesisData(), "unknown genesis state kind 'int'")
+	require.ErrorContains(t, f.fetchGenesisData(ctx), "unknown genesis state kind 'int'")
 }
 
 func TestFetcher_GenesisFetchResultsError(t *testing.T) {
@@ -1265,9 +1281,13 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(ctx), remoteErr)
 }
 
 func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
@@ -1304,9 +1324,13 @@ func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData())
+	require.Error(t, f.fetchGenesisData(ctx))
 }
 
 func TestFetcher_GenesisNilResults(t *testing.T) {
@@ -1345,9 +1369,13 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 		}
 	)
 
+	// Create the context
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData())
+	require.Error(t, f.fetchGenesisData(ctx))
 }
 
 // generateTransactions generates dummy transactions
