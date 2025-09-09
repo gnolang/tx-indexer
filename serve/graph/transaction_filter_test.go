@@ -112,21 +112,21 @@ func TestEventsFilters(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		filter   model.TransactionFilter
+		where    model.FilterTransaction
 		expected []*model.Transaction
 	}{
 		{
 			name:     "no filter",
-			filter:   model.TransactionFilter{},
+			where:    model.FilterTransaction{},
 			expected: txs,
 		},
 		{
 			name: "filter GnoEvent by event type",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							Type: &gnoEventType,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							Type: &model.FilterString{Eq: &gnoEventType},
 						},
 					},
 				},
@@ -135,11 +135,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by event type (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							Type: &badString,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							Type: &model.FilterString{Eq: &badString},
 						},
 					},
 				},
@@ -148,11 +148,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by PkgPath",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							PkgPath: &gnoEventPkgPath,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							PkgPath: &model.FilterString{Eq: &gnoEventPkgPath},
 						},
 					},
 				},
@@ -161,11 +161,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by PkgPath (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							PkgPath: &storageDepositePkgPath,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							PkgPath: &model.FilterString{Eq: &storageDepositePkgPath},
 						},
 					},
 				},
@@ -174,12 +174,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by Attributes",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							Attrs: []*model.EventAttributeInput{
-								{Key: &gnoEventAttributeKey, Value: &gnoEventAttributeValue},
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							Attrs: &model.NestedFilterGnoEventAttribute{
+								Key:   &model.FilterString{Eq: &gnoEventAttributeKey},
+								Value: &model.FilterString{Eq: &gnoEventAttributeValue},
 							},
 						},
 					},
@@ -189,12 +190,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by Attributes (bad key)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							Attrs: []*model.EventAttributeInput{
-								{Key: &badString, Value: &gnoEventAttributeValue},
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							Attrs: &model.NestedFilterGnoEventAttribute{
+								Key:   &model.FilterString{Eq: &badString},
+								Value: &model.FilterString{Eq: &gnoEventAttributeValue},
 							},
 						},
 					},
@@ -204,12 +206,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter GnoEvent by Attributes (bad value)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						GnoEvent: &model.GnoEventInput{
-							Attrs: []*model.EventAttributeInput{
-								{Key: &gnoEventAttributeKey, Value: &badString},
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						GnoEvent: &model.NestedFilterGnoEvent{
+							Attrs: &model.NestedFilterGnoEventAttribute{
+								Key:   &model.FilterString{Eq: &gnoEventAttributeKey},
+								Value: &model.FilterString{Eq: &badString},
 							},
 						},
 					},
@@ -219,11 +222,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by type",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							Type: &storageDepositeType,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							Type: &model.FilterString{Eq: &storageDepositeType},
 						},
 					},
 				},
@@ -232,11 +235,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by type (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							Type: &badString,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							Type: &model.FilterString{Eq: &badString},
 						},
 					},
 				},
@@ -245,11 +248,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by bytes delta",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							BytesDelta: &storageDepositeBytesDelta,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							BytesDelta: &model.FilterInt{Eq: &storageDepositeBytesDelta},
 						},
 					},
 				},
@@ -258,11 +261,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by bytes delta (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							BytesDelta: &badInt,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							BytesDelta: &model.FilterInt{Eq: &badInt},
 						},
 					},
 				},
@@ -271,13 +274,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by fee delta",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							FeeDelta: &model.CoinInput{
-								Denom:  &ugno,
-								Amount: &storageDepositeFeeDeltaAmount,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							FeeDelta: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &ugno},
+								Amount: &model.FilterInt{Eq: &storageDepositeFeeDeltaAmount},
 							},
 						},
 					},
@@ -287,13 +290,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by fee delta (bad coin denom)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							FeeDelta: &model.CoinInput{
-								Denom:  &badString,
-								Amount: &storageDepositeFeeDeltaAmount,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							FeeDelta: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &badString},
+								Amount: &model.FilterInt{Eq: &storageDepositeFeeDeltaAmount},
 							},
 						},
 					},
@@ -303,13 +306,13 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by fee delta (bad coin value)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							FeeDelta: &model.CoinInput{
-								Denom:  &ugno,
-								Amount: &badInt,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							FeeDelta: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &ugno},
+								Amount: &model.FilterInt{Eq: &badInt},
 							},
 						},
 					},
@@ -319,11 +322,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by PkgPath",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							PkgPath: &storageDepositePkgPath,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							PkgPath: &model.FilterString{Eq: &storageDepositePkgPath},
 						},
 					},
 				},
@@ -332,11 +335,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageDepositEvent by PkgPath (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageDepositEvent: &model.StorageDepositEventInput{
-							PkgPath: &badString,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageDepositEvent: &model.NestedFilterStorageDepositEvent{
+							PkgPath: &model.FilterString{Eq: &badString},
 						},
 					},
 				},
@@ -345,11 +348,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by type",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							Type: &storageUnlockType,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							Type: &model.FilterString{Eq: &storageUnlockType},
 						},
 					},
 				},
@@ -358,11 +361,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by type (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							Type: &badString,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							Type: &model.FilterString{Eq: &badString},
 						},
 					},
 				},
@@ -371,11 +374,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by bytes delta",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							BytesDelta: &storageUnlockBytesDelta,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							BytesDelta: &model.FilterInt{Eq: &storageUnlockBytesDelta},
 						},
 					},
 				},
@@ -384,11 +387,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by bytes delta (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							BytesDelta: &badInt,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							BytesDelta: &model.FilterInt{Eq: &badInt},
 						},
 					},
 				},
@@ -396,14 +399,14 @@ func TestEventsFilters(t *testing.T) {
 			expected: []*model.Transaction{},
 		},
 		{
-			name: "filter StorageUnlockEvent by fee delta",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							FeeRefund: &model.CoinInput{
-								Denom:  &ugno,
-								Amount: &storageUnlockFeeRefundAmount,
+			name: "filter StorageUnlockEvent by fee refund",
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							FeeRefund: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &ugno},
+								Amount: &model.FilterInt{Eq: &storageUnlockFeeRefundAmount},
 							},
 						},
 					},
@@ -412,14 +415,14 @@ func TestEventsFilters(t *testing.T) {
 			expected: []*model.Transaction{txs[3], txs[4]},
 		},
 		{
-			name: "filter StorageUnlockEvent by fee delta (bad coin denom)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							FeeRefund: &model.CoinInput{
-								Denom:  &badString,
-								Amount: &storageUnlockFeeRefundAmount,
+			name: "filter StorageUnlockEvent by fee refund (bad coin denom)",
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							FeeRefund: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &badString},
+								Amount: &model.FilterInt{Eq: &storageUnlockFeeRefundAmount},
 							},
 						},
 					},
@@ -428,14 +431,14 @@ func TestEventsFilters(t *testing.T) {
 			expected: []*model.Transaction{},
 		},
 		{
-			name: "filter StorageUnlockEvent by fee delta (bad coin value)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							FeeRefund: &model.CoinInput{
-								Denom:  &ugno,
-								Amount: &badInt,
+			name: "filter StorageUnlockEvent by fee refund (bad coin value)",
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							FeeRefund: &model.NestedFilterCoin{
+								Denom:  &model.FilterString{Eq: &ugno},
+								Amount: &model.FilterInt{Eq: &badInt},
 							},
 						},
 					},
@@ -445,11 +448,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by PkgPath",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							PkgPath: &storageUnlockPkgPath,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							PkgPath: &model.FilterString{Eq: &storageUnlockPkgPath},
 						},
 					},
 				},
@@ -458,11 +461,11 @@ func TestEventsFilters(t *testing.T) {
 		},
 		{
 			name: "filter StorageUnlockEvent by PkgPath (bad)",
-			filter: model.TransactionFilter{
-				Events: []*model.EventInput{
-					{
-						StorageUnlockEvent: &model.StorageUnlockEventInput{
-							PkgPath: &badString,
+			where: model.FilterTransaction{
+				Response: &model.NestedFilterTransactionResponse{
+					Events: &model.NestedFilterEvent{
+						StorageUnlockEvent: &model.NestedFilterStorageUnlockEvent{
+							PkgPath: &model.FilterString{Eq: &badString},
 						},
 					},
 				},
@@ -478,7 +481,7 @@ func TestEventsFilters(t *testing.T) {
 			var succeeded []*model.Transaction
 
 			for _, tx := range txs {
-				if FilteredTransactionBy(tx, tt.filter) {
+				if tt.where.Eval(tx) {
 					succeeded = append(succeeded, tx)
 				}
 			}
