@@ -1100,12 +1100,9 @@ func TestFetcher_Genesis(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData(ctx))
+	require.NoError(t, f.fetchGenesisData(context.Background()))
 
 	require.Len(t, capturedEvents, 1)
 
@@ -1141,12 +1138,9 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 		mockClient = &mockClient{}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData(ctx))
+	require.NoError(t, f.fetchGenesisData(context.Background()))
 }
 
 func TestFetcher_GenesisFetchError(t *testing.T) {
@@ -1187,12 +1181,9 @@ func TestFetcher_GenesisFetchError(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(ctx), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
 }
 
 func TestFetcher_GenesisInvalidState(t *testing.T) {
@@ -1231,12 +1222,9 @@ func TestFetcher_GenesisInvalidState(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorContains(t, f.fetchGenesisData(ctx), "unknown genesis state kind 'int'")
+	require.ErrorContains(t, f.fetchGenesisData(context.Background()), "unknown genesis state kind 'int'")
 }
 
 func TestFetcher_GenesisFetchResultsError(t *testing.T) {
@@ -1277,12 +1265,9 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(ctx), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
 }
 
 func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
@@ -1319,12 +1304,9 @@ func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData(ctx))
+	require.Error(t, f.fetchGenesisData(context.Background()))
 }
 
 func TestFetcher_GenesisNilResults(t *testing.T) {
@@ -1363,12 +1345,9 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 		}
 	)
 
-	// Create the context
-	ctx := context.Background()
-
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData(ctx))
+	require.Error(t, f.fetchGenesisData(context.Background()))
 }
 
 // generateTransactions generates dummy transactions
