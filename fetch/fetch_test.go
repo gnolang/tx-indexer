@@ -1101,8 +1101,7 @@ func TestFetcher_Genesis(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1143,8 +1142,7 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1190,8 +1188,7 @@ func TestFetcher_GenesisFetchError(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1235,8 +1232,7 @@ func TestFetcher_GenesisInvalidState(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1282,8 +1278,7 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1325,8 +1320,7 @@ func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 
@@ -1370,8 +1364,7 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 	)
 
 	// Create the context
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
+	ctx := context.Background()
 
 	f := New(mockStorage, mockClient, mockEvents)
 

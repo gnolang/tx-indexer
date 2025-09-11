@@ -75,103 +75,20 @@ func filteredEventBy(event model.Event, eventInput *model.EventInput) bool {
 		return false
 	}
 
-	switch e := event.(type) {
-	case *model.GnoEvent:
-		return filteredGnoEvent(e, eventInput)
-	case *model.StorageDepositEvent:
-		return filteredStorageDepositEvent(e, eventInput)
-	case *model.StorageUnlockEvent:
-		return filteredStorageUnlockEvent(e, eventInput)
-	default:
-		return false
-	}
-}
-
-func filteredGnoEvent(event *model.GnoEvent, eventInput *model.EventInput) bool {
-	if eventInput.GnoEvent == nil {
+	gnoEvent, ok := event.(*model.GnoEvent)
+	if !ok {
 		return false
 	}
 
-	if eventInput.GnoEvent.Type != nil && deref(eventInput.GnoEvent.Type) != event.Type {
+	if eventInput.GnoEvent.Type != nil && deref(eventInput.GnoEvent.Type) != gnoEvent.Type {
 		return false
 	}
 
-	if eventInput.GnoEvent.PkgPath != nil && deref(eventInput.GnoEvent.PkgPath) != event.PkgPath {
+	if eventInput.GnoEvent.PkgPath != nil && deref(eventInput.GnoEvent.PkgPath) != gnoEvent.PkgPath {
 		return false
 	}
 
-	if eventInput.GnoEvent.Attrs != nil && !filteredGnoEventAttributesBy(event.Attrs, eventInput.GnoEvent.Attrs) {
-		return false
-	}
-
-	return true
-}
-
-//nolint:dupl // not a duplicate: StorageDepositeEvent vs StorageUnlockEvent
-func filteredStorageDepositEvent(event *model.StorageDepositEvent, eventInput *model.EventInput) bool {
-	if eventInput.StorageDepositEvent == nil {
-		return false
-	}
-
-	if eventInput.StorageDepositEvent.Type != nil &&
-		deref(eventInput.StorageDepositEvent.Type) != event.Type {
-		return false
-	}
-
-	if eventInput.StorageDepositEvent.BytesDelta != nil &&
-		deref(eventInput.StorageDepositEvent.BytesDelta) != event.BytesDelta {
-		return false
-	}
-
-	if eventInput.StorageDepositEvent.FeeDelta != nil {
-		if eventInput.StorageDepositEvent.FeeDelta.Amount != nil &&
-			deref(eventInput.StorageDepositEvent.FeeDelta.Amount) != event.FeeDelta.Amount {
-			return false
-		}
-
-		if eventInput.StorageDepositEvent.FeeDelta.Denom != nil &&
-			deref(eventInput.StorageDepositEvent.FeeDelta.Denom) != event.FeeDelta.Denom {
-			return false
-		}
-	}
-
-	if eventInput.StorageDepositEvent.PkgPath != nil && deref(eventInput.StorageDepositEvent.PkgPath) != event.PkgPath {
-		return false
-	}
-
-	return true
-}
-
-//nolint:dupl // not a duplicate: StorageDepositeEvent vs StorageUnlockEvent
-func filteredStorageUnlockEvent(event *model.StorageUnlockEvent, eventInput *model.EventInput) bool {
-	if eventInput.StorageUnlockEvent == nil {
-		return false
-	}
-
-	if eventInput.StorageUnlockEvent.Type != nil &&
-		deref(eventInput.StorageUnlockEvent.Type) != event.Type {
-		return false
-	}
-
-	if eventInput.StorageUnlockEvent.BytesDelta != nil &&
-		deref(eventInput.StorageUnlockEvent.BytesDelta) != event.BytesDelta {
-		return false
-	}
-
-	if eventInput.StorageUnlockEvent.FeeRefund != nil {
-		if eventInput.StorageUnlockEvent.FeeRefund.Amount != nil &&
-			deref(eventInput.StorageUnlockEvent.FeeRefund.Amount) != event.FeeRefund.Amount {
-			return false
-		}
-
-		if eventInput.StorageUnlockEvent.FeeRefund.Denom != nil &&
-			deref(eventInput.StorageUnlockEvent.FeeRefund.Denom) != event.FeeRefund.Denom {
-			return false
-		}
-	}
-
-	if eventInput.StorageUnlockEvent.PkgPath != nil &&
-		deref(eventInput.StorageUnlockEvent.PkgPath) != event.PkgPath {
+	if eventInput.GnoEvent.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.GnoEvent.Attrs) {
 		return false
 	}
 
