@@ -122,12 +122,7 @@ type TransactionMessage {
   value: MessageValue! @filterable
 }
 
-union MessageValue =
-  | BankMsgSend
-  | MsgCall
-  | MsgAddPackage
-  | MsgRun
-  | UnexpectedMessage
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
