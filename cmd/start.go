@@ -197,7 +197,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, mux, c.disableIntrospection)
-	mux = health.Setup(ctx, db, f, mux)
+	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
 	hs := serve.NewHTTPServer(mux, c.listenAddress, logger.Named("http-server"))

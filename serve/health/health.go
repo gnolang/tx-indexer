@@ -12,7 +12,7 @@ import (
 	"github.com/gnolang/tx-indexer/storage"
 )
 
-func Setup(ctx context.Context, s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
+func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		h, err := s.GetLatestHeight()
 		if err != nil {
@@ -38,7 +38,7 @@ func Setup(ctx context.Context, s storage.Storage, rc ReadyChecker, m *chi.Mux) 
 	})
 
 	m.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		ok, err := rc.IsReady(ctx)
+		ok, err := rc.IsReady(r.Context())
 		if !ok {
 			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("node not ready: %s", err.Error()),
