@@ -4,6 +4,7 @@
 - [Key Features](#key-features)
 - [Getting Started](#getting-started)
 - [GraphQL Endpoint](#graphql-endpoint)
+    - [Hosted Example](#hosted-example)
   - [Examples](#examples)
     - [Get all Transactions with add\_package messages. Show the creator, package name and path.](#get-all-transactions-with-add_package-messages-show-the-creator-package-name-and-path)
     - [Subscribe to get all new blocks in real-time](#subscribe-to-get-all-new-blocks-in-real-time)
@@ -118,9 +119,7 @@ The playground includes built-in documentation for available queries, fields, an
 
 ```graphql
 {
-  transactions(
-    filter: { message: {vm_param: {add_package: {}}}}
-  ) {
+  getTransactions(where: {messages: {value: {MsgAddPackage: {}}}}) {
     index
     hash
     block_height
@@ -146,7 +145,7 @@ The playground includes built-in documentation for available queries, fields, an
 
 ```graphql
 subscription {
-  blocks(filter: {}) {
+  getBlocks(where: {}) {
     height
     version
     chain_id

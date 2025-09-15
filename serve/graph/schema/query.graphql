@@ -5,15 +5,18 @@ type Query {
   """
   Retrieves a list of Transactions that match the given filter criteria. If the result is incomplete due to errors, both partial results and errors are returned.
   """
-  transactions(filter: TransactionFilter!): [Transaction!]
+  transactions(filter: TransactionFilter!): [Transaction!] @deprecated(reason: "Use `getTransactions` instead.")
 
   """
   Fetches Blocks matching the specified filter criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
   """
-  blocks(filter: BlockFilter!): [Block!]
+  blocks(filter: BlockFilter!): [Block!] @deprecated(reason: "Use `getBlocks` instead.")
 
   """
   Returns the height of the most recently processed Block by the blockchain indexer, indicating the current length of the blockchain.
   """
   latestBlockHeight: Int!
 }
+
+# Check graph/gen/generate.go to see Query methods using the auto-generated filters
+
