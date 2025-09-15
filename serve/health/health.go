@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -37,7 +38,7 @@ func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	})
 
 	m.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		ok, err := rc.IsReady()
+		ok, err := rc.IsReady(r.Context())
 		if !ok {
 			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("node not ready: %s", err.Error()),
@@ -67,5 +68,5 @@ type response struct {
 }
 
 type ReadyChecker interface {
-	IsReady() (bool, error)
+	IsReady(context.Context) (bool, error)
 }

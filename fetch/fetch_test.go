@@ -1102,7 +1102,7 @@ func TestFetcher_Genesis(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData())
+	require.NoError(t, f.fetchGenesisData(context.Background()))
 
 	require.Len(t, capturedEvents, 1)
 
@@ -1140,7 +1140,7 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData())
+	require.NoError(t, f.fetchGenesisData(context.Background()))
 }
 
 func TestFetcher_GenesisFetchError(t *testing.T) {
@@ -1183,7 +1183,7 @@ func TestFetcher_GenesisFetchError(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
 }
 
 func TestFetcher_GenesisInvalidState(t *testing.T) {
@@ -1224,7 +1224,7 @@ func TestFetcher_GenesisInvalidState(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorContains(t, f.fetchGenesisData(), "unknown genesis state kind 'int'")
+	require.ErrorContains(t, f.fetchGenesisData(context.Background()), "unknown genesis state kind 'int'")
 }
 
 func TestFetcher_GenesisFetchResultsError(t *testing.T) {
@@ -1267,7 +1267,7 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(), remoteErr)
+	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
 }
 
 func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
@@ -1306,7 +1306,7 @@ func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData())
+	require.Error(t, f.fetchGenesisData(context.Background()))
 }
 
 func TestFetcher_GenesisNilResults(t *testing.T) {
@@ -1347,7 +1347,7 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData())
+	require.Error(t, f.fetchGenesisData(context.Background()))
 }
 
 // generateTransactions generates dummy transactions

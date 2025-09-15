@@ -73,7 +73,7 @@ func New(
 	return f
 }
 
-func (f *Fetcher) fetchGenesisData() error {
+func (f *Fetcher) fetchGenesisData(ctx context.Context) error {
 	_, err := f.storage.GetLatestHeight()
 	// Possible cases:
 	// - err is ErrNotFound: the storage is empty, we execute the rest of the routine and fetch+write genesis data
@@ -86,12 +86,12 @@ func (f *Fetcher) fetchGenesisData() error {
 
 	f.logger.Info("Fetching genesis")
 
-	block, err := getGenesisBlock(f.client)
+	block, err := getGenesisBlock(ctx, f.client)
 	if err != nil {
 		return fmt.Errorf("failed to fetch genesis block: %w", err)
 	}
 
-	results, err := f.client.GetBlockResults(0)
+	results, err := f.client.GetBlockResults(ctx, 0)
 	if err != nil {
 		return fmt.Errorf("failed to fetch genesis results: %w", err)
 	}
@@ -131,7 +131,7 @@ func (f *Fetcher) fetchGenesisData() error {
 // blockchain data
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	// Attempt to fetch the genesis data
-	if err := f.fetchGenesisData(); err != nil {
+	if err := f.fetchGenesisData(ctx); err != nil {
 		// We treat this error as soft, to ease migration, since
 		// some versions of gno networks don't support this.
 		// In the future, we should hard fail if genesis is not fetch-able
@@ -156,7 +156,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		}
 
 		// Fetch the latest block from the chain
-		latestRemote, latestErr := f.client.GetLatestBlockNumber()
+		latestRemote, latestErr := f.client.GetLatestBlockNumber(ctx)
 		if latestErr != nil {
 			f.logger.Error("unable to fetch latest block number", zap.Error(latestErr))
 
@@ -322,13 +322,13 @@ func (f *Fetcher) writeSlot(s *slot) error {
 	return nil
 }
 
-func (f *Fetcher) IsReady() (bool, error) {
+func (f *Fetcher) IsReady(ctx context.Context) (bool, error) {
 	if f.latestChunkSize == int(f.maxChunkSize) {
 		return false, fmt.Errorf("the data synchronization process is still in progress and hasn't "+
 			"caught up with the current blockchain state. Chunk size: %d", f.latestChunkSize)
 	}
 
-	_, err := f.client.GetLatestBlockNumber()
+	_, err := f.client.GetLatestBlockNumber(ctx)
 	if err != nil {
 		return false, fmt.Errorf("node RPC method is not reachable: %w", err)
 	}
@@ -336,8 +336,8 @@ func (f *Fetcher) IsReady() (bool, error) {
 	return true, nil
 }
 
-func getGenesisBlock(client Client) (*bft_types.Block, error) {
-	gblock, err := client.GetGenesis()
+func getGenesisBlock(ctx context.Context, client Client) (*bft_types.Block, error) {
+	gblock, err := client.GetGenesis(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get genesis block: %w", err)
 	}

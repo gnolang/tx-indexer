@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 
 	rpcClient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
@@ -33,8 +34,8 @@ func (c *Client) CreateBatch() clientTypes.Batch {
 	}
 }
 
-func (c *Client) GetLatestBlockNumber() (uint64, error) {
-	status, err := c.client.Status()
+func (c *Client) GetLatestBlockNumber(ctx context.Context) (uint64, error) {
+	status, err := c.client.Status(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("unable to get chain status, %w", err)
 	}
@@ -42,10 +43,10 @@ func (c *Client) GetLatestBlockNumber() (uint64, error) {
 	return uint64(status.SyncInfo.LatestBlockHeight), nil
 }
 
-func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
+func (c *Client) GetBlock(ctx context.Context, blockNum uint64) (*core_types.ResultBlock, error) {
 	bn := int64(blockNum)
 
-	block, err := c.client.Block(&bn)
+	block, err := c.client.Block(ctx, &bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block, %w", err)
 	}
@@ -53,8 +54,8 @@ func (c *Client) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
 	return block, nil
 }
 
-func (c *Client) GetGenesis() (*core_types.ResultGenesis, error) {
-	genesis, err := c.client.Genesis()
+func (c *Client) GetGenesis(ctx context.Context) (*core_types.ResultGenesis, error) {
+	genesis, err := c.client.Genesis(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get genesis block, %w", err)
 	}
@@ -62,10 +63,10 @@ func (c *Client) GetGenesis() (*core_types.ResultGenesis, error) {
 	return genesis, nil
 }
 
-func (c *Client) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
+func (c *Client) GetBlockResults(ctx context.Context, blockNum uint64) (*core_types.ResultBlockResults, error) {
 	bn := int64(blockNum)
 
-	results, err := c.client.BlockResults(&bn)
+	results, err := c.client.BlockResults(ctx, &bn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get block results, %w", err)
 	}
