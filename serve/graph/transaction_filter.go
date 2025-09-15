@@ -80,19 +80,15 @@ func filteredEventBy(event model.Event, eventInput *model.EventInput) bool {
 		return false
 	}
 
-	if eventInput.Type != nil && deref(eventInput.Type) != gnoEvent.Type {
+	if eventInput.GnoEvent.Type != nil && deref(eventInput.GnoEvent.Type) != gnoEvent.Type {
 		return false
 	}
 
-	if eventInput.PkgPath != nil && deref(eventInput.PkgPath) != gnoEvent.PkgPath {
+	if eventInput.GnoEvent.PkgPath != nil && deref(eventInput.GnoEvent.PkgPath) != gnoEvent.PkgPath {
 		return false
 	}
 
-	if eventInput.Func != nil && deref(eventInput.Func) != gnoEvent.Func {
-		return false
-	}
-
-	if eventInput.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.Attrs) {
+	if eventInput.GnoEvent.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.GnoEvent.Attrs) {
 		return false
 	}
 

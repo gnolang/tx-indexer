@@ -32,10 +32,10 @@ func handleChunk(
 		errs := make([]error, 0)
 
 		// Get block data from the node
-		blocks, err := getBlocksFromBatch(info.chunkRange, client)
+		blocks, err := getBlocksFromBatch(ctx, info.chunkRange, client)
 		errs = append(errs, err)
 
-		results, err := getTxResultFromBatch(blocks, client)
+		results, err := getTxResultFromBatch(ctx, blocks, client)
 		errs = append(errs, err)
 
 		return &chunk{
@@ -61,7 +61,7 @@ func handleChunk(
 // getBlocksFromBatch gets the blocks using batch requests.
 // In case of encountering an error during fetching (remote temporarily closed, batch error...),
 // the fetch is attempted again using sequential block fetches
-func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, error) {
+func getBlocksFromBatch(ctx context.Context, chunkRange chunkRange, client Client) ([]*types.Block, error) {
 	var (
 		batch         = client.CreateBatch()
 		fetchedBlocks = make([]*types.Block, 0)
@@ -82,7 +82,7 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 	blocksRaw, err := batch.Execute(context.Background())
 	if err != nil {
 		// Try to fetch sequentially
-		return getBlocksSequentially(chunkRange, client)
+		return getBlocksSequentially(ctx, chunkRange, client)
 	}
 
 	// Extract the blocks
@@ -100,7 +100,7 @@ func getBlocksFromBatch(chunkRange chunkRange, client Client) ([]*types.Block, e
 }
 
 // getBlocksSequentially attempts to fetch blocks from the client, using sequential requests
-func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block, error) {
+func getBlocksSequentially(ctx context.Context, chunkRange chunkRange, client Client) ([]*types.Block, error) {
 	var (
 		errs   = make([]error, 0)
 		blocks = make([]*types.Block, 0)
@@ -108,7 +108,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 
 	for blockNum := chunkRange.from; blockNum <= chunkRange.to; blockNum++ {
 		// Get block info from the chain
-		block, err := client.GetBlock(blockNum)
+		block, err := client.GetBlock(ctx, blockNum)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to get block %d, %w", blockNum, err))
 
@@ -124,7 +124,7 @@ func getBlocksSequentially(chunkRange chunkRange, client Client) ([]*types.Block
 // getTxResultFromBatch gets the tx results using batch requests.
 // In case of encountering an error during fetching (remote temporarily closed, batch error...),
 // the fetch is attempted again using sequential tx result fetches
-func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
+func getTxResultFromBatch(ctx context.Context, blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
 	var (
 		batch          = client.CreateBatch()
 		fetchedResults = make([][]*types.TxResult, len(blocks))
@@ -158,7 +158,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 	blockResultsRaw, err := batch.Execute(context.Background())
 	if err != nil {
 		// Try to fetch sequentially
-		return getTxResultsSequentially(blocks, client)
+		return getTxResultsSequentially(ctx, blocks, client)
 	}
 
 	indexOfBlockHeight := make(map[int64]int, len(blocks))
@@ -198,7 +198,7 @@ func getTxResultFromBatch(blocks []*types.Block, client Client) ([][]*types.TxRe
 }
 
 // getTxResultsSequentially attempts to fetch tx results from the client, using sequential requests
-func getTxResultsSequentially(blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
+func getTxResultsSequentially(ctx context.Context, blocks []*types.Block, client Client) ([][]*types.TxResult, error) {
 	var (
 		errs    = make([]error, 0)
 		results = make([][]*types.TxResult, len(blocks))
@@ -210,7 +210,7 @@ func getTxResultsSequentially(blocks []*types.Block, client Client) ([][]*types.
 		}
 
 		// Get the transaction execution results
-		blockResults, err := client.GetBlockResults(uint64(block.Height))
+		blockResults, err := client.GetBlockResults(ctx, uint64(block.Height))
 		if err != nil {
 			errs = append(
 				errs,

@@ -1,6 +1,8 @@
 package fetch
 
 import (
+	"context"
+
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
@@ -10,17 +12,17 @@ import (
 // Client defines the interface for the node (client) communication
 type Client interface {
 	// GetLatestBlockNumber returns the latest block height from the chain
-	GetLatestBlockNumber() (uint64, error)
+	GetLatestBlockNumber(context.Context) (uint64, error)
 
 	// GetBlock returns specified block
-	GetBlock(uint64) (*core_types.ResultBlock, error)
+	GetBlock(context.Context, uint64) (*core_types.ResultBlock, error)
 
 	// GetGenesis returns the genesis block
-	GetGenesis() (*core_types.ResultGenesis, error)
+	GetGenesis(context.Context) (*core_types.ResultGenesis, error)
 
 	// GetBlockResults returns the results of executing the transactions
 	// for the specified block
-	GetBlockResults(uint64) (*core_types.ResultBlockResults, error)
+	GetBlockResults(context.Context, uint64) (*core_types.ResultBlockResults, error)
 
 	// CreateBatch creates a new client batch
 	CreateBatch() clientTypes.Batch

@@ -27,7 +27,7 @@ type mockClient struct {
 	createBatchFn createBatchDelegate
 }
 
-func (m *mockClient) GetLatestBlockNumber() (uint64, error) {
+func (m *mockClient) GetLatestBlockNumber(ctx context.Context) (uint64, error) {
 	if m.getLatestBlockNumberFn != nil {
 		return m.getLatestBlockNumberFn()
 	}
@@ -35,7 +35,7 @@ func (m *mockClient) GetLatestBlockNumber() (uint64, error) {
 	return 0, nil
 }
 
-func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) {
+func (m *mockClient) GetBlock(ctx context.Context, blockNum uint64) (*core_types.ResultBlock, error) {
 	if m.getBlockFn != nil {
 		return m.getBlockFn(blockNum)
 	}
@@ -43,7 +43,7 @@ func (m *mockClient) GetBlock(blockNum uint64) (*core_types.ResultBlock, error) 
 	return nil, nil
 }
 
-func (m *mockClient) GetGenesis() (*core_types.ResultGenesis, error) {
+func (m *mockClient) GetGenesis(ctx context.Context) (*core_types.ResultGenesis, error) {
 	if m.getGenesisFn != nil {
 		return m.getGenesisFn()
 	}
@@ -51,7 +51,7 @@ func (m *mockClient) GetGenesis() (*core_types.ResultGenesis, error) {
 	return nil, nil
 }
 
-func (m *mockClient) GetBlockResults(blockNum uint64) (*core_types.ResultBlockResults, error) {
+func (m *mockClient) GetBlockResults(ctx context.Context, blockNum uint64) (*core_types.ResultBlockResults, error) {
 	if m.getBlockResultsFn != nil {
 		return m.getBlockResultsFn(blockNum)
 	}
