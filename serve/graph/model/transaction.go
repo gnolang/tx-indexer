@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
-	gnostd "github.com/gnolang/gno/gnovm/stdlibs/std"
+	"github.com/gnolang/gno/gnovm/stdlibs/chain"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
@@ -269,13 +269,13 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 	}
 
 	switch abciEvent.(type) {
-	case gnostd.GnoEvent:
+	case chain.Event:
 		var gnoEvent *GnoEvent
 
 		if err = json.Unmarshal(data, &gnoEvent); err == nil {
 			return gnoEvent, nil
 		}
-	case gnostd.StorageDepositEvent:
+	case chain.StorageDepositEvent:
 		var storageDepositEvent *StorageDepositEvent
 
 		if err = json.Unmarshal(data, &storageDepositEvent); err == nil {
@@ -286,7 +286,7 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 
 			return storageDepositEvent, nil
 		}
-	case gnostd.StorageUnlockEvent:
+	case chain.StorageUnlockEvent:
 		var storageUnlockEvent *StorageUnlockEvent
 
 		if err = json.Unmarshal(data, &storageUnlockEvent); err == nil {

@@ -6,7 +6,7 @@ require (
 	github.com/99designs/gqlgen v0.17.56
 	github.com/ajnavarro/gqlfiltergen v0.1.2
 	github.com/cockroachdb/pebble v1.1.5
-	github.com/gnolang/gno v0.0.0-20250903085916-8441a1e81345
+	github.com/gnolang/gno v0.0.0-20250930114629-66df56529bed
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/httprate v0.15.0
 	github.com/google/uuid v1.6.0
@@ -23,8 +23,12 @@ require (
 
 require (
 	github.com/ajg/form v1.5.1 // indirect
+	github.com/cosmos/gogoproto v1.7.0 // indirect
+	github.com/cosmos/ics23/go v0.11.0 // indirect
+	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/sig-0/insertion-queue v0.0.0-20241004125609-6b3ca841346b // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -68,7 +72,7 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.46.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
@@ -92,6 +96,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/grpc v1.69.4 // indirect
-	google.golang.org/protobuf v1.36.3 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
