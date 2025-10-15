@@ -10,7 +10,7 @@ permissions:
   contents: write
   id-token: write
 jobs:
-  main_batch_db_watcher:
+  dev_gnoscan_tx_indexer:
     name: Run tx-indexer app
     uses: ./.github/workflows/app_template.yml
     with:
