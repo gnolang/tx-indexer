@@ -1,9 +1,9 @@
-name: test7 push onbloc-tx-indexer
+name: dev gnoscan push onbloc-tx-indexer
 
 on:
   push:
     branches:
-      - test7
+      - dev-gnoscan
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/app_template.yml
     with:
       app-name: 'tx-indexer'
-      env: 'test7'
+      env: 'dev-gnoscan'
     secrets:
       AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
