@@ -3,7 +3,7 @@
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Getting Started](#getting-started)
-- [Tutorial](docs/TUTORIAL.md)
+- [Tutorial](#tutorial)
 - [GraphQL Endpoint](#graphql-endpoint)
     - [Hosted Example](#hosted-example)
   - [Examples](#examples)
