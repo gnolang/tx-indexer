@@ -1,0 +1,22 @@
+name: dev stage gnoscan push onbloc-tx-indexer v2
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  dev_stage_gnoscan_tx_indexer:
+    name: Run tx-indexer app
+    uses: ./.github/workflows/app_template.yml
+    with:
+      app-name: "tx-indexer"
+      env: "dev-stage-gnoscan-v2"
+    secrets:
+      AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      REGION: ${{ secrets.DEV_REGION_V2 }}

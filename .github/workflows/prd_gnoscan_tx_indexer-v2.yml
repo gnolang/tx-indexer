@@ -1,0 +1,19 @@
+name: prd gnoscan push onbloc-tx-indexer v2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  prd_gnoscan_tx_indexer:
+    name: Run tx-indexer app
+    uses: ./.github/workflows/app_template.yml
+    with:
+      app-name: "tx-indexer"
+      env: "prd-gnoscan-v2"
+    secrets:
+      AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      REGION: ${{ secrets.PRD_REGION_V2 }}

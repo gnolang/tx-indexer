@@ -1,0 +1,55 @@
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        required: true
+        type: string
+      app-name:
+        required: true
+        type: string
+      env:
+        required: true
+        type: string
+    secrets:
+      AWS_IAM_OIDC:
+        required: true
+      REGION:
+        required: true
+
+jobs:
+  generated-docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+
+      - name: Check generated files are up to date
+        run: |
+          docker build -t ${{ inputs.app-name }}:latest .
+      - name: AWS Set credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OIDC }}
+          aws-region: ${{ secrets.REGION }}
+
+      - name: Amazon ECR login
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Docker tag
+        run: |
+          docker tag ${{ inputs.app-name }}:latest 249291979454.dkr.ecr.${{ secrets.REGION }}.amazonaws.com/onbloc/${{ inputs.app-name }}-${{ inputs.env}}:latest
+          docker tag ${{ inputs.app-name }}:latest 249291979454.dkr.ecr.${{ secrets.REGION }}.amazonaws.com/onbloc/${{ inputs.app-name }}-${{ inputs.env}}:${{ github.sha }}
+
+      - name: Pushing Docker images to Amazon ECR
+        run: |
+          docker push 249291979454.dkr.ecr.${{ secrets.REGION }}.amazonaws.com/onbloc/${{ inputs.app-name }}-${{ inputs.env}}:latest
+          docker push 249291979454.dkr.ecr.${{ secrets.REGION }}.amazonaws.com/onbloc/${{ inputs.app-name }}-${{ inputs.env}}:${{ github.sha }}
