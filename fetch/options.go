@@ -28,3 +28,17 @@ func WithMaxChunkSize(maxChunkSize int64) Option {
 		f.latestChunkSize = int(maxChunkSize)
 	}
 }
+
+// WithClearOnReset sets the clear on reset flag
+func WithClearOnReset(clearOnReset bool) Option {
+	return func(f *Fetcher) {
+		f.clearOnReset = clearOnReset
+	}
+}
+
+// WithDBPath sets the database path
+func WithDBPath(dbPath string) Option {
+	return func(f *Fetcher) {
+		f.dbPath = dbPath
+	}
+}

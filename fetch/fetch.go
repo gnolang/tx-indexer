@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -41,6 +42,9 @@ type Fetcher struct {
 	latestChunkSize int
 
 	queryInterval time.Duration // block query interval
+
+	dbPath       string
+	clearOnReset bool
 }
 
 // New creates a new data fetcher instance
@@ -105,8 +109,21 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		}
 
 		// Check if there is a block gap
-		if latestRemote <= latestLocal {
+		if latestRemote == latestLocal {
 			// No gap, nothing to sync
+			return nil
+		}
+
+		// Check if there is reset chains
+		if latestRemote < latestLocal {
+			if f.clearOnReset {
+				if err := os.RemoveAll(f.dbPath); err != nil {
+					return fmt.Errorf("unable to remove DB, %w", err)
+				}
+
+				return fmt.Errorf("reset chain: latestRemote(%d) < latestLocal(%d)", latestRemote, latestLocal)
+			}
+
 			return nil
 		}
 

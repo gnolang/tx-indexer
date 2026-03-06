@@ -55,6 +55,7 @@ type startCfg struct {
 	maxChunkSize         int64
 	rateLimit            int
 	disableIntrospection bool
+	clearOnReset         bool
 }
 
 // newStartCmd creates the indexer start command
@@ -147,6 +148,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		defaultSupplyDenoms,
 		"comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply",
 	)
+
+	fs.BoolVar(
+		&c.clearOnReset,
+		"clear-on-reset",
+		false,
+		"clear all data from storage when the application resets",
+	)
 }
 
 // exec executes the indexer start command
@@ -197,6 +205,8 @@ func (c *startCfg) exec(ctx context.Context) error {
 		),
 		fetch.WithMaxSlots(c.maxSlots),
 		fetch.WithMaxChunkSize(c.maxChunkSize),
+		fetch.WithClearOnReset(c.clearOnReset),
+		fetch.WithDBPath(c.dbPath),
 	)
 
 	// The supply handler serves both the JSON-RPC and GraphQL surfaces from
