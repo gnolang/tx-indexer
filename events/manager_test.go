@@ -216,11 +216,12 @@ func getMockEvents(
 		numInvalid = count
 	}
 
-	allEvents := []Type{
+	allEvents := make([]Type, 0, 3+len(supportedTypes))
+	allEvents = append(allEvents,
 		"random type 1",
 		"random type 2",
 		"random type 3",
-	}
+	)
 
 	allEvents = append(allEvents, supportedTypes...)
 

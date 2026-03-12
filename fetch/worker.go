@@ -29,7 +29,7 @@ func handleChunk(
 	info *workerInfo,
 ) {
 	extractChunk := func() (*chunk, error) {
-		errs := make([]error, 0)
+		errs := make([]error, 0, 2)
 
 		// Get block data from the node
 		blocks, err := getBlocksFromBatch(ctx, info.chunkRange, client)
