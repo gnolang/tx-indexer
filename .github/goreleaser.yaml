@@ -122,7 +122,6 @@ docker_signs:
     output: true
     args:
       - 'sign'
-      - '--bundle=${artifact}.bundle'
       - '${artifact}'
       - "--yes"
 
