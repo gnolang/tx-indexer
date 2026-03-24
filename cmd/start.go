@@ -56,6 +56,7 @@ type startCfg struct {
 	rateLimit            int
 	disableIntrospection bool
 	clearOnReset         bool
+	genesisURL           string
 }
 
 // newStartCmd creates the indexer start command
@@ -154,6 +155,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"clear-on-reset",
 		false,
 		"clear all data from storage when the application resets",
+	)
+
+	fs.StringVar(
+		&c.genesisURL,
+		"genesis-url",
+		"",
+		"the URL to download genesis.json as fallback when RPC genesis call fails (for large genesis files)",
 	)
 }
 
@@ -289,6 +297,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 			genesis.WithLogger(
 				logger.Named("genesis"),
 			),
+			genesis.WithURL(c.genesisURL),
 		); err != nil {
 			if errors.Is(err, context.Canceled) {
 				// Shut down while still retrying, like the other services

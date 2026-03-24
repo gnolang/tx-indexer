@@ -9,6 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
@@ -100,6 +103,11 @@ func bootstrap(ctx context.Context, store Storage, client Client, cfg *config) e
 	cfg.logger.Info("Fetching genesis")
 
 	doc, state, err := fetchState(ctx, client)
+	if err != nil && cfg.genesisURL != "" {
+		cfg.logger.Warn("RPC genesis fetch failed; falling back to configured URL", zap.Error(err))
+
+		doc, state, err = fetchStateFromURL(ctx, cfg.genesisURL)
+	}
 	if err != nil {
 		return err
 	}
@@ -242,6 +250,63 @@ func fetchState(
 	}
 
 	return gblock.Genesis, state, nil
+}
+
+func fetchStateFromURL(
+	ctx context.Context,
+	url string,
+) (*bft_types.GenesisDoc, gnoland.GnoGenesisState, error) {
+	tmpFile, err := os.CreateTemp("", "genesis-*.json")
+	if err != nil {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to create temporary genesis file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		tmpFile.Close()
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to create genesis request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		tmpFile.Close()
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to fetch genesis URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		tmpFile.Close()
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unexpected genesis URL status: %s", resp.Status)
+	}
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to download genesis: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to close downloaded genesis: %w", err)
+	}
+
+	data, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to read downloaded genesis: %w", err)
+	}
+
+	var doc bft_types.GenesisDoc
+	if err := amino.UnmarshalJSON(data, &doc); err != nil {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to parse downloaded genesis: %w", err)
+	}
+
+	state, ok := doc.AppState.(gnoland.GnoGenesisState)
+	if !ok {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf(
+			"%w: unknown genesis state kind '%T'", ErrInvalidState, doc.AppState,
+		)
+	}
+
+	return &doc, state, nil
 }
 
 // blockFrom builds the genesis block from the decoded state. It marshals every

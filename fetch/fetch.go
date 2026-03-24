@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -43,8 +42,6 @@ type Fetcher struct {
 
 	queryInterval time.Duration // block query interval
 
-	dbPath       string
-	clearOnReset bool
 }
 
 // New creates a new data fetcher instance
@@ -83,6 +80,7 @@ func New(
 // blockchain data. The genesis block is not handled here — the genesis
 // package bootstraps it into the storage before any service starts.
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
+
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state

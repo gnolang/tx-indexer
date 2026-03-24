@@ -9,8 +9,9 @@ import (
 type Option func(c *config)
 
 type config struct {
-	logger  *zap.Logger
-	backoff time.Duration
+	logger     *zap.Logger
+	backoff    time.Duration
+	genesisURL string
 }
 
 // WithLogger sets the logger to be used with the bootstrap
@@ -24,5 +25,12 @@ func WithLogger(logger *zap.Logger) Option {
 func WithBackoff(backoff time.Duration) Option {
 	return func(c *config) {
 		c.backoff = backoff
+	}
+}
+
+// WithURL sets the fallback URL to download genesis.json when the RPC call fails.
+func WithURL(url string) Option {
+	return func(c *config) {
+		c.genesisURL = url
 	}
 }
