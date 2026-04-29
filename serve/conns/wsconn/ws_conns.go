@@ -33,6 +33,7 @@ func (pw *Conns) AddWSConnection(id string, session *melody.Session) {
 	pw.mux.Lock()
 	defer pw.mux.Unlock()
 
+	//nolint:gosec // G118: cancelFn is called in RemoveWSConnection
 	ctx, cancelFn := context.WithCancel(context.Background())
 
 	pw.conns[id] = Conn{

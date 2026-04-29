@@ -82,6 +82,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 					if e.GetType() == indexerTypes.NewBlockEvent {
 						_, ok := e.(*indexerTypes.NewBlock)
 						require.True(t, ok)
+
 						capturedEvents = append(capturedEvents, e)
 					}
 				},
@@ -260,6 +261,7 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 					if e.GetType() == indexerTypes.NewBlockEvent {
 						_, ok := e.(*indexerTypes.NewBlock)
 						require.True(t, ok)
+
 						capturedEvents = append(capturedEvents, e)
 					}
 				},
@@ -470,6 +472,7 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 					if e.GetType() == indexerTypes.NewBlockEvent {
 						_, ok := e.(*indexerTypes.NewBlock)
 						require.True(t, ok)
+
 						capturedEvents = append(capturedEvents, e)
 					}
 				},
@@ -1063,6 +1066,7 @@ func TestFetcher_Genesis(t *testing.T) {
 					SetBlockFn: func(block *types.Block) error {
 						_, ok := savedBlocks[block.Height]
 						require.False(t, ok)
+
 						savedBlocks[block.Height] = block
 
 						return nil

@@ -3,6 +3,7 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -1206,7 +1207,7 @@ func (e FilterableExtra) String() string {
 	return string(e)
 }
 
-func (e *FilterableExtra) UnmarshalGQL(v interface{}) error {
+func (e *FilterableExtra) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -1221,6 +1222,20 @@ func (e *FilterableExtra) UnmarshalGQL(v interface{}) error {
 
 func (e FilterableExtra) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *FilterableExtra) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e FilterableExtra) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 // `MessageRoute` is route type of the transactional message.
@@ -1249,7 +1264,7 @@ func (e MessageRoute) String() string {
 	return string(e)
 }
 
-func (e *MessageRoute) UnmarshalGQL(v interface{}) error {
+func (e *MessageRoute) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -1264,6 +1279,20 @@ func (e *MessageRoute) UnmarshalGQL(v interface{}) error {
 
 func (e MessageRoute) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MessageRoute) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MessageRoute) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 // `MessageType` is message type of the transaction.
@@ -1304,7 +1333,7 @@ func (e MessageType) String() string {
 	return string(e)
 }
 
-func (e *MessageType) UnmarshalGQL(v interface{}) error {
+func (e *MessageType) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -1319,6 +1348,20 @@ func (e *MessageType) UnmarshalGQL(v interface{}) error {
 
 func (e MessageType) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MessageType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MessageType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 // Order defines the output order for hte method, It can be in DESC (descending) or ASC (ascending) order.
@@ -1346,7 +1389,7 @@ func (e Order) String() string {
 	return string(e)
 }
 
-func (e *Order) UnmarshalGQL(v interface{}) error {
+func (e *Order) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -1361,4 +1404,18 @@ func (e *Order) UnmarshalGQL(v interface{}) error {
 
 func (e Order) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *Order) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e Order) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

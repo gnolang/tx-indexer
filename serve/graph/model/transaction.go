@@ -114,7 +114,7 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 	// Functions that unmarshal transaction messages are executed once.
 	unmarshalMessages := func() {
 		stdTx := t.getStdTx()
-		messages := make([]*TransactionMessage, 0)
+		messages := make([]*TransactionMessage, 0, len(stdTx.GetMsgs()))
 
 		for _, message := range stdTx.GetMsgs() {
 			messages = append(messages, NewTransactionMessage(message))

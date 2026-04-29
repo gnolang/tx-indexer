@@ -407,6 +407,7 @@ func TestSubscribe_Valid(t *testing.T) {
 		mockConn    = &mock.Conn{
 			WriteDataFn: func(data any) error {
 				defer wg.Done()
+
 				writtenData = append(writtenData, data)
 
 				return nil
