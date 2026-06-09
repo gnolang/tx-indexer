@@ -7,11 +7,14 @@ package genesis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
@@ -294,6 +297,11 @@ func fetchStateFromURL(
 		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to read downloaded genesis: %w", err)
 	}
 
+	data, err = sanitizeGenesisTxMetadata(data)
+	if err != nil {
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to sanitize downloaded genesis: %w", err)
+	}
+
 	var doc bft_types.GenesisDoc
 	if err := amino.UnmarshalJSON(data, &doc); err != nil {
 		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to parse downloaded genesis: %w", err)
@@ -307,6 +315,92 @@ func fetchStateFromURL(
 	}
 
 	return &doc, state, nil
+}
+
+func sanitizeGenesisTxMetadata(data []byte) ([]byte, error) {
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("unable to decode genesis document: %w", err)
+	}
+
+	appStateRaw, ok := doc["app_state"]
+	if !ok {
+		return data, nil
+	}
+
+	var appState map[string]json.RawMessage
+	if err := json.Unmarshal(appStateRaw, &appState); err != nil {
+		return nil, fmt.Errorf("unable to decode app_state: %w", err)
+	}
+
+	txsRaw, ok := appState["txs"]
+	if !ok {
+		return data, nil
+	}
+
+	var txs []map[string]json.RawMessage
+	if err := json.Unmarshal(txsRaw, &txs); err != nil {
+		return nil, fmt.Errorf("unable to decode genesis txs: %w", err)
+	}
+
+	known := knownJSONFields(reflect.TypeOf(gnoland.GnoTxMetadata{}))
+	changed := false
+	for _, tx := range txs {
+		metaRaw, ok := tx["metadata"]
+		if !ok {
+			continue
+		}
+
+		var meta map[string]json.RawMessage
+		if err := json.Unmarshal(metaRaw, &meta); err != nil {
+			return nil, fmt.Errorf("unable to decode genesis tx metadata: %w", err)
+		}
+
+		for key := range meta {
+			if !known[key] {
+				delete(meta, key)
+				changed = true
+			}
+		}
+
+		cleaned, err := json.Marshal(meta)
+		if err != nil {
+			return nil, fmt.Errorf("unable to re-encode tx metadata: %w", err)
+		}
+		tx["metadata"] = cleaned
+	}
+
+	if !changed {
+		return data, nil
+	}
+
+	newTxs, err := json.Marshal(txs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to re-encode genesis txs: %w", err)
+	}
+	appState["txs"] = newTxs
+
+	newAppState, err := json.Marshal(appState)
+	if err != nil {
+		return nil, fmt.Errorf("unable to re-encode app_state: %w", err)
+	}
+	doc["app_state"] = newAppState
+
+	return json.Marshal(doc)
+}
+
+func knownJSONFields(t reflect.Type) map[string]bool {
+	fields := make(map[string]bool, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("json")
+		name := strings.Split(tag, ",")[0]
+		if name == "" || name == "-" {
+			name = t.Field(i).Name
+		}
+		fields[name] = true
+	}
+
+	return fields
 }
 
 // blockFrom builds the genesis block from the decoded state. It marshals every
