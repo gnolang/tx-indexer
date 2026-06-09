@@ -336,6 +336,58 @@ func (f *NestedFilterStorageDepositEvent) Eval(obj *StorageDepositEvent) bool {
 	return true
 }
 
+func (f *NestedFilterSignature) Eval(obj *Signature) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Signature field
+	toEvalSignature := obj.Signature
+	if f.Signature != nil && !f.Signature.Eval(&toEvalSignature) {
+		return false
+	}
+
+	// Handle SessionAddr field
+	toEvalSessionAddr := obj.SessionAddr
+	if f.SessionAddr != nil && !f.SessionAddr.Eval(&toEvalSessionAddr) {
+		return false
+	}
+
+	// Handle PubKey field
+	toEvalPubKey := obj.PubKey
+	if f.PubKey != nil && !f.PubKey.Eval(&toEvalPubKey) {
+		return false
+	}
+
+	return true
+}
+
 func (f *NestedFilterMsgRun) Eval(obj *MsgRun) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -389,6 +441,171 @@ func (f *NestedFilterMsgRun) Eval(obj *MsgRun) bool {
 	toEvalCaller := obj.Caller
 	if f.Caller != nil && !f.Caller.Eval(&toEvalCaller) {
 		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterMsgRevokeSession) Eval(obj *MsgRevokeSession) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle SessionKey field
+	toEvalSessionKey := obj.SessionKey
+	if f.SessionKey != nil && !f.SessionKey.Eval(&toEvalSessionKey) {
+		return false
+	}
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterMsgRevokeAllSessions) Eval(obj *MsgRevokeAllSessions) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterMsgCreateSession) Eval(obj *MsgCreateSession) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle SpendPeriod field
+	toEvalSpendPeriod := toIntPtr(obj.SpendPeriod)
+	if f.SpendPeriod != nil && !f.SpendPeriod.Eval(toEvalSpendPeriod) {
+		return false
+	}
+
+	// Handle SpendLimit field
+	toEvalSpendLimit := obj.SpendLimit
+	if f.SpendLimit != nil && !f.SpendLimit.Eval(&toEvalSpendLimit) {
+		return false
+	}
+
+	// Handle SessionKey field
+	toEvalSessionKey := obj.SessionKey
+	if f.SessionKey != nil && !f.SessionKey.Eval(&toEvalSessionKey) {
+		return false
+	}
+
+	// Handle ExpiresAt field
+	toEvalExpiresAt := toIntPtr(obj.ExpiresAt)
+	if f.ExpiresAt != nil && !f.ExpiresAt.Eval(toEvalExpiresAt) {
+		return false
+	}
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	// Handle AllowPaths slice
+	if f.AllowPaths != nil {
+		elemMatchAllowPaths := false
+		for _, elem := range obj.AllowPaths {
+			if f.AllowPaths.Eval(&elem) {
+				elemMatchAllowPaths = true
+			}
+		}
+
+		if !elemMatchAllowPaths {
+			return false
+		}
+
 	}
 
 	return true
@@ -569,7 +786,7 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || false
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -628,6 +845,45 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	if uObj, ok := tobj.(*MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgCreateSession); ok {
+		matchedType = true
+		if f.MsgCreateSession != nil && f.MsgCreateSession.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgCreateSession); ok {
+		matchedType = true
+		if f.MsgCreateSession != nil && f.MsgCreateSession.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRevokeSession); ok {
+		matchedType = true
+		if f.MsgRevokeSession != nil && f.MsgRevokeSession.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRevokeSession); ok {
+		matchedType = true
+		if f.MsgRevokeSession != nil && f.MsgRevokeSession.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRevokeAllSessions); ok {
+		matchedType = true
+		if f.MsgRevokeAllSessions != nil && f.MsgRevokeAllSessions.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRevokeAllSessions); ok {
+		matchedType = true
+		if f.MsgRevokeAllSessions != nil && f.MsgRevokeAllSessions.Eval(uObj) {
 			return true
 		}
 	}
@@ -1355,6 +1611,21 @@ func (f *FilterTransaction) Eval(obj *Transaction) bool {
 		return false
 	}
 
+	// Handle Signatures slice
+	if f.Signatures != nil {
+		elemMatchSignatures := false
+		for _, elem := range obj.Signatures() {
+			if f.Signatures.Eval(elem) {
+				elemMatchSignatures = true
+			}
+		}
+
+		if !elemMatchSignatures {
+			return false
+		}
+
+	}
+
 	// Handle Response field
 	toEvalResponse := obj.Response()
 	if f.Response != nil && !f.Response.Eval(toEvalResponse) {
@@ -1645,6 +1916,58 @@ func (f *FilterStorageDepositEvent) Eval(obj *StorageDepositEvent) bool {
 	return true
 }
 
+func (f *FilterSignature) Eval(obj *Signature) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Signature field
+	toEvalSignature := obj.Signature
+	if f.Signature != nil && !f.Signature.Eval(&toEvalSignature) {
+		return false
+	}
+
+	// Handle SessionAddr field
+	toEvalSessionAddr := obj.SessionAddr
+	if f.SessionAddr != nil && !f.SessionAddr.Eval(&toEvalSessionAddr) {
+		return false
+	}
+
+	// Handle PubKey field
+	toEvalPubKey := obj.PubKey
+	if f.PubKey != nil && !f.PubKey.Eval(&toEvalPubKey) {
+		return false
+	}
+
+	return true
+}
+
 func (f *FilterMsgRun) Eval(obj *MsgRun) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -1698,6 +2021,171 @@ func (f *FilterMsgRun) Eval(obj *MsgRun) bool {
 	toEvalCaller := obj.Caller
 	if f.Caller != nil && !f.Caller.Eval(&toEvalCaller) {
 		return false
+	}
+
+	return true
+}
+
+func (f *FilterMsgRevokeSession) Eval(obj *MsgRevokeSession) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle SessionKey field
+	toEvalSessionKey := obj.SessionKey
+	if f.SessionKey != nil && !f.SessionKey.Eval(&toEvalSessionKey) {
+		return false
+	}
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterMsgRevokeAllSessions) Eval(obj *MsgRevokeAllSessions) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterMsgCreateSession) Eval(obj *MsgCreateSession) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle SpendPeriod field
+	toEvalSpendPeriod := toIntPtr(obj.SpendPeriod)
+	if f.SpendPeriod != nil && !f.SpendPeriod.Eval(toEvalSpendPeriod) {
+		return false
+	}
+
+	// Handle SpendLimit field
+	toEvalSpendLimit := obj.SpendLimit
+	if f.SpendLimit != nil && !f.SpendLimit.Eval(&toEvalSpendLimit) {
+		return false
+	}
+
+	// Handle SessionKey field
+	toEvalSessionKey := obj.SessionKey
+	if f.SessionKey != nil && !f.SessionKey.Eval(&toEvalSessionKey) {
+		return false
+	}
+
+	// Handle ExpiresAt field
+	toEvalExpiresAt := toIntPtr(obj.ExpiresAt)
+	if f.ExpiresAt != nil && !f.ExpiresAt.Eval(toEvalExpiresAt) {
+		return false
+	}
+
+	// Handle Creator field
+	toEvalCreator := obj.Creator
+	if f.Creator != nil && !f.Creator.Eval(&toEvalCreator) {
+		return false
+	}
+
+	// Handle AllowPaths slice
+	if f.AllowPaths != nil {
+		elemMatchAllowPaths := false
+		for _, elem := range obj.AllowPaths {
+			if f.AllowPaths.Eval(&elem) {
+				elemMatchAllowPaths = true
+			}
+		}
+
+		if !elemMatchAllowPaths {
+			return false
+		}
+
 	}
 
 	return true
@@ -1878,7 +2366,7 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || false
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -1937,6 +2425,45 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	if uObj, ok := tobj.(*MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgCreateSession); ok {
+		matchedType = true
+		if f.MsgCreateSession != nil && f.MsgCreateSession.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgCreateSession); ok {
+		matchedType = true
+		if f.MsgCreateSession != nil && f.MsgCreateSession.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRevokeSession); ok {
+		matchedType = true
+		if f.MsgRevokeSession != nil && f.MsgRevokeSession.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRevokeSession); ok {
+		matchedType = true
+		if f.MsgRevokeSession != nil && f.MsgRevokeSession.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRevokeAllSessions); ok {
+		matchedType = true
+		if f.MsgRevokeAllSessions != nil && f.MsgRevokeAllSessions.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRevokeAllSessions); ok {
+		matchedType = true
+		if f.MsgRevokeAllSessions != nil && f.MsgRevokeAllSessions.Eval(uObj) {
 			return true
 		}
 	}

@@ -35,6 +35,10 @@ func FilteredTransactionBy(tx *model.Transaction, filter model.TransactionFilter
 		return false
 	}
 
+	if !filteredTransactionBySignatures(tx, filter.Signatures) {
+		return false
+	}
+
 	return true
 }
 
@@ -234,7 +238,7 @@ func filteredTransactionMessageBy(
 		return false
 	}
 
-	if messageInput.BankParam == nil && messageInput.VMParam == nil {
+	if messageInput.BankParam == nil && messageInput.VMParam == nil && messageInput.AuthParam == nil {
 		return true
 	}
 
@@ -245,6 +249,10 @@ func filteredTransactionMessageBy(
 		}
 	case model.MessageRouteVM.String():
 		if messageInput.VMParam == nil {
+			return false
+		}
+	case model.MessageRouteAuth.String():
+		if messageInput.AuthParam == nil {
 			return false
 		}
 	default:
@@ -266,6 +274,18 @@ func filteredTransactionMessageBy(
 		}
 	case model.MessageTypeRun.String():
 		if !filteredMessageOfMsgRunBy(tm.VMMsgRun(), messageInput.VMParam) {
+			return false
+		}
+	case model.MessageTypeCreateSession.String():
+		if !filteredMessageOfMsgCreateSessionBy(tm.AuthMsgCreateSession(), messageInput.AuthParam) {
+			return false
+		}
+	case model.MessageTypeRevokeSession.String():
+		if !filteredMessageOfMsgRevokeSessionBy(tm.AuthMsgRevokeSession(), messageInput.AuthParam) {
+			return false
+		}
+	case model.MessageTypeRevokeAllSessions.String():
+		if !filteredMessageOfMsgRevokeAllSessionsBy(tm.AuthMsgRevokeAllSessions(), messageInput.AuthParam) {
 			return false
 		}
 	default:
@@ -411,6 +431,122 @@ func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.
 		if deref(params.Run.Package.Path) != messageValue.Package.Path {
 			return false
 		}
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgCreateSessionBy` checks the conditions of a message of type MsgCreateSession.
+func filteredMessageOfMsgCreateSessionBy(
+	messageValue model.MsgCreateSession,
+	authMessageInput *model.TransactionAuthMessageInput,
+) bool {
+	params := authMessageInput
+	if params == nil || params.CreateSession == nil {
+		return true
+	}
+
+	if params.CreateSession.Creator != nil && deref(params.CreateSession.Creator) != messageValue.Creator {
+		return false
+	}
+
+	if params.CreateSession.SessionKey != nil && deref(params.CreateSession.SessionKey) != messageValue.SessionKey {
+		return false
+	}
+
+	if params.CreateSession.SpendLimit != nil && !filteredAmountBy(messageValue.SpendLimit, params.CreateSession.SpendLimit) {
+		return false
+	}
+
+	if params.CreateSession.AllowPaths != nil {
+		messagePaths := messageValue.AllowPaths
+		filterPaths := params.CreateSession.AllowPaths
+		for index, path := range filterPaths {
+			if path == "" {
+				continue
+			}
+
+			if index >= len(messagePaths) || messagePaths[index] != path {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgRevokeSessionBy` checks the conditions of a message of type MsgRevokeSession.
+func filteredMessageOfMsgRevokeSessionBy(
+	messageValue model.MsgRevokeSession,
+	authMessageInput *model.TransactionAuthMessageInput,
+) bool {
+	params := authMessageInput
+	if params == nil || params.RevokeSession == nil {
+		return true
+	}
+
+	if params.RevokeSession.Creator != nil && deref(params.RevokeSession.Creator) != messageValue.Creator {
+		return false
+	}
+
+	if params.RevokeSession.SessionKey != nil && deref(params.RevokeSession.SessionKey) != messageValue.SessionKey {
+		return false
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgRevokeAllSessionsBy` checks the conditions of a message of type MsgRevokeAllSessions.
+func filteredMessageOfMsgRevokeAllSessionsBy(
+	messageValue model.MsgRevokeAllSessions,
+	authMessageInput *model.TransactionAuthMessageInput,
+) bool {
+	params := authMessageInput
+	if params == nil || params.RevokeAllSessions == nil {
+		return true
+	}
+
+	if params.RevokeAllSessions.Creator != nil && deref(params.RevokeAllSessions.Creator) != messageValue.Creator {
+		return false
+	}
+
+	return true
+}
+
+// `filteredTransactionBySignatures` checks the transaction's signatures.
+func filteredTransactionBySignatures(tx *model.Transaction, signatureInputs []*model.SignatureInput) bool {
+	if len(signatureInputs) == 0 {
+		return true
+	}
+
+	signatures := tx.Signatures()
+	if len(signatures) == 0 {
+		return false
+	}
+
+	for _, signature := range signatures {
+		for _, signatureInput := range signatureInputs {
+			if filteredSignatureBy(signature, signatureInput) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// `filteredSignatureBy` checks the conditions of a signature.
+func filteredSignatureBy(signature *model.Signature, signatureInput *model.SignatureInput) bool {
+	if signature == nil {
+		return false
+	}
+
+	if signatureInput.PubKey != nil && deref(signatureInput.PubKey) != signature.PubKey {
+		return false
+	}
+
+	if signatureInput.SessionAddr != nil && deref(signatureInput.SessionAddr) != signature.SessionAddr {
+		return false
 	}
 
 	return true
