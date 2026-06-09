@@ -454,13 +454,15 @@ func filteredMessageOfMsgCreateSessionBy(
 		return false
 	}
 
-	if params.CreateSession.SpendLimit != nil && !filteredAmountBy(messageValue.SpendLimit, params.CreateSession.SpendLimit) {
+	if params.CreateSession.SpendLimit != nil &&
+		!filteredAmountBy(messageValue.SpendLimit, params.CreateSession.SpendLimit) {
 		return false
 	}
 
 	if params.CreateSession.AllowPaths != nil {
 		messagePaths := messageValue.AllowPaths
 		filterPaths := params.CreateSession.AllowPaths
+
 		for index, path := range filterPaths {
 			if path == "" {
 				continue
