@@ -1,22 +1,19 @@
-name: dev stage gnoscan push onbloc-tx-indexer v2
+name: dev gnoswap push gnoswap-tx-indexer v2
 
 on:
-  push:
-    branches:
-      - staging
   workflow_dispatch:
 
 permissions:
   contents: write
   id-token: write
 jobs:
-  dev_stage_gnoscan_tx_indexer:
+  dev_gnoswap_tx_indexer:
     name: Run tx-indexer app
     uses: ./.github/workflows/app_template.yml
     with:
       app-name: "tx-indexer"
-      env: "dev-stage-gnoscan-v2"
-      helm-chart-repo: "onbloc/onbloc-helm-chart"
+      env: "dev-gnoswap-v2"
+      helm-chart-repo: "gnoswap-labs/gnoswap-helm-chart"
     secrets:
       AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
