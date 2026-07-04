@@ -63,6 +63,7 @@ type Fetcher struct {
 	clearOnReset bool // wipe storage when the chain resets
 	auditOnStart bool // scan storage for missing-block gaps on startup
 	txAudit      bool // also scan for blocks with missing txs on startup (expensive)
+	txAuditReset bool // ignore the persisted tx audit watermark
 }
 
 // New creates a new data fetcher instance

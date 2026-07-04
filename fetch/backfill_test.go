@@ -321,6 +321,37 @@ func TestAuditTxGaps_ResumesFromWatermark(t *testing.T) {
 	assert.Equal(t, []uint64{3}, f.gaps.snapshot(), "heights at or below the watermark must be skipped")
 }
 
+func TestAuditTxGaps_ResetIgnoresWatermark(t *testing.T) {
+	t.Parallel()
+
+	// All incomplete, watermark says <= 2 verified, but a reset is requested
+	// with a floor of height 2 -> heights 2 and 3 are re-scanned (1 is below
+	// the floor), ignoring the watermark.
+	blocks := txAuditBlocks(1, 2, 3)
+
+	storageMock := &mock.Storage{
+		GetLatestSavedHeightFn: func() (uint64, error) { return 3, nil },
+		BlockIteratorFn: func(from, to uint64) (storage.Iterator[*types.Block], error) {
+			return mock.NewSliceBlockIterator(blocksInRange(blocks, from, to)), nil
+		},
+		TxIteratorFn: func(_, _ uint64, _, _ uint32) (storage.Iterator[*types.TxResult], error) {
+			return mock.NewSliceTxIterator(nil), nil
+		},
+		GetTxAuditHeightFn: func() (uint64, error) { return 2, nil },
+	}
+
+	f := New(
+		storageMock,
+		&mockClient{},
+		&mockEvents{},
+		WithAuditFromHeight(2),
+		WithTxAuditReset(true),
+	)
+
+	require.NoError(t, f.auditTxGaps(context.Background()))
+	assert.Equal(t, []uint64{2, 3}, f.gaps.snapshot(), "reset must re-scan from the floor, ignoring the watermark")
+}
+
 func TestAuditTxGaps_PersistsWatermarkPerWindow(t *testing.T) {
 	t.Parallel()
 

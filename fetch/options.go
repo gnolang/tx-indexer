@@ -94,6 +94,16 @@ func WithAuditFromHeight(from uint64) Option {
 	}
 }
 
+// WithTxAuditReset makes the tx-completeness audit ignore the persisted
+// watermark and re-scan from WithAuditFromHeight, overwriting the watermark as
+// the fresh scan progresses. Use it to force a re-check of a range that was
+// already marked audited.
+func WithTxAuditReset(enabled bool) Option {
+	return func(f *Fetcher) {
+		f.txAuditReset = enabled
+	}
+}
+
 // WithTxAuditThrottle tunes the tx-completeness audit for constrained
 // deployments: it processes windowBlocks heights, then pauses for nap before
 // the next window. A smaller window and larger nap lower the audit's CPU share

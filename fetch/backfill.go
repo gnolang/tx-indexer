@@ -259,9 +259,13 @@ func (f *Fetcher) auditTxGaps(ctx context.Context) error {
 		window = DefaultTxAuditWindow
 	}
 
+	// Resume from the persisted watermark unless a reset was requested,
+	// in which case re-scan from auditFromHeight.
 	start := f.auditFromHeight
-	if resume := f.txAuditResumeHeight(); resume > start {
-		start = resume
+	if !f.txAuditReset {
+		if resume := f.txAuditResumeHeight(); resume > start {
+			start = resume
+		}
 	}
 
 	var (
