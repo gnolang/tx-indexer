@@ -177,6 +177,48 @@ func TestStorage_Tx(t *testing.T) {
 	}
 }
 
+func TestStorage_BlockHeightIterator(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, s.Close())
+	}()
+
+	// Store blocks at non-contiguous heights: 0, 1, 3, 7
+	heights := []int64{0, 1, 3, 7}
+
+	b := s.WriteBatch()
+	for _, h := range heights {
+		require.NoError(t, b.SetBlock(&types.Block{Header: types.Header{Height: h}}))
+	}
+
+	require.NoError(t, b.Commit())
+
+	it, err := s.BlockHeightIterator(0, 7)
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, it.Close())
+	}()
+
+	var got []uint64
+
+	for it.Next() {
+		h, err := it.Value()
+		require.NoError(t, err)
+
+		got = append(got, h)
+	}
+
+	require.NoError(t, it.Error())
+
+	// Heights are read straight from the keys, in ascending order
+	assert.Equal(t, []uint64{0, 1, 3, 7}, got)
+}
+
 func TestStorageIters(t *testing.T) {
 	t.Parallel()
 

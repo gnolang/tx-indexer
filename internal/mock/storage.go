@@ -18,6 +18,28 @@ type Storage struct {
 	GetBlockFn             func(uint64) (*types.Block, error)
 	GetTxFn                func(uint64, uint32) (*types.TxResult, error)
 	GetTxByHashFn          func(string) (*types.TxResult, error)
+	BlockIteratorFn        func(uint64, uint64) (storage.Iterator[*types.Block], error)
+	TxIteratorFn           func(uint64, uint64, uint32, uint32) (storage.Iterator[*types.TxResult], error)
+	GetTxAuditHeightFn     func() (uint64, error)
+	SetTxAuditHeightFn     func(uint64) error
+}
+
+// GetTxAuditHeight returns the stored tx-audit watermark
+func (m *Storage) GetTxAuditHeight() (uint64, error) {
+	if m.GetTxAuditHeightFn != nil {
+		return m.GetTxAuditHeightFn()
+	}
+
+	return 0, storageErrors.ErrNotFound
+}
+
+// SetTxAuditHeight records the tx-audit watermark
+func (m *Storage) SetTxAuditHeight(height uint64) error {
+	if m.SetTxAuditHeightFn != nil {
+		return m.SetTxAuditHeightFn(height)
+	}
+
+	return nil
 }
 
 func (m *Storage) GetLatestHeight() (uint64, error) {
@@ -75,19 +97,93 @@ func (m *Storage) GetTxByHash(txHash string) (*types.TxResult, error) {
 }
 
 // BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
-func (m *Storage) BlockIterator(_, _ uint64) (storage.Iterator[*types.Block], error) {
+func (m *Storage) BlockIterator(fromBlockNum, toBlockNum uint64) (storage.Iterator[*types.Block], error) {
+	if m.BlockIteratorFn != nil {
+		return m.BlockIteratorFn(fromBlockNum, toBlockNum)
+	}
+
 	panic("not implemented") // TODO: Implement
+}
+
+// SliceBlockIterator is a simple in-memory Iterator[*types.Block] backed by a
+// slice of blocks, intended for tests.
+type SliceBlockIterator struct {
+	blocks []*types.Block
+	index  int
+}
+
+// NewSliceBlockIterator returns an iterator over the provided blocks.
+func NewSliceBlockIterator(blocks []*types.Block) *SliceBlockIterator {
+	return &SliceBlockIterator{
+		blocks: blocks,
+		index:  -1,
+	}
+}
+
+func (it *SliceBlockIterator) Next() bool {
+	it.index++
+
+	return it.index < len(it.blocks)
+}
+
+func (it *SliceBlockIterator) Error() error {
+	return nil
+}
+
+func (it *SliceBlockIterator) Value() (*types.Block, error) {
+	return it.blocks[it.index], nil
+}
+
+func (it *SliceBlockIterator) Close() error {
+	return nil
 }
 
 // TxIterator iterates over transactions, limiting the results to be between the provided block numbers
 // and transaction indexes
 func (m *Storage) TxIterator(
-	_,
-	_ uint64,
-	_,
-	_ uint32,
+	fromBlockNum,
+	toBlockNum uint64,
+	fromTxIndex,
+	toTxIndex uint32,
 ) (storage.Iterator[*types.TxResult], error) {
+	if m.TxIteratorFn != nil {
+		return m.TxIteratorFn(fromBlockNum, toBlockNum, fromTxIndex, toTxIndex)
+	}
+
 	panic("not implemented") // TODO: Implement
+}
+
+// SliceTxIterator is a simple in-memory Iterator[*types.TxResult] backed by a
+// slice of tx results, intended for tests.
+type SliceTxIterator struct {
+	txs   []*types.TxResult
+	index int
+}
+
+// NewSliceTxIterator returns an iterator over the provided tx results.
+func NewSliceTxIterator(txs []*types.TxResult) *SliceTxIterator {
+	return &SliceTxIterator{
+		txs:   txs,
+		index: -1,
+	}
+}
+
+func (it *SliceTxIterator) Next() bool {
+	it.index++
+
+	return it.index < len(it.txs)
+}
+
+func (it *SliceTxIterator) Error() error {
+	return nil
+}
+
+func (it *SliceTxIterator) Value() (*types.TxResult, error) {
+	return it.txs[it.index], nil
+}
+
+func (it *SliceTxIterator) Close() error {
+	return nil
 }
 
 func (m *Storage) BlockReverseIterator(_, _ uint64) (storage.Iterator[*types.Block], error) {

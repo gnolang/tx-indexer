@@ -362,7 +362,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 								t.Fatalf("invalid block requested, %d", num)
 							}
 
-							batch = append(batch,
+							batch = append(
+								batch,
 								&core_types.ResultBlockResults{
 									Height: int64(num),
 									Results: &state.ABCIResponses{

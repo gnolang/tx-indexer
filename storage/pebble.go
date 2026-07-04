@@ -27,6 +27,10 @@ const (
 	// keyGenesisBalances holds the genesis balance rows, unfolded
 	keyGenesisBalances = "/meta/genesis/balances"
 
+	// keyTxAuditHeight is the highest height up to which the tx-completeness
+	// audit has verified stored blocks. It lets the audit resume across
+	// restarts instead of re-scanning from the start every time.
+	keyTxAuditHeight = "/meta/txah"
 	// prefixKeyBlocks is the key for each block saved. They are stored by height
 	prefixKeyBlocks = "/data/blocks/"
 
@@ -139,6 +143,34 @@ func (s *Pebble) GetGenesisBalances() ([]gnoland.Balance, error) {
 	return decodeGenesisBalances(balances)
 }
 
+// GetTxAuditHeight returns the highest height the tx-completeness audit has
+// verified, or ErrNotFound if it has never run.
+func (s *Pebble) GetTxAuditHeight() (uint64, error) {
+	val, c, err := s.db.Get([]byte(keyTxAuditHeight))
+	if errors.Is(err, pebble.ErrNotFound) {
+		return 0, storageErrors.ErrNotFound
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	defer c.Close()
+
+	_, height, err := decodeUint64Ascending(val)
+
+	return height, err
+}
+
+// SetTxAuditHeight records how far the tx-completeness audit has verified.
+func (s *Pebble) SetTxAuditHeight(height uint64) error {
+	var val []byte
+
+	val = encodeUint64Ascending(val, height)
+
+	return s.db.Set([]byte(keyTxAuditHeight), val, pebble.Sync)
+}
+
 // GetBlock fetches the specified block from storage, if any
 func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 	block, c, err := s.db.Get(keyBlock(blockNum))
@@ -230,6 +262,19 @@ func (s *Pebble) BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types
 	}
 
 	return &PebbleBlockIter{pebbleBaseBlockIter: pebbleBaseBlockIter{i: it, s: snap}}, nil
+}
+
+// BlockHeightIterator iterates over stored block heights, reading each height
+// from the key without decoding the (potentially large) block value. This is
+// far cheaper than BlockIterator for height-only scans (e.g. gap detection),
+// and robust to nil / corrupt values since the value is never touched.
+func (s *Pebble) BlockHeightIterator(fromBlockNum, toBlockNum uint64) (Iterator[uint64], error) {
+	it, snap, err := s.loadBlockIterator(fromBlockNum, toBlockNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PebbleBlockHeightIter{i: it, s: snap}, nil
 }
 
 func (s *Pebble) BlockReverseIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error) {
@@ -404,6 +449,51 @@ func (pi *PebbleReverseBlockIter) Next() bool {
 	}
 
 	return pi.i.Valid() && pi.i.Prev()
+}
+
+var _ Iterator[uint64] = &PebbleBlockHeightIter{}
+
+// PebbleBlockHeightIter iterates over block heights, decoding the height from
+// the key only (never the block value).
+type PebbleBlockHeightIter struct {
+	i    *pebble.Iterator
+	s    *pebble.Snapshot
+	init bool
+}
+
+func (pi *PebbleBlockHeightIter) Next() bool {
+	if !pi.init {
+		pi.init = true
+
+		return pi.i.First()
+	}
+
+	return pi.i.Valid() && pi.i.Next()
+}
+
+func (pi *PebbleBlockHeightIter) Value() (uint64, error) {
+	var buf []byte
+
+	// Strip the block key prefix, then decode the height
+	key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
+	if err != nil {
+		return 0, err
+	}
+
+	_, height, err := decodeUint64Ascending(key)
+	if err != nil {
+		return 0, err
+	}
+
+	return height, nil
+}
+
+func (pi *PebbleBlockHeightIter) Error() error {
+	return pi.i.Error()
+}
+
+func (pi *PebbleBlockHeightIter) Close() error {
+	return multierr.Append(pi.i.Close(), pi.s.Close())
 }
 
 type pebbleBaseTxIter struct {
