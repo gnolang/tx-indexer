@@ -511,7 +511,7 @@ func (f *Fetcher) backfillBlock(ctx context.Context, height uint64) error {
 
 	wb := f.storage.WriteBatch()
 
-	if failed := f.persistChunk(wb, c); len(failed) > 0 {
+	if failed := f.persistChunk(wb, c, false); len(failed) > 0 {
 		if rErr := wb.Rollback(); rErr != nil {
 			return fmt.Errorf("block %d failed to save, and rollback failed: %w", height, rErr)
 		}

@@ -316,7 +316,7 @@ func (f *Fetcher) writeSlot(s *slot) error {
 	wb := f.storage.WriteBatch()
 
 	// Save the fetched data
-	failed := f.persistChunk(wb, s.chunk)
+	failed := f.persistChunk(wb, s.chunk, true)
 
 	f.logger.Info(
 		"Added to batch block and tx data for range",
@@ -357,7 +357,7 @@ func (f *Fetcher) writeSlot(s *slot) error {
 // batch and signals a NewBlock event for every successfully staged block.
 // It returns the heights of blocks that failed to be staged so the caller can
 // schedule them for backfill. The batch is not committed here.
-func (f *Fetcher) persistChunk(wb storage.Batch, c *chunk) []uint64 {
+func (f *Fetcher) persistChunk(wb storage.Batch, c *chunk, isSignalEvent bool) []uint64 {
 	var failed []uint64
 
 	for blockIndex, block := range c.blocks {
@@ -409,7 +409,9 @@ func (f *Fetcher) persistChunk(wb storage.Batch, c *chunk) []uint64 {
 			Results: txResults,
 		}
 
-		f.events.SignalEvent(event)
+		if isSignalEvent {
+			f.events.SignalEvent(event)
+		}
 	}
 
 	return failed
