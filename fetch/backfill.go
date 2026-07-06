@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 	"sync"
 	"time"
@@ -338,7 +337,7 @@ func (f *Fetcher) auditTxWindow(ctx context.Context, from, to uint64, queued *in
 	}
 	defer blockIt.Close()
 
-	txIt, err := f.storage.TxIterator(from, to, 0, math.MaxUint32)
+	txIt, err := f.storage.TxIterator(from, to, 0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open tx iterator for tx audit: %w", err)
 	}
