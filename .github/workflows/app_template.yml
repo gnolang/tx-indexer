@@ -45,6 +45,7 @@ jobs:
       REGION: ${{ secrets.REGION }}
   helm_chart_push:
     name: helm chart image tag push
+    needs: [docker-build]
     uses: ./.github/workflows/helm_chart_push.yml
     with:
       app-name: ${{ inputs.app-name }}
