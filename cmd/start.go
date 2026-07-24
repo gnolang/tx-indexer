@@ -6,9 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
@@ -23,8 +25,9 @@ import (
 )
 
 const (
-	defaultRemote = "http://127.0.0.1:26657"
-	defaultDBPath = "indexer-db"
+	defaultRemote           = "http://127.0.0.1:26657"
+	defaultDBPath           = "indexer-db"
+	defaultCORSAllowOrigins = "*"
 )
 
 type startCfg struct {
@@ -39,6 +42,8 @@ type startCfg struct {
 	rateLimit int
 
 	disableIntrospection bool
+
+	corsAllowedOrigins string
 }
 
 // newStartCmd creates the indexer start command
@@ -117,6 +122,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		false,
 		"disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground",
 	)
+
+	fs.StringVar(
+		&c.corsAllowedOrigins,
+		"cors-allowed-origins",
+		defaultCORSAllowOrigins,
+		"a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or \"*\" to allow any origin. The indexer only serves public chain data, so the permissive default lets browser-based clients query it directly",
+	)
 }
 
 // exec executes the indexer start command
@@ -177,6 +189,13 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 
 	mux := chi.NewMux()
+
+	mux.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   strings.Split(c.corsAllowedOrigins, ","),
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowedHeaders:   []string{"Content-Type"},
+		AllowCredentials: false,
+	}))
 
 	if c.rateLimit != 0 {
 		logger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
