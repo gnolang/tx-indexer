@@ -30,20 +30,21 @@ const (
 	defaultCORSAllowOrigins = "*"
 )
 
+// corsAllowedOriginsHelp is built up over multiple lines so each stays under
+// the linter's line-length limit.
+const corsAllowedOriginsHelp = "a comma-separated list of origins allowed to make cross-origin requests " +
+	"to the GraphQL and JSON-RPC endpoints, or \"*\" to allow any origin"
+
 type startCfg struct {
-	listenAddress string
-	remote        string
-	dbPath        string
-	logLevel      string
-
-	maxSlots     int
-	maxChunkSize int64
-
-	rateLimit int
-
+	listenAddress        string
+	remote               string
+	dbPath               string
+	logLevel             string
+	corsAllowedOrigins   string
+	maxSlots             int
+	maxChunkSize         int64
+	rateLimit            int
 	disableIntrospection bool
-
-	corsAllowedOrigins string
 }
 
 // newStartCmd creates the indexer start command
@@ -127,7 +128,7 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		&c.corsAllowedOrigins,
 		"cors-allowed-origins",
 		defaultCORSAllowOrigins,
-		"a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or \"*\" to allow any origin. The indexer only serves public chain data, so the permissive default lets browser-based clients query it directly",
+		corsAllowedOriginsHelp,
 	)
 }
 
