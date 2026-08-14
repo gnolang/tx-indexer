@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -917,6 +918,11 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 	})
 }
 
+// TestFetcher_InvalidBlocks covers blocks the storage layer refuses, which are
+// skipped so that a chain carrying data an older Amino cannot decode does not
+// stop the fetcher. The chunk itself is fetched cleanly here: a failed fetch is
+// refetched rather than saved, and is covered by
+// TestFetcher_ChunkFetchError_NoSilentGap
 func TestFetcher_InvalidBlocks(t *testing.T) {
 	t.Parallel()
 
@@ -992,18 +998,20 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 				}, nil
 			},
 			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
-				if num == 0 {
-					return &core_types.ResultBlockResults{
-						Height: int64(num),
-						Results: &state.ABCIResponses{
-							DeliverTxs: make([]abci.ResponseDeliverTx, 0),
-						},
-					}, nil
-				}
-
 				require.LessOrEqual(t, num, uint64(blockNum))
 
-				return nil, fmt.Errorf("unable to fetch result for block %d", num)
+				// The genesis block carries no transactions
+				deliverTxs := txCount
+				if num == 0 {
+					deliverTxs = 0
+				}
+
+				return &core_types.ResultBlockResults{
+					Height: int64(num),
+					Results: &state.ABCIResponses{
+						DeliverTxs: make([]abci.ResponseDeliverTx, deliverTxs),
+					},
+				}, nil
 			},
 			getGenesisFn: func() (*core_types.ResultGenesis, error) {
 				return &core_types.ResultGenesis{
@@ -1355,6 +1363,175 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 }
 
 // generateTransactions generates dummy transactions
+// TestFetcher_ChunkFetchError_NoSilentGap verifies that a chunk whose fetch
+// partially failed is refetched, instead of being committed incomplete.
+//
+// A node that has saved a block but has not finished executing it answers
+// block_results for that height with an error. The chunk then holds the block
+// with no transactions, and committing it advances the saved-height watermark
+// past a block that was never fully indexed, so the fetcher never revisits it
+// and the missing transactions are lost permanently.
+func TestFetcher_ChunkFetchError_NoSilentGap(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blockNum = 10
+		txCount  = 2
+		badBlock = uint64(5)
+	)
+
+	var cancelFn context.CancelFunc
+
+	var (
+		txs    = generateTransactions(t, txCount)
+		blocks = generateBlocks(t, blockNum+1, txs)
+
+		mu            sync.Mutex
+		resultsFailed bool
+
+		txsByHeight         = make(map[int64]int)
+		watermarkViolations = make([]string, 0)
+		latestSaved         = uint64(0)
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				if latestSaved == 0 {
+					return 0, storageErrors.ErrNotFound
+				}
+
+				return latestSaved, nil
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				return &mock.WriteBatch{
+					SetTxFn: func(result *types.TxResult) error {
+						txsByHeight[result.Height]++
+
+						return nil
+					},
+					SetLatestHeightFn: func(h uint64) error {
+						// Every block at or below the watermark must be fully indexed
+						for height := int64(1); height <= int64(h); height++ {
+							if txsByHeight[height] == txCount {
+								continue
+							}
+
+							watermarkViolations = append(
+								watermarkViolations,
+								fmt.Sprintf(
+									"watermark advanced to %d, but block %d holds %d/%d txs",
+									h,
+									height,
+									txsByHeight[height],
+									txCount,
+								),
+							)
+						}
+
+						latestSaved = h
+
+						if h >= blockNum {
+							cancelFn()
+						}
+
+						return nil
+					},
+				}
+			},
+		}
+
+		mockClient = &mockClient{
+			createBatchFn: func() clientTypes.Batch {
+				return &mockBatch{
+					executeFn: func(_ context.Context) ([]any, error) {
+						// Force the sequential fetch path
+						return nil, errors.New("batch unavailable")
+					},
+					countFn: func() int {
+						return 1 // to trigger execution
+					},
+				}
+			},
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return uint64(blockNum), nil
+			},
+			getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
+				return &core_types.ResultBlock{
+					Block: blocks[num],
+				}, nil
+			},
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				mu.Lock()
+				defer mu.Unlock()
+
+				// The node holds the block, but has not finished applying it
+				if num == badBlock && !resultsFailed {
+					resultsFailed = true
+
+					return nil, errors.New("could not find results for height")
+				}
+
+				return &core_types.ResultBlockResults{
+					Height: int64(num),
+					Results: &state.ABCIResponses{
+						DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
+					},
+				}, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{
+					Genesis: &types.GenesisDoc{
+						AppState: gnoland.GnoGenesisState{
+							Balances: []gnoland.Balance{},
+							Txs:      []gnoland.TxWithMetadata{},
+						},
+					},
+				}, nil
+			},
+		}
+	)
+
+	// Create the fetcher
+	f := New(
+		mockStorage,
+		mockClient,
+		&mockEvents{},
+		WithLogger(zap.NewNop()),
+	)
+
+	// Short interval to force spawning
+	f.queryInterval = 100 * time.Millisecond
+
+	// The timeout is a backstop: the run ends when the watermark reaches the
+	// chain head, which only happens once the refetch succeeds
+	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFn()
+
+	// Run the fetch
+	require.NoError(t, f.FetchChainData(ctx))
+
+	mu.Lock()
+	exercised := resultsFailed
+	mu.Unlock()
+
+	require.True(t, exercised, "the block results failure path was never exercised")
+
+	// The watermark must never cover an incompletely indexed block
+	assert.Empty(t, watermarkViolations)
+
+	// Every block must end up with all of its transactions
+	for height := int64(1); height <= blockNum; height++ {
+		assert.Equalf(
+			t,
+			txCount,
+			txsByHeight[height],
+			"block %d indexed with %d/%d transactions",
+			height,
+			txsByHeight[height],
+			txCount,
+		)
+	}
+}
+
 func generateTransactions(t *testing.T, count int) []*std.Tx {
 	t.Helper()
 

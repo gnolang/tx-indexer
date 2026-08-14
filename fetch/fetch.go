@@ -36,6 +36,11 @@ type Fetcher struct {
 	logger      *zap.Logger
 	chunkBuffer *slots
 
+	// retrying holds the chunk ranges whose fetch failed, mapped to whether
+	// the range is waiting to be respawned (true) or already back in flight
+	// (false). A range leaves the map only once it has been fetched in full
+	retrying map[chunkRange]bool
+
 	maxSlots        int
 	maxChunkSize    int64
 	latestChunkSize int
@@ -69,6 +74,8 @@ func New(
 		Queue:    make([]queue.Item, 0),
 		maxSlots: f.maxSlots,
 	}
+
+	f.retrying = make(map[chunkRange]bool)
 
 	return f
 }
@@ -194,6 +201,34 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		return nil
 	}
 
+	// refetchFailedRanges respawns workers for the ranges whose previous fetch
+	// failed. Their slots stay reserved with a nil chunk, so the write loop
+	// cannot advance past them until a refetch succeeds
+	refetchFailedRanges := func() {
+		for gap, queued := range f.retrying {
+			if !queued {
+				// Already back in flight
+				continue
+			}
+
+			f.retrying[gap] = false
+
+			f.logger.Info(
+				"Refetching range",
+				zap.Uint64("from", gap.from),
+				zap.Uint64("to", gap.to),
+			)
+
+			// Spawn worker
+			info := &workerInfo{
+				chunkRange: gap,
+				resCh:      collectorCh,
+			}
+
+			go handleChunk(ctx, f.client, info)
+		}
+	}
+
 	// Start a listener for monitoring new blocks
 	ticker := time.NewTicker(f.queryInterval)
 	defer ticker.Stop()
@@ -211,10 +246,34 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 
 			return nil
 		case <-ticker.C:
+			refetchFailedRanges()
+
 			if err := attemptRangeFetch(); err != nil {
 				return err
 			}
 		case response := <-collectorCh:
+			if response.error != nil {
+				f.logger.Error(
+					"error encountered during chunk fetch, refetching range",
+					zap.Uint64("from", response.chunkRange.from),
+					zap.Uint64("to", response.chunkRange.to),
+					zap.String("error", response.error.Error()),
+				)
+
+				// The chunk is dropped rather than saved. A partially fetched
+				// chunk holds blocks whose transactions are missing, and
+				// committing it advances the saved height past them, so the
+				// fetcher would never revisit those blocks and the missing
+				// transactions would be lost for good. Leaving the slot
+				// reserved with a nil chunk blocks the write loop below until
+				// the refetch succeeds
+				f.retrying[response.chunkRange] = true
+
+				continue
+			}
+
+			delete(f.retrying, response.chunkRange)
+
 			// Find the slot index.
 			// The reason for this search, is because the underlying
 			// slots are shifted constantly to accommodate new ranges,
@@ -223,13 +282,6 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			index := sort.Search(f.chunkBuffer.Len(), func(i int) bool {
 				return f.chunkBuffer.getSlot(i).chunkRange.from >= response.chunkRange.from
 			})
-
-			if response.error != nil {
-				f.logger.Error(
-					"error encountered during chunk fetch",
-					zap.String("error", response.error.Error()),
-				)
-			}
 
 			// Save the chunk
 			f.chunkBuffer.setChunk(index, response.chunk)
