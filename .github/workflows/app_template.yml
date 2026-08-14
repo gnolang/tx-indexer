@@ -10,7 +10,16 @@ on:
       helm-chart-repo:
         required: true
         type: string
-        description: 'GitHub repository path for helm chart (e.g., onbloc/onbloc-helm-chart)'
+        description: 'GitHub repository path for helm chart (e.g., onbloc/onbloc-helm-charts)'
+      helm-branch:
+        required: true
+        type: string
+      network:
+        required: false
+        type: string
+      helm-values-file:
+        required: false
+        type: string
     secrets:
       AWS_IAM_OIDC:
         required: true
@@ -51,5 +60,8 @@ jobs:
       app-name: ${{ inputs.app-name }}
       env: ${{ inputs.env }}
       helm-chart-repo: ${{ inputs.helm-chart-repo }}
+      helm-branch: ${{ inputs.helm-branch }}
+      network: ${{ inputs.network }}
+      helm-values-file: ${{ inputs.helm-values-file }}
     secrets:
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
