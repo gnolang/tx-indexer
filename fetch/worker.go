@@ -168,7 +168,7 @@ func getTxResultFromBatch(ctx context.Context, blocks []*types.Block, client Cli
 	}
 
 	// Extract the results
-	for resultsIndex, resultsRaw := range blockResultsRaw {
+	for _, resultsRaw := range blockResultsRaw {
 		results, ok := resultsRaw.(*core_types.ResultBlockResults)
 		if !ok {
 			return nil, errors.New("unable to cast batch result into ResultBlockResults")
@@ -176,7 +176,14 @@ func getTxResultFromBatch(ctx context.Context, blocks []*types.Block, client Cli
 
 		height := results.Height
 		deliverTxs := results.Results.DeliverTxs
-		blockIndex := indexOfBlockHeight[height]
+
+		blockIndex, found := indexOfBlockHeight[height]
+		if !found {
+			return nil, fmt.Errorf(
+				"received block results for block %d, which is outside the fetched range",
+				height,
+			)
+		}
 
 		txResults := make([]*types.TxResult, blocks[blockIndex].NumTxs)
 
@@ -191,7 +198,11 @@ func getTxResultFromBatch(ctx context.Context, blocks []*types.Block, client Cli
 			txResults[txIndex] = result
 		}
 
-		fetchedResults[resultsIndex] = txResults
+		// Empty blocks are left out of the results batch, so its responses are
+		// dense over the blocks carrying transactions, while fetchedResults is
+		// indexed over every block in the range. Pairing the two by response
+		// position attributes results to the wrong blocks
+		fetchedResults[blockIndex] = txResults
 	}
 
 	return fetchedResults, nil

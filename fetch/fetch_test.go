@@ -1362,7 +1362,187 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 	require.Error(t, f.fetchGenesisData(context.Background()))
 }
 
-// generateTransactions generates dummy transactions
+// TestFetcher_BatchResults_MatchTheirBlocks verifies that results fetched with
+// a batch request are paired with the block they belong to.
+//
+// Empty blocks are left out of the block results batch, so the response is
+// dense over the blocks that carry transactions while the chunk it fills is
+// indexed over every block in the range. Pairing the two by response position
+// attributes results to the wrong blocks as soon as a range mixes empty and
+// non-empty blocks.
+func TestFetcher_BatchResults_MatchTheirBlocks(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blockNum = 6
+		txCount  = 2
+		// Blocks below this height are empty, the rest carry transactions
+		firstFullBlock = 4
+	)
+
+	var cancelFn context.CancelFunc
+
+	var (
+		txs    = generateTransactions(t, txCount)
+		blocks = make([]*types.Block, blockNum+1)
+
+		capturedEvents = make([]*indexerTypes.NewBlock, 0)
+	)
+
+	for height := 0; height <= blockNum; height++ {
+		blockTxs := types.Txs{}
+
+		if height >= firstFullBlock {
+			blockTxs = serializeTxs(t, txs)
+		}
+
+		blocks[height] = &types.Block{
+			Header: types.Header{
+				NumTxs: int64(len(blockTxs)),
+				Height: int64(height),
+			},
+			Data: types.Data{
+				Txs: blockTxs,
+			},
+		}
+	}
+
+	var (
+		mockEvents = &mockEvents{
+			signalEventFn: func(e events.Event) {
+				blockEvent, ok := e.(*indexerTypes.NewBlock)
+				require.True(t, ok)
+
+				capturedEvents = append(capturedEvents, blockEvent)
+			},
+		}
+
+		mockStorage = &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				return &mock.WriteBatch{
+					SetBlockFn: func(block *types.Block) error {
+						if block.Height == int64(blockNum) {
+							cancelFn()
+						}
+
+						return nil
+					},
+				}
+			},
+		}
+
+		// Serves batches the way a node does: one response per request,
+		// in request order, with the empty blocks left out of the results batch
+		mockClient = &mockClient{
+			createBatchFn: func() clientTypes.Batch {
+				var blockReqs, resultsReqs []uint64
+
+				return &mockBatch{
+					addBlockRequestFn: func(num uint64) error {
+						blockReqs = append(blockReqs, num)
+
+						return nil
+					},
+					addBlockResultsRequestFn: func(num uint64) error {
+						resultsReqs = append(resultsReqs, num)
+
+						return nil
+					},
+					countFn: func() int {
+						return len(blockReqs) + len(resultsReqs)
+					},
+					executeFn: func(_ context.Context) ([]any, error) {
+						responses := make([]any, 0, len(blockReqs)+len(resultsReqs))
+
+						for _, num := range blockReqs {
+							responses = append(responses, &core_types.ResultBlock{
+								Block: blocks[num],
+							})
+						}
+
+						for _, num := range resultsReqs {
+							responses = append(responses, &core_types.ResultBlockResults{
+								Height: int64(num),
+								Results: &state.ABCIResponses{
+									DeliverTxs: make([]abci.ResponseDeliverTx, blocks[num].NumTxs),
+								},
+							})
+						}
+
+						return responses, nil
+					},
+				}
+			},
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return uint64(blockNum), nil
+			},
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				return &core_types.ResultBlockResults{
+					Height: int64(num),
+					Results: &state.ABCIResponses{
+						DeliverTxs: make([]abci.ResponseDeliverTx, blocks[num].NumTxs),
+					},
+				}, nil
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{
+					Genesis: &types.GenesisDoc{
+						AppState: gnoland.GnoGenesisState{
+							Balances: []gnoland.Balance{},
+							Txs:      []gnoland.TxWithMetadata{},
+						},
+					},
+				}, nil
+			},
+		}
+	)
+
+	// Create the fetcher
+	f := New(
+		mockStorage,
+		mockClient,
+		mockEvents,
+		WithLogger(zap.NewNop()),
+	)
+
+	// Short interval to force spawning
+	f.queryInterval = 100 * time.Millisecond
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFn()
+
+	// Run the fetch
+	require.NoError(t, f.FetchChainData(ctx))
+
+	require.NotEmpty(t, capturedEvents)
+
+	for _, event := range capturedEvents {
+		assert.Lenf(
+			t,
+			event.Results,
+			int(event.Block.NumTxs),
+			"block %d announced with %d results for %d txs",
+			event.Block.Height,
+			len(event.Results),
+			event.Block.NumTxs,
+		)
+
+		for _, result := range event.Results {
+			assert.Equalf(
+				t,
+				event.Block.Height,
+				result.Height,
+				"block %d announced with a result from block %d",
+				event.Block.Height,
+				result.Height,
+			)
+		}
+	}
+}
+
 // TestFetcher_ChunkFetchError_NoSilentGap verifies that a chunk whose fetch
 // partially failed is refetched, instead of being committed incomplete.
 //
@@ -1532,6 +1712,7 @@ func TestFetcher_ChunkFetchError_NoSilentGap(t *testing.T) {
 	}
 }
 
+// generateTransactions generates dummy transactions
 func generateTransactions(t *testing.T, count int) []*std.Tx {
 	t.Helper()
 
