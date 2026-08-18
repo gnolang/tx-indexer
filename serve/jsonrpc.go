@@ -18,6 +18,7 @@ import (
 	"github.com/gnolang/tx-indexer/serve/handlers/block"
 	"github.com/gnolang/tx-indexer/serve/handlers/gas"
 	"github.com/gnolang/tx-indexer/serve/handlers/subs"
+	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -135,6 +136,15 @@ func (j *JSONRPC) RegisterGasEndpoints(db gas.Storage) {
 	j.RegisterHandler(
 		"getGasPrice",
 		gasPriceHandler.GetGasPriceHandler,
+	)
+}
+
+// RegisterSupplyEndpoints registers the supply endpoints. The handler is
+// shared with the GraphQL layer, so both surfaces serve one cache.
+func (j *JSONRPC) RegisterSupplyEndpoints(h *supply.Handler) {
+	j.RegisterHandler(
+		"getSupply",
+		h.GetSupplyHandler,
 	)
 }
 

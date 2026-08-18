@@ -20,6 +20,7 @@ import (
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
+	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
 	"github.com/gnolang/tx-indexer/storage"
 )
@@ -182,9 +183,19 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
+	// The supply handler serves both the JSON-RPC and GraphQL surfaces, so
+	// they share one cache and one chain walk.
+	supplyHandler := supply.NewHandler(
+		tm2Client,
+		supply.WithLogger(
+			logger.Named("supply"),
+		),
+	)
+
 	// Create the JSON-RPC service
 	j := setupJSONRPC(
 		db,
+		supplyHandler,
 		em,
 		logger,
 	)
@@ -216,7 +227,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, mux, c.disableIntrospection)
+	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection)
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
@@ -241,6 +252,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 // setupJSONRPC sets up the JSONRPC instance
 func setupJSONRPC(
 	db *storage.Pebble,
+	supplyHandler *supply.Handler,
 	em *events.Manager,
 	logger *zap.Logger,
 ) *serve.JSONRPC {
@@ -262,6 +274,9 @@ func setupJSONRPC(
 
 	// Sub handlers
 	j.RegisterSubEndpoints(db)
+
+	// Supply handlers
+	j.RegisterSupplyEndpoints(supplyHandler)
 
 	return j
 }

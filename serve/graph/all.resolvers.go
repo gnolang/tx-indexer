@@ -126,6 +126,16 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 	return int(h), err
 }
 
+// GetSupply is the resolver for the getSupply field.
+func (r *queryResolver) GetSupply(ctx context.Context, denom string) (*model.Supply, error) {
+	supply, err := r.supply.GetSupply(ctx, denom)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.NewSupply(supply), nil
+}
+
 // GetBlocks is the resolver for the getBlocks field.
 func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error) {
 	fromh, toh := where.MinMaxHeight()

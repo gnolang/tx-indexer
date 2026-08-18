@@ -16,16 +16,23 @@ import (
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
+	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/storage"
 )
 
 //go:embed examples/*.gql
 var examples embed.FS
 
-func Setup(s storage.Storage, manager *events.Manager, m *chi.Mux, disableIntrospection bool) *chi.Mux {
+func Setup(
+	s storage.Storage,
+	manager *events.Manager,
+	sup *supply.Handler,
+	m *chi.Mux,
+	disableIntrospection bool,
+) *chi.Mux {
 	srv := handler.New(NewExecutableSchema(
 		Config{
-			Resolvers: NewResolver(s, manager),
+			Resolvers: NewResolver(s, manager, sup),
 			Directives: DirectiveRoot{
 				Filterable: func(
 					ctx context.Context,

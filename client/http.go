@@ -73,3 +73,24 @@ func (c *Client) GetBlockResults(ctx context.Context, blockNum uint64) (*core_ty
 
 	return results, nil
 }
+
+// GetStatus returns the current chain status, including the latest
+// block height and block time.
+func (c *Client) GetStatus(ctx context.Context) (*core_types.ResultStatus, error) {
+	status, err := c.client.Status(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get chain status, %w", err)
+	}
+
+	return status, nil
+}
+
+// ABCIQuery runs an ABCI query against the chain at the latest height.
+func (c *Client) ABCIQuery(ctx context.Context, path string, data []byte) (*core_types.ResultABCIQuery, error) {
+	res, err := c.client.ABCIQuery(ctx, path, data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to run ABCI query %q, %w", path, err)
+	}
+
+	return res, nil
+}
