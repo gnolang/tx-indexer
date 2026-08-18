@@ -1712,6 +1712,119 @@ func TestFetcher_ChunkFetchError_NoSilentGap(t *testing.T) {
 	}
 }
 
+// TestFetcher_ShutdownWithInFlightWorkers verifies that shutting the fetcher
+// down while chunk workers are still in flight ends cleanly.
+//
+// Workers deliver their response over the collector channel whenever their
+// fetch completes, so a shutdown must leave the channel open for the late
+// deliveries to select against: closing it turns each one into a send on a
+// closed channel, which panics instead of shutting down.
+func TestFetcher_ShutdownWithInFlightWorkers(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blockNum  = 20
+		chunkSize = 5
+		// Whether a late delivery trips on the shutdown is a coin flip per
+		// worker, so the scenario is repeated to make the outcome reliable
+		runs = 8
+	)
+
+	var (
+		txs    = generateTransactions(t, 1)
+		blocks = generateBlocks(t, blockNum+1, txs)
+	)
+
+	for run := 0; run < runs; run++ {
+		var (
+			cancelFn context.CancelFunc
+
+			// Released once FetchChainData has returned, so every gated
+			// worker delivers its response strictly after the shutdown
+			gate       = make(chan struct{})
+			cancelOnce sync.Once
+		)
+
+		mockStorage := &mock.Storage{
+			GetLatestSavedHeightFn: func() (uint64, error) {
+				return 0, storageErrors.ErrNotFound
+			},
+			GetWriteBatchFn: func() storage.Batch {
+				return &mock.WriteBatch{}
+			},
+		}
+
+		mockClient := &mockClient{
+			createBatchFn: func() clientTypes.Batch {
+				return &mockBatch{
+					executeFn: func(_ context.Context) ([]any, error) {
+						// Force the sequential fetch path
+						return nil, errors.New("batch unavailable")
+					},
+					countFn: func() int {
+						return 1 // to trigger execution
+					},
+				}
+			},
+			getLatestBlockNumberFn: func() (uint64, error) {
+				return uint64(blockNum), nil
+			},
+			getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
+				return &core_types.ResultBlock{
+					Block: blocks[num],
+				}, nil
+			},
+			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
+				// The genesis fetch runs before the worker loop starts
+				if num == 0 {
+					return &core_types.ResultBlockResults{
+						Height:  0,
+						Results: &state.ABCIResponses{},
+					}, nil
+				}
+
+				// The first worker to get here shuts the fetcher down; every
+				// worker then holds its response until the shutdown completes
+				cancelOnce.Do(cancelFn)
+				<-gate
+
+				return nil, errors.New("could not find results for height")
+			},
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				return &core_types.ResultGenesis{
+					Genesis: &types.GenesisDoc{
+						AppState: gnoland.GnoGenesisState{
+							Balances: []gnoland.Balance{},
+							Txs:      []gnoland.TxWithMetadata{},
+						},
+					},
+				}, nil
+			},
+		}
+
+		// Create the fetcher
+		f := New(
+			mockStorage,
+			mockClient,
+			&mockEvents{},
+			WithLogger(zap.NewNop()),
+		)
+
+		// Small chunks so the range fans out into several workers
+		f.maxChunkSize = chunkSize
+
+		// The timeout is a backstop: the first worker to fetch block results
+		// shuts the fetcher down
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cancelFn = cancel
+
+		require.NoError(t, f.FetchChainData(ctx))
+
+		close(gate)
+		cancel()
+	}
+}
+
 // generateTransactions generates dummy transactions
 func generateTransactions(t *testing.T, count int) []*std.Tx {
 	t.Helper()

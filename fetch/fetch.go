@@ -242,8 +242,9 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			f.logger.Info("Fetcher service shut down")
-			close(collectorCh)
 
+			// The channel is left open: workers still in flight deliver into
+			// its buffer (or bail out on the cancelled context) and exit
 			return nil
 		case <-ticker.C:
 			refetchFailedRanges()
