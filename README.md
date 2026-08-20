@@ -94,6 +94,7 @@ FLAGS
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
+  -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
 
 ## GraphQL Endpoint
@@ -165,8 +166,8 @@ subscription {
 
 #### Get the supply of a denomination
 
-Total, spendable (what data aggregators call the circulating supply) and locked supply, evaluated at the latest
-block time. The same figures are available over JSON-RPC as [`getSupply`](#getsupply).
+Total, spendable (what data aggregators call the circulating supply) and locked supply, served from the indexer's
+background snapshot (see [`getSupply`](#getsupply)); only the denoms from `--supply-denoms` are tracked.
 
 ```graphql
 {
@@ -270,17 +271,20 @@ returned:
 
 #### `getSupply`
 
-Returns the supply of a single denomination at the latest chain height, split by spendability: how much of it exists
+Returns the supply of a tracked denomination at a recent chain height, split by spendability: how much of it exists
 (`total`), how much of that is held by vesting accounts under a schedule that has not vested yet (`locked`), and the
 difference (`spendable`) — the figure data aggregators call the circulating supply.
 
-- **Params**: `denom` — the denomination to report on, e.g. `ugnot`
+- **Params**: `denom` — a tracked denomination, e.g. `ugnot`
 - **Response**: `{ denom, height, total, spendable, locked }`, amounts as strings
 
-The total comes from the chain's own per-denom supply counter. The locked portion is computed from the vesting
-schedules in the chain genesis (vesting accounts are created only at genesis, and schedules are immutable),
-evaluated at the latest block time and clamped to the balance each account actually holds. Responses are cached
-briefly, so polling this endpoint does not translate into chain load.
+The figures are served from a background snapshot the indexer refreshes on its own schedule (every 10 seconds), so
+requests never reach the chain and a request cannot amplify into node load. The snapshot is bounded to the
+`--supply-denoms` flag (default `ugnot`): the total comes from the chain's per-denom supply counter, and the locked
+portion is computed from the vesting schedules in the chain genesis — vesting accounts are created only at genesis,
+and schedules are immutable — evaluated at the snapshot's block time and clamped to the balance each account actually
+holds. Every figure in one snapshot was read at the same height, in one batched query. A failed refresh keeps the
+last good snapshot serving.
 
 Example request:
 

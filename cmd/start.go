@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
@@ -29,6 +31,10 @@ const (
 	defaultRemote           = "http://127.0.0.1:26657"
 	defaultDBPath           = "indexer-db"
 	defaultCORSAllowOrigins = "*"
+	// defaultSupplyDenoms is the denomination list the supply endpoint
+	// tracks and refreshes in the background. The gas denom is what
+	// aggregators ask for.
+	defaultSupplyDenoms = "ugnot"
 )
 
 // corsAllowedOriginsHelp is built up over multiple lines so each stays under
@@ -42,6 +48,7 @@ type startCfg struct {
 	dbPath               string
 	logLevel             string
 	corsAllowedOrigins   string
+	supplyDenoms         string
 	maxSlots             int
 	maxChunkSize         int64
 	rateLimit            int
@@ -131,6 +138,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		defaultCORSAllowOrigins,
 		corsAllowedOriginsHelp,
 	)
+
+	fs.StringVar(
+		&c.supplyDenoms,
+		"supply-denoms",
+		defaultSupplyDenoms,
+		"comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply",
+	)
 }
 
 // exec executes the indexer start command
@@ -184,12 +198,19 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 
 	// The supply handler serves both the JSON-RPC and GraphQL surfaces, so
-	// they share one cache and one chain walk.
+	// they share one snapshot. Only the tracked denoms are ever queried, on
+	// the handler's own schedule — request input cannot reach the chain.
+	denoms, err := parseSupplyDenoms(c.supplyDenoms)
+	if err != nil {
+		return err
+	}
+
 	supplyHandler := supply.NewHandler(
 		tm2Client,
 		supply.WithLogger(
 			logger.Named("supply"),
 		),
+		supply.WithDenoms(denoms),
 	)
 
 	// Create the JSON-RPC service
@@ -239,6 +260,9 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// Add the fetcher service
 	w.add(f.FetchChainData)
 
+	// Add the supply snapshot refresher
+	w.add(supplyHandler.Start)
+
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
 
@@ -247,6 +271,30 @@ func (c *startCfg) exec(ctx context.Context) error {
 		w.wait(),
 		logger.Sync(),
 	)
+}
+
+// parseSupplyDenoms splits the comma-separated flag value and validates
+// each denomination, so an operator's typo fails at startup rather than at
+// the first query.
+func parseSupplyDenoms(raw string) ([]string, error) {
+	var denoms []string
+
+	for _, denom := range strings.Split(raw, ",") {
+		denom = strings.TrimSpace(denom)
+		if denom == "" {
+			continue
+		}
+
+		if err := std.ValidateDenom(denom); err != nil {
+			return nil, fmt.Errorf("invalid supply denom %q: %w", denom, err)
+		}
+
+		if !slices.Contains(denoms, denom) {
+			denoms = append(denoms, denom)
+		}
+	}
+
+	return denoms, nil
 }
 
 // setupJSONRPC sets up the JSONRPC instance
