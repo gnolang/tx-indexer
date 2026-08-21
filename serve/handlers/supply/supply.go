@@ -153,7 +153,7 @@ func (h *Handler) Start(ctx context.Context) error {
 
 	// First refresh before serving, so the endpoint answers as soon as it
 	// can rather than after one interval.
-	h.refresh()
+	h.refresh(ctx)
 
 	ticker := time.NewTicker(h.refreshInterval)
 	defer ticker.Stop()
@@ -165,7 +165,7 @@ func (h *Handler) Start(ctx context.Context) error {
 
 			return nil
 		case <-ticker.C:
-			h.refresh()
+			h.refresh(ctx)
 		}
 	}
 }
@@ -232,12 +232,20 @@ func (h *Handler) tracked(denom string) bool {
 }
 
 // refresh rebuilds the snapshot. Every read happens at one chain height, in
-// one batched round trip, on a detached context with a timeout — a request
-// that arrives mid-refresh is never waited on, and a cancelled request can
-// never fail a refresh. A failed refresh leaves the previous snapshot
-// serving.
-func (h *Handler) refresh() {
-	ctx, cancel := context.WithTimeout(context.Background(), h.computeTimeout)
+// one batched round trip. The context is the lifecycle one Start runs under,
+// bounded by a timeout — so a shutdown cancels an in-flight refresh instead
+// of waiting out the timeout, while no request is ever waited on or able to
+// fail a refresh. A failed refresh leaves the previous snapshot serving, and
+// a panic is contained: this is a background loop with no request to unwind
+// into, and it must not take the indexer down.
+func (h *Handler) refresh(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.logger.Error("panic refreshing supply snapshot, serving the previous one", zap.Any("panic", r))
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(ctx, h.computeTimeout)
 	defer cancel()
 
 	snap, err := h.computeSnapshot(ctx)
@@ -374,11 +382,33 @@ func (h *Handler) bootstrapVesting(ctx context.Context) error {
 	}
 }
 
-// parseVesting reads the vesting schedules from the chain genesis. Rows are
-// folded per address, last row wins, and a plain row clears a previous
-// vesting one — the same semantics the chain's applyBalance applies, so a
-// duplicated or overridden genesis row cannot double-count a lock.
+// parseVesting reads the vesting schedules from the chain genesis, with
+// the same panic containment the refresh loop has: the bootstrap retry loop
+// is a background loop too, and a panic here must not take the indexer down.
 func (h *Handler) parseVesting(ctx context.Context) ([]vestingEntry, error) {
+	var (
+		entries []vestingEntry
+		err     error
+	)
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				entries, err = nil, fmt.Errorf("panic parsing genesis: %v", r)
+			}
+		}()
+
+		entries, err = h.vestingFromGenesis(ctx)
+	}()
+
+	return entries, err
+}
+
+// vestingFromGenesis folds the genesis balance rows per address, last row
+// wins, and a plain row clears a previous vesting one — the same semantics
+// the chain's applyBalance applies, so a duplicated or overridden genesis
+// row cannot double-count a lock.
+func (h *Handler) vestingFromGenesis(ctx context.Context) ([]vestingEntry, error) {
 	genesis, err := h.client.GetGenesis(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to fetch genesis, %w", err)

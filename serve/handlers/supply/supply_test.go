@@ -149,7 +149,8 @@ func statusAt(height, unix int64) *core_types.ResultStatus {
 
 // chainFixture answers one batch at one height, from plain maps. errBatch,
 // when set, fails the whole batch; errSupplyResponse, when set, makes every
-// bank/supply result carry an ABCI error — a chain without the route.
+// bank/supply result carry an ABCI error — a chain without the route;
+// panicBatch, when set, makes the batch call panic.
 type chainFixture struct {
 	genesis           *core_types.ResultGenesis
 	status            *core_types.ResultStatus
@@ -159,6 +160,7 @@ type chainFixture struct {
 	errBatch          error
 	errSupplyResponse error
 	mu                sync.Mutex
+	panicBatch        bool
 }
 
 func newChainFixture() *chainFixture {
@@ -190,6 +192,10 @@ func (f *chainFixture) client() *mockClient {
 			defer f.mu.Unlock()
 
 			f.rec.record(height, paths)
+
+			if f.panicBatch {
+				panic("simulated decoder panic")
+			}
 
 			if f.errBatch != nil {
 				return nil, f.errBatch
@@ -355,7 +361,7 @@ func TestRefreshBuildsConsistentSnapshot(t *testing.T) {
 
 	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
 	h.loadVesting(t)
-	h.refresh()
+	h.refresh(context.Background())
 
 	// Every read the refresh made happened at one height, in one batch.
 	require.Equal(t, 1, fixture.rec.count(), "totals and balances must share one batch")
@@ -392,7 +398,7 @@ func TestGetSupplyFullyVested(t *testing.T) {
 
 	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
 	h.loadVesting(t)
-	h.refresh()
+	h.refresh(context.Background())
 
 	supply, err := h.GetSupply(context.Background(), testDenom)
 	require.NoError(t, err)
@@ -420,7 +426,7 @@ func TestRefreshFailureKeepsLastSnapshot(t *testing.T) {
 
 	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
 	h.loadVesting(t)
-	h.refresh()
+	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
 	require.NoError(t, err)
@@ -429,7 +435,7 @@ func TestRefreshFailureKeepsLastSnapshot(t *testing.T) {
 	fixture.errBatch = fmt.Errorf("node unreachable")
 	fixture.mu.Unlock()
 
-	h.refresh()
+	h.refresh(context.Background())
 
 	after, err := h.GetSupply(context.Background(), testDenom)
 	require.NoError(t, err)
@@ -446,10 +452,89 @@ func TestRefreshFailsOnUnsupportedSupplyRoute(t *testing.T) {
 
 	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
 	h.loadVesting(t)
-	h.refresh()
+	h.refresh(context.Background())
 
 	_, err := h.GetSupply(context.Background(), testDenom)
 	require.ErrorIs(t, err, ErrNotReady, "no snapshot must be stored from a failed refresh")
+}
+
+// A panic inside the background refresh must not take the process down, and
+// must leave the previous snapshot serving.
+func TestRefreshContainsPanics(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	fixture.supply[testDenom] = 100
+
+	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
+	h.loadVesting(t)
+	h.refresh(context.Background())
+
+	before, err := h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+
+	fixture.mu.Lock()
+	fixture.panicBatch = true
+	fixture.mu.Unlock()
+
+	require.NotPanics(t, func() {
+		h.refresh(context.Background())
+	})
+
+	after, err := h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+	require.Equal(t, before, after, "a contained panic must keep the last good snapshot")
+}
+
+// The refresh context is derived from the lifecycle context Start runs
+// under, so a shutdown cancels an in-flight refresh instead of waiting out
+// the compute timeout.
+func TestRefreshHonorsShutdownContext(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	fixture.supply[testDenom] = 100
+
+	mock := &mockClient{
+		getGenesisFn: func(context.Context) (*core_types.ResultGenesis, error) {
+			fixture.mu.Lock()
+			defer fixture.mu.Unlock()
+
+			return fixture.genesis, nil
+		},
+		getStatusFn: func(ctx context.Context) (*core_types.ResultStatus, error) {
+			// A cancelled lifecycle ctx must fail here, before any batch.
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+
+			fixture.mu.Lock()
+			defer fixture.mu.Unlock()
+
+			return fixture.status, nil
+		},
+		batchQueryFn: func(ctx context.Context, height int64, paths []string) ([]*core_types.ResultABCIQuery, error) {
+			return fixture.client().batchQueryFn(ctx, height, paths)
+		},
+	}
+
+	h := NewHandler(mock, WithDenoms([]string{testDenom}))
+	h.loadVesting(t)
+	h.refresh(context.Background())
+
+	before, err := h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+	require.Equal(t, 1, fixture.rec.count(), "precondition: one refresh ran")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	h.refresh(ctx)
+
+	after, err := h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.Equal(t, 1, fixture.rec.count(), "a cancelled lifecycle ctx must not reach the chain")
 }
 
 // ---------------------------------------------------------------
@@ -504,7 +589,7 @@ func TestGetSupplyHandlerServesSnapshot(t *testing.T) {
 
 	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
 	h.loadVesting(t)
-	h.refresh()
+	h.refresh(context.Background())
 
 	resp, rpcErr := h.GetSupplyHandler(metadata.NewMetadata(""), []any{testDenom})
 	require.Nil(t, rpcErr)

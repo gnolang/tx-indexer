@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	rpcClient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
@@ -13,6 +14,14 @@ import (
 // Client is the TM2 HTTP client
 type Client struct {
 	client *rpcClient.RPCClient
+
+	// genesis caches the first successful genesis fetch. The chain's genesis
+	// is immutable, and more than one service needs it at startup — the
+	// fetcher on an empty DB, the supply bootstrap always — so they must not
+	// each pull the same heavy document over the wire. A failed attempt is
+	// not cached.
+	genesis   *core_types.ResultGenesis
+	genesisMu sync.Mutex
 }
 
 // NewClient creates a new TM2 HTTP client
@@ -54,11 +63,24 @@ func (c *Client) GetBlock(ctx context.Context, blockNum uint64) (*core_types.Res
 	return block, nil
 }
 
+// GetGenesis returns the chain genesis. The first successful fetch is cached
+// for the process lifetime and shared by every caller: concurrent callers
+// block on the same round trip rather than each issuing one, and later
+// callers get the cached document.
 func (c *Client) GetGenesis(ctx context.Context) (*core_types.ResultGenesis, error) {
+	c.genesisMu.Lock()
+	defer c.genesisMu.Unlock()
+
+	if c.genesis != nil {
+		return c.genesis, nil
+	}
+
 	genesis, err := c.client.Genesis(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get genesis block, %w", err)
 	}
+
+	c.genesis = genesis
 
 	return genesis, nil
 }
