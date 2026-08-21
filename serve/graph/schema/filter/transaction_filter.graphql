@@ -75,6 +75,32 @@ input TransactionFilter {
   ex) `events[0] || events[1] || events[2]`
   """
   events: [EventInput!]
+
+  """
+  `signatures` are the signatures that signed the transaction.
+  `signatures` can be filtered with a specific signer, signature, or session address.
+  `signatures` is entered as an array and works exclusively.
+  ex) `signatures[0] || signatures[1] || signatures[2]`
+  """
+  signatures: [SignatureInput!]
+}
+
+"""
+Transaction's signature to filter transactions.
+`SignatureInput` can be configured as a filter with a signature's `pub_key` or `session_addr`.
+"""
+input SignatureInput {
+  """
+  the bech32 address of the signer derived from the public key.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  pub_key: String
+
+  """
+  the bech32 address of the session account used for delegated signing.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_addr: String
 }
 
 """
@@ -230,6 +256,11 @@ input TransactionMessageInput {
   `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
   """
   vm_param: TransactionVmMessageInput
+
+  """
+  `TransactionAuthMessageInput` represents input parameters required when the message router is `auth`.
+  """
+  auth_param: TransactionAuthMessageInput
 }
 
 """
@@ -367,6 +398,84 @@ input MsgRunInput {
   the package being executed.
   """
   package: MemPackageInput
+}
+
+"""
+`TransactionAuthMessageInput` represents input parameters required when the message router is `auth`.
+"""
+input TransactionAuthMessageInput {
+  """
+  `MsgCreateSessionInput` represents input parameters required when the message type is `create_session`.
+  """
+  create_session: MsgCreateSessionInput
+
+  """
+  `MsgRevokeSessionInput` represents input parameters required when the message type is `revoke_session`.
+  """
+  revoke_session: MsgRevokeSessionInput
+
+  """
+  `MsgRevokeAllSessionsInput` represents input parameters required when the message type is `revoke_all_sessions`.
+  """
+  revoke_all_sessions: MsgRevokeAllSessionsInput
+}
+
+"""
+`MsgCreateSessionInput` represents input parameters required when the message type is `create_session`.
+"""
+input MsgCreateSessionInput {
+  """
+  the bech32 address of the account owner that creates the session.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String
+
+  """
+  the bech32 address derived from the session public key.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_key: String
+
+  """
+  the realm path entries the session is allowed to access.
+  The entries are checked in order and empty strings are excluded from the
+  filtering criteria.
+  ex) `["", "", "gno.land/r/demo/foo"]` <- Empty strings skip the condition.
+  """
+  allow_paths: [String!]
+
+  """
+  the maximum amount of funds the session may spend per period.
+  """
+  spend_limit: AmountInput
+}
+
+"""
+`MsgRevokeSessionInput` represents input parameters required when the message type is `revoke_session`.
+"""
+input MsgRevokeSessionInput {
+  """
+  the bech32 address of the account owner that revokes the session.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String
+
+  """
+  the bech32 address derived from the session public key being revoked.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_key: String
+}
+
+"""
+`MsgRevokeAllSessionsInput` represents input parameters required when the message type is `revoke_all_sessions`.
+"""
+input MsgRevokeAllSessionsInput {
+  """
+  the bech32 address of the account owner that revokes all sessions.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String
 }
 
 """

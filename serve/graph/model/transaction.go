@@ -11,6 +11,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/sdk/auth"
 	"github.com/gnolang/gno/tm2/pkg/sdk/bank"
 	"github.com/gnolang/gno/tm2/pkg/std"
 )
@@ -78,6 +79,20 @@ func (t *Transaction) Memo() string {
 
 func (t *Transaction) Messages() []*TransactionMessage {
 	return t.getMessages()
+}
+
+func (t *Transaction) Signatures() []*Signature {
+	stdTx := t.getStdTx()
+	if stdTx == nil {
+		return nil
+	}
+
+	signatures := make([]*Signature, 0, len(stdTx.GetSignatures()))
+	for _, signature := range stdTx.GetSignatures() {
+		signatures = append(signatures, makeSignature(signature))
+	}
+
+	return signatures
 }
 
 func (t *Transaction) GasFee() *Coin {
@@ -233,6 +248,27 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 				Value:   makeVMMsgRun(message),
 			}
 		}
+	case auth.ModuleName:
+		switch message.Type() {
+		case MessageTypeCreateSession.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteAuth.String(),
+				TypeURL: MessageTypeCreateSession.String(),
+				Value:   makeAuthMsgCreateSession(message),
+			}
+		case MessageTypeRevokeSession.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteAuth.String(),
+				TypeURL: MessageTypeRevokeSession.String(),
+				Value:   makeAuthMsgRevokeSession(message),
+			}
+		case MessageTypeRevokeAllSessions.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteAuth.String(),
+				TypeURL: MessageTypeRevokeAllSessions.String(),
+				Value:   makeAuthMsgRevokeAllSessions(message),
+			}
+		}
 	}
 
 	if contentMessage == nil {
@@ -260,6 +296,18 @@ func (tm *TransactionMessage) VMAddPackage() MsgAddPackage {
 
 func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
+}
+
+func (tm *TransactionMessage) AuthMsgCreateSession() MsgCreateSession {
+	return tm.Value.(MsgCreateSession)
+}
+
+func (tm *TransactionMessage) AuthMsgRevokeSession() MsgRevokeSession {
+	return tm.Value.(MsgRevokeSession)
+}
+
+func (tm *TransactionMessage) AuthMsgRevokeAllSessions() MsgRevokeAllSessions {
+	return tm.Value.(MsgRevokeAllSessions)
 }
 
 func makeEvent(abciEvent abci.Event) (Event, error) {
@@ -383,6 +431,73 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
+	}
+}
+
+func makeAuthMsgCreateSession(value std.Msg) MsgCreateSession {
+	decodedMessage, ok := value.(auth.MsgCreateSession)
+	if !ok {
+		return MsgCreateSession{}
+	}
+
+	sessionKey := ""
+	if decodedMessage.SessionKey != nil {
+		sessionKey = decodedMessage.SessionKey.Address().String()
+	}
+
+	return MsgCreateSession{
+		Creator:     decodedMessage.Creator.String(),
+		SessionKey:  sessionKey,
+		ExpiresAt:   int(decodedMessage.ExpiresAt),
+		AllowPaths:  decodedMessage.AllowPaths,
+		SpendLimit:  decodedMessage.SpendLimit.String(),
+		SpendPeriod: int(decodedMessage.SpendPeriod),
+	}
+}
+
+func makeAuthMsgRevokeSession(value std.Msg) MsgRevokeSession {
+	decodedMessage, ok := value.(auth.MsgRevokeSession)
+	if !ok {
+		return MsgRevokeSession{}
+	}
+
+	sessionKey := ""
+	if decodedMessage.SessionKey != nil {
+		sessionKey = decodedMessage.SessionKey.Address().String()
+	}
+
+	return MsgRevokeSession{
+		Creator:    decodedMessage.Creator.String(),
+		SessionKey: sessionKey,
+	}
+}
+
+func makeAuthMsgRevokeAllSessions(value std.Msg) MsgRevokeAllSessions {
+	decodedMessage, ok := value.(auth.MsgRevokeAllSessions)
+	if !ok {
+		return MsgRevokeAllSessions{}
+	}
+
+	return MsgRevokeAllSessions{
+		Creator: decodedMessage.Creator.String(),
+	}
+}
+
+func makeSignature(signature std.Signature) *Signature {
+	pubKey := ""
+	if signature.PubKey != nil {
+		pubKey = signature.PubKey.Address().String()
+	}
+
+	sessionAddr := ""
+	if !signature.SessionAddr.IsZero() {
+		sessionAddr = signature.SessionAddr.String()
+	}
+
+	return &Signature{
+		PubKey:      pubKey,
+		Signature:   base64.StdEncoding.EncodeToString(signature.Signature),
+		SessionAddr: sessionAddr,
 	}
 }
 

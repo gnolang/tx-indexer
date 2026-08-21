@@ -1,12 +1,12 @@
 module github.com/gnolang/tx-indexer
 
-go 1.25.0
+go 1.25.9
 
 require (
 	github.com/99designs/gqlgen v0.17.88
 	github.com/ajnavarro/gqlfiltergen v0.1.2
 	github.com/cockroachdb/pebble v1.1.5
-	github.com/gnolang/gno v0.0.0-20260312093129-ef1836d36eb0
+	github.com/gnolang/gno v0.0.0-20260608183647-8778b541f0df
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/httprate v0.15.0
@@ -24,17 +24,24 @@ require (
 
 require (
 	github.com/ajg/form v1.7.1 // indirect
+	github.com/bits-and-blooms/bitset v1.14.2 // indirect
+	github.com/bmatsuo/lmdb-go v1.8.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
+	github.com/consensys/bavard v0.1.13 // indirect
+	github.com/consensys/gnark-crypto v0.14.0 // indirect
 	github.com/cosmos/gogoproto v1.7.2 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/dot v1.11.0 // indirect
+	github.com/erigontech/mdbx-go v0.40.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/ianlancetaylor/cgosymbolizer v0.0.0-20241129212102-9c50ad6b591e // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/sig-0/insertion-queue v0.0.0-20241004125609-6b3ca841346b // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -43,6 +50,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.42.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.42.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 require (

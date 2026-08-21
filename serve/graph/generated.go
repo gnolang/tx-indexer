@@ -114,6 +114,24 @@ type ComplexityRoot struct {
 		Send       func(childComplexity int) int
 	}
 
+	MsgCreateSession struct {
+		AllowPaths  func(childComplexity int) int
+		Creator     func(childComplexity int) int
+		ExpiresAt   func(childComplexity int) int
+		SessionKey  func(childComplexity int) int
+		SpendLimit  func(childComplexity int) int
+		SpendPeriod func(childComplexity int) int
+	}
+
+	MsgRevokeAllSessions struct {
+		Creator func(childComplexity int) int
+	}
+
+	MsgRevokeSession struct {
+		Creator    func(childComplexity int) int
+		SessionKey func(childComplexity int) int
+	}
+
 	MsgRun struct {
 		Caller     func(childComplexity int) int
 		MaxDeposit func(childComplexity int) int
@@ -127,6 +145,12 @@ type ComplexityRoot struct {
 		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
+	}
+
+	Signature struct {
+		PubKey      func(childComplexity int) int
+		SessionAddr func(childComplexity int) int
+		Signature   func(childComplexity int) int
 	}
 
 	StorageDepositEvent struct {
@@ -161,6 +185,7 @@ type ComplexityRoot struct {
 		Memo        func(childComplexity int) int
 		Messages    func(childComplexity int) int
 		Response    func(childComplexity int) int
+		Signatures  func(childComplexity int) int
 		Success     func(childComplexity int) int
 	}
 
@@ -512,6 +537,63 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MsgCall.Send(childComplexity), true
 
+	case "MsgCreateSession.allow_paths":
+		if e.ComplexityRoot.MsgCreateSession.AllowPaths == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.AllowPaths(childComplexity), true
+	case "MsgCreateSession.creator":
+		if e.ComplexityRoot.MsgCreateSession.Creator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.Creator(childComplexity), true
+	case "MsgCreateSession.expires_at":
+		if e.ComplexityRoot.MsgCreateSession.ExpiresAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.ExpiresAt(childComplexity), true
+	case "MsgCreateSession.session_key":
+		if e.ComplexityRoot.MsgCreateSession.SessionKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.SessionKey(childComplexity), true
+	case "MsgCreateSession.spend_limit":
+		if e.ComplexityRoot.MsgCreateSession.SpendLimit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.SpendLimit(childComplexity), true
+	case "MsgCreateSession.spend_period":
+		if e.ComplexityRoot.MsgCreateSession.SpendPeriod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCreateSession.SpendPeriod(childComplexity), true
+
+	case "MsgRevokeAllSessions.creator":
+		if e.ComplexityRoot.MsgRevokeAllSessions.Creator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRevokeAllSessions.Creator(childComplexity), true
+
+	case "MsgRevokeSession.creator":
+		if e.ComplexityRoot.MsgRevokeSession.Creator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRevokeSession.Creator(childComplexity), true
+	case "MsgRevokeSession.session_key":
+		if e.ComplexityRoot.MsgRevokeSession.SessionKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRevokeSession.SessionKey(childComplexity), true
+
 	case "MsgRun.caller":
 		if e.ComplexityRoot.MsgRun.Caller == nil {
 			break
@@ -588,6 +670,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+
+	case "Signature.pub_key":
+		if e.ComplexityRoot.Signature.PubKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Signature.PubKey(childComplexity), true
+	case "Signature.session_addr":
+		if e.ComplexityRoot.Signature.SessionAddr == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Signature.SessionAddr(childComplexity), true
+	case "Signature.signature":
+		if e.ComplexityRoot.Signature.Signature == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Signature.Signature(childComplexity), true
 
 	case "StorageDepositEvent.bytes_delta":
 		if e.ComplexityRoot.StorageDepositEvent.BytesDelta == nil {
@@ -744,6 +845,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Transaction.Response(childComplexity), true
+	case "Transaction.signatures":
+		if e.ComplexityRoot.Transaction.Signatures == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Transaction.Signatures(childComplexity), true
 	case "Transaction.success":
 		if e.ComplexityRoot.Transaction.Success == nil {
 			break
@@ -857,7 +964,11 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterMessageValue,
 		ec.unmarshalInputFilterMsgAddPackage,
 		ec.unmarshalInputFilterMsgCall,
+		ec.unmarshalInputFilterMsgCreateSession,
+		ec.unmarshalInputFilterMsgRevokeAllSessions,
+		ec.unmarshalInputFilterMsgRevokeSession,
 		ec.unmarshalInputFilterMsgRun,
+		ec.unmarshalInputFilterSignature,
 		ec.unmarshalInputFilterStorageDepositEvent,
 		ec.unmarshalInputFilterStorageUnlockEvent,
 		ec.unmarshalInputFilterString,
@@ -872,6 +983,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputMemPackageInput,
 		ec.unmarshalInputMsgAddPackageInput,
 		ec.unmarshalInputMsgCallInput,
+		ec.unmarshalInputMsgCreateSessionInput,
+		ec.unmarshalInputMsgRevokeAllSessionsInput,
+		ec.unmarshalInputMsgRevokeSessionInput,
 		ec.unmarshalInputMsgRunInput,
 		ec.unmarshalInputNestedFilterBankMsgSend,
 		ec.unmarshalInputNestedFilterBlockTransaction,
@@ -884,15 +998,21 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputNestedFilterMessageValue,
 		ec.unmarshalInputNestedFilterMsgAddPackage,
 		ec.unmarshalInputNestedFilterMsgCall,
+		ec.unmarshalInputNestedFilterMsgCreateSession,
+		ec.unmarshalInputNestedFilterMsgRevokeAllSessions,
+		ec.unmarshalInputNestedFilterMsgRevokeSession,
 		ec.unmarshalInputNestedFilterMsgRun,
+		ec.unmarshalInputNestedFilterSignature,
 		ec.unmarshalInputNestedFilterStorageDepositEvent,
 		ec.unmarshalInputNestedFilterStorageUnlockEvent,
 		ec.unmarshalInputNestedFilterTransactionMessage,
 		ec.unmarshalInputNestedFilterTransactionResponse,
 		ec.unmarshalInputNestedFilterTxFee,
 		ec.unmarshalInputNestedFilterUnknownEvent,
+		ec.unmarshalInputSignatureInput,
 		ec.unmarshalInputStorageDepositEventInput,
 		ec.unmarshalInputStorageUnlockEventInput,
+		ec.unmarshalInputTransactionAuthMessageInput,
 		ec.unmarshalInputTransactionBankMessageInput,
 		ec.unmarshalInputTransactionFilter,
 		ec.unmarshalInputTransactionMessageInput,
@@ -1602,6 +1722,18 @@ input FilterMessageValue {
 	filter for MsgRun union type.
 	"""
 	MsgRun: NestedFilterMsgRun
+	"""
+	filter for MsgCreateSession union type.
+	"""
+	MsgCreateSession: NestedFilterMsgCreateSession
+	"""
+	filter for MsgRevokeSession union type.
+	"""
+	MsgRevokeSession: NestedFilterMsgRevokeSession
+	"""
+	filter for MsgRevokeAllSessions union type.
+	"""
+	MsgRevokeAllSessions: NestedFilterMsgRevokeAllSessions
 }
 """
 filter for MsgAddPackage objects
@@ -1682,6 +1814,93 @@ input FilterMsgCall {
 	max_deposit: FilterString
 }
 """
+filter for MsgCreateSession objects
+"""
+input FilterMsgCreateSession {
+	"""
+	logical operator for MsgCreateSession that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterMsgCreateSession]
+	"""
+	logical operator for MsgCreateSession that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterMsgCreateSession]
+	"""
+	logical operator for MsgCreateSession that will reverse conditions.
+	"""
+	_not: FilterMsgCreateSession
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+	"""
+	filter for session_key field.
+	"""
+	session_key: FilterString
+	"""
+	filter for expires_at field.
+	"""
+	expires_at: FilterInt
+	"""
+	filter for allow_paths field.
+	"""
+	allow_paths: FilterString
+	"""
+	filter for spend_limit field.
+	"""
+	spend_limit: FilterString
+	"""
+	filter for spend_period field.
+	"""
+	spend_period: FilterInt
+}
+"""
+filter for MsgRevokeAllSessions objects
+"""
+input FilterMsgRevokeAllSessions {
+	"""
+	logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterMsgRevokeAllSessions]
+	"""
+	logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterMsgRevokeAllSessions]
+	"""
+	logical operator for MsgRevokeAllSessions that will reverse conditions.
+	"""
+	_not: FilterMsgRevokeAllSessions
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+}
+"""
+filter for MsgRevokeSession objects
+"""
+input FilterMsgRevokeSession {
+	"""
+	logical operator for MsgRevokeSession that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterMsgRevokeSession]
+	"""
+	logical operator for MsgRevokeSession that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterMsgRevokeSession]
+	"""
+	logical operator for MsgRevokeSession that will reverse conditions.
+	"""
+	_not: FilterMsgRevokeSession
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+	"""
+	filter for session_key field.
+	"""
+	session_key: FilterString
+}
+"""
 filter for MsgRun objects
 """
 input FilterMsgRun {
@@ -1713,6 +1932,35 @@ input FilterMsgRun {
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+}
+"""
+filter for Signature objects
+"""
+input FilterSignature {
+	"""
+	logical operator for Signature that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterSignature]
+	"""
+	logical operator for Signature that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterSignature]
+	"""
+	logical operator for Signature that will reverse conditions.
+	"""
+	_not: FilterSignature
+	"""
+	filter for pub_key field.
+	"""
+	pub_key: FilterString
+	"""
+	filter for signature field.
+	"""
+	signature: FilterString
+	"""
+	filter for session_addr field.
+	"""
+	session_addr: FilterString
 }
 """
 filter for StorageDepositEvent objects
@@ -1874,6 +2122,10 @@ input FilterTransaction {
 	filter for response field.
 	"""
 	response: NestedFilterTransactionResponse
+	"""
+	filter for signatures field.
+	"""
+	signatures: NestedFilterSignature
 }
 """
 filter for TransactionMessage objects
@@ -2108,15 +2360,17 @@ input MemPackageInput {
 }
 """
 ` + "`" + `MessageRoute` + "`" + ` is route type of the transactional message.
-` + "`" + `MessageRoute` + "`" + ` has the values of vm and bank.
+` + "`" + `MessageRoute` + "`" + ` has the values of vm, bank and auth.
 """
 enum MessageRoute {
 	vm
 	bank
+	auth
 }
 """
 ` + "`" + `MessageType` + "`" + ` is message type of the transaction.
-` + "`" + `MessageType` + "`" + ` has the values ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, and ` + "`" + `run` + "`" + `.
+` + "`" + `MessageType` + "`" + ` has the values ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, ` + "`" + `run` + "`" + `,
+` + "`" + `create_session` + "`" + `, ` + "`" + `revoke_session` + "`" + `, and ` + "`" + `revoke_all_sessions` + "`" + `.
 """
 enum MessageType {
 	"""
@@ -2139,8 +2393,23 @@ enum MessageType {
 	This is a transactional message that executes an arbitrary Gno-coded TX message.
 	"""
 	run
+	"""
+	The route value for this message type is ` + "`" + `auth` + "`" + `, and the value for transactional messages is ` + "`" + `MsgCreateSession` + "`" + `.
+	This is a transactional message that creates a new session key on the creator's account.
+	"""
+	create_session
+	"""
+	The route value for this message type is ` + "`" + `auth` + "`" + `, and the value for transactional messages is ` + "`" + `MsgRevokeSession` + "`" + `.
+	This is a transactional message that revokes a specific session key from the creator's account.
+	"""
+	revoke_session
+	"""
+	The route value for this message type is ` + "`" + `auth` + "`" + `, and the value for transactional messages is ` + "`" + `MsgRevokeAllSessions` + "`" + `.
+	This is a transactional message that revokes all session keys from the creator's account.
+	"""
+	revoke_all_sessions
 }
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | MsgCreateSession | MsgRevokeSession | MsgRevokeAllSessions | UnexpectedMessage
 """
 ` + "`" + `MsgAddPackage` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `add_package` + "`" + `.
 ` + "`" + `MsgAddPackage` + "`" + ` is the package deployment tx message.
@@ -2254,6 +2523,120 @@ input MsgCallInput {
 	ex) ` + "`" + `["", "", "1"]` + "`" + ` <- Empty strings skip the condition.
 	"""
 	args: [String!]
+}
+"""
+` + "`" + `MsgCreateSession` + "`" + ` is a message with a message router of ` + "`" + `auth` + "`" + ` and a message type of ` + "`" + `create_session` + "`" + `.
+` + "`" + `MsgCreateSession` + "`" + ` creates a new session key on the creator's account for delegated signing.
+"""
+type MsgCreateSession {
+	"""
+	the bech32 address of the account owner that creates the session.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String! @filterable
+	"""
+	the bech32 address derived from the session public key.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_key: String! @filterable
+	"""
+	the unix timestamp (in seconds) at which the session expires.
+	` + "`" + `0` + "`" + ` means the session never expires until revoked.
+	"""
+	expires_at: Int! @filterable
+	"""
+	the realm path entries the session is allowed to access.
+	An empty list means the session is unrestricted.
+	"""
+	allow_paths: [String!] @filterable
+	"""
+	the maximum amount of funds the session may spend per period ("<amount><denomination>").
+	An empty value means the session may not spend any funds.
+	ex) ` + "`" + `1000000ugnot` + "`" + `
+	"""
+	spend_limit: String! @filterable
+	"""
+	the spending period in seconds. ` + "`" + `0` + "`" + ` means ` + "`" + `spend_limit` + "`" + ` is a lifetime cap.
+	"""
+	spend_period: Int! @filterable
+}
+"""
+` + "`" + `MsgCreateSessionInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `create_session` + "`" + `.
+"""
+input MsgCreateSessionInput {
+	"""
+	the bech32 address of the account owner that creates the session.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String
+	"""
+	the bech32 address derived from the session public key.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_key: String
+	"""
+	the realm path entries the session is allowed to access.
+	The entries are checked in order and empty strings are excluded from the
+	filtering criteria.
+	ex) ` + "`" + `["", "", "gno.land/r/demo/foo"]` + "`" + ` <- Empty strings skip the condition.
+	"""
+	allow_paths: [String!]
+	"""
+	the maximum amount of funds the session may spend per period.
+	"""
+	spend_limit: AmountInput
+}
+"""
+` + "`" + `MsgRevokeAllSessions` + "`" + ` is a message with a message router of ` + "`" + `auth` + "`" + ` and a message type of ` + "`" + `revoke_all_sessions` + "`" + `.
+` + "`" + `MsgRevokeAllSessions` + "`" + ` revokes all session keys from the creator's account.
+"""
+type MsgRevokeAllSessions {
+	"""
+	the bech32 address of the account owner that revokes all sessions.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String! @filterable
+}
+"""
+` + "`" + `MsgRevokeAllSessionsInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `revoke_all_sessions` + "`" + `.
+"""
+input MsgRevokeAllSessionsInput {
+	"""
+	the bech32 address of the account owner that revokes all sessions.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String
+}
+"""
+` + "`" + `MsgRevokeSession` + "`" + ` is a message with a message router of ` + "`" + `auth` + "`" + ` and a message type of ` + "`" + `revoke_session` + "`" + `.
+` + "`" + `MsgRevokeSession` + "`" + ` revokes a specific session key from the creator's account.
+"""
+type MsgRevokeSession {
+	"""
+	the bech32 address of the account owner that revokes the session.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String! @filterable
+	"""
+	the bech32 address derived from the session public key being revoked.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_key: String! @filterable
+}
+"""
+` + "`" + `MsgRevokeSessionInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `revoke_session` + "`" + `.
+"""
+input MsgRevokeSessionInput {
+	"""
+	the bech32 address of the account owner that revokes the session.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	creator: String
+	"""
+	the bech32 address derived from the session public key being revoked.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_key: String
 }
 """
 ` + "`" + `MsgRun` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `run` + "`" + `.
@@ -2556,6 +2939,18 @@ input NestedFilterMessageValue {
 	filter for MsgRun union type.
 	"""
 	MsgRun: NestedFilterMsgRun
+	"""
+	filter for MsgCreateSession union type.
+	"""
+	MsgCreateSession: NestedFilterMsgCreateSession
+	"""
+	filter for MsgRevokeSession union type.
+	"""
+	MsgRevokeSession: NestedFilterMsgRevokeSession
+	"""
+	filter for MsgRevokeAllSessions union type.
+	"""
+	MsgRevokeAllSessions: NestedFilterMsgRevokeAllSessions
 }
 """
 filter for MsgAddPackage objects
@@ -2636,6 +3031,93 @@ input NestedFilterMsgCall {
 	max_deposit: FilterString
 }
 """
+filter for MsgCreateSession objects
+"""
+input NestedFilterMsgCreateSession {
+	"""
+	logical operator for MsgCreateSession that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterMsgCreateSession]
+	"""
+	logical operator for MsgCreateSession that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterMsgCreateSession]
+	"""
+	logical operator for MsgCreateSession that will reverse conditions.
+	"""
+	_not: NestedFilterMsgCreateSession
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+	"""
+	filter for session_key field.
+	"""
+	session_key: FilterString
+	"""
+	filter for expires_at field.
+	"""
+	expires_at: FilterInt
+	"""
+	filter for allow_paths field.
+	"""
+	allow_paths: FilterString
+	"""
+	filter for spend_limit field.
+	"""
+	spend_limit: FilterString
+	"""
+	filter for spend_period field.
+	"""
+	spend_period: FilterInt
+}
+"""
+filter for MsgRevokeAllSessions objects
+"""
+input NestedFilterMsgRevokeAllSessions {
+	"""
+	logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterMsgRevokeAllSessions]
+	"""
+	logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterMsgRevokeAllSessions]
+	"""
+	logical operator for MsgRevokeAllSessions that will reverse conditions.
+	"""
+	_not: NestedFilterMsgRevokeAllSessions
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+}
+"""
+filter for MsgRevokeSession objects
+"""
+input NestedFilterMsgRevokeSession {
+	"""
+	logical operator for MsgRevokeSession that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterMsgRevokeSession]
+	"""
+	logical operator for MsgRevokeSession that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterMsgRevokeSession]
+	"""
+	logical operator for MsgRevokeSession that will reverse conditions.
+	"""
+	_not: NestedFilterMsgRevokeSession
+	"""
+	filter for creator field.
+	"""
+	creator: FilterString
+	"""
+	filter for session_key field.
+	"""
+	session_key: FilterString
+}
+"""
 filter for MsgRun objects
 """
 input NestedFilterMsgRun {
@@ -2667,6 +3149,35 @@ input NestedFilterMsgRun {
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+}
+"""
+filter for Signature objects
+"""
+input NestedFilterSignature {
+	"""
+	logical operator for Signature that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterSignature]
+	"""
+	logical operator for Signature that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterSignature]
+	"""
+	logical operator for Signature that will reverse conditions.
+	"""
+	_not: NestedFilterSignature
+	"""
+	filter for pub_key field.
+	"""
+	pub_key: FilterString
+	"""
+	filter for signature field.
+	"""
+	signature: FilterString
+	"""
+	filter for session_addr field.
+	"""
+	session_addr: FilterString
 }
 """
 filter for StorageDepositEvent objects
@@ -2883,6 +3394,42 @@ type Query {
 	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
 """
+` + "`" + `Signature` + "`" + ` is a wrapped signature that signed a transaction.
+"""
+type Signature {
+	"""
+	the bech32 address of the signer derived from the public key.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	pub_key: String! @filterable
+	"""
+	the signature bytes in base64 encoding.
+	"""
+	signature: String! @filterable
+	"""
+	the bech32 address of the session account used for delegated signing.
+	It is empty for master-key signatures.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_addr: String! @filterable
+}
+"""
+Transaction's signature to filter transactions.
+` + "`" + `SignatureInput` + "`" + ` can be configured as a filter with a signature's ` + "`" + `pub_key` + "`" + ` or ` + "`" + `session_addr` + "`" + `.
+"""
+input SignatureInput {
+	"""
+	the bech32 address of the signer derived from the public key.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	pub_key: String
+	"""
+	the bech32 address of the session account used for delegated signing.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	session_addr: String
+}
+"""
 ` + "`" + `StorageDepositEvent` + "`" + ` is emitted when a storage deposit fee is locked.
 It has ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_delta` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
 """
@@ -3085,6 +3632,30 @@ type Transaction {
 	It has ` + "`" + `log` + "`" + `, ` + "`" + `info` + "`" + `, ` + "`" + `error` + "`" + `, and ` + "`" + `data` + "`" + `.
 	"""
 	response: TransactionResponse! @filterable
+	"""
+	` + "`" + `signatures` + "`" + ` are the signatures that signed the transaction.
+	Each signature includes the signer's public key, the signature bytes, and
+	an optional ` + "`" + `session_addr` + "`" + ` identifying the session account used for
+	delegated signing (empty for master-key signatures).
+	"""
+	signatures: [Signature!] @filterable
+}
+"""
+` + "`" + `TransactionAuthMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `auth` + "`" + `.
+"""
+input TransactionAuthMessageInput {
+	"""
+	` + "`" + `MsgCreateSessionInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `create_session` + "`" + `.
+	"""
+	create_session: MsgCreateSessionInput
+	"""
+	` + "`" + `MsgRevokeSessionInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `revoke_session` + "`" + `.
+	"""
+	revoke_session: MsgRevokeSessionInput
+	"""
+	` + "`" + `MsgRevokeAllSessionsInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `revoke_all_sessions` + "`" + `.
+	"""
+	revoke_all_sessions: MsgRevokeAllSessionsInput
 }
 """
 ` + "`" + `TransactionBankMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `bank` + "`" + `.
@@ -3160,6 +3731,13 @@ input TransactionFilter {
 	ex) ` + "`" + `events[0] || events[1] || events[2]` + "`" + `
 	"""
 	events: [EventInput!]
+	"""
+	` + "`" + `signatures` + "`" + ` are the signatures that signed the transaction.
+	` + "`" + `signatures` + "`" + ` can be filtered with a specific signer, signature, or session address.
+	` + "`" + `signatures` + "`" + ` is entered as an array and works exclusively.
+	ex) ` + "`" + `signatures[0] || signatures[1] || signatures[2]` + "`" + `
+	"""
+	signatures: [SignatureInput!]
 }
 type TransactionMessage {
 	"""
@@ -3174,7 +3752,8 @@ type TransactionMessage {
 	route: String! @filterable
 	"""
 	MessageValue is the content of the transaction.
-	` + "`" + `value` + "`" + ` can be of type ` + "`" + `BankMsgSend` + "`" + `, ` + "`" + `MsgCall` + "`" + `, ` + "`" + `MsgAddPackage` + "`" + `, ` + "`" + `MsgRun` + "`" + `, ` + "`" + `UnexpectedMessage` + "`" + `.
+	` + "`" + `value` + "`" + ` can be of type ` + "`" + `BankMsgSend` + "`" + `, ` + "`" + `MsgCall` + "`" + `, ` + "`" + `MsgAddPackage` + "`" + `, ` + "`" + `MsgRun` + "`" + `,
+	` + "`" + `MsgCreateSession` + "`" + `, ` + "`" + `MsgRevokeSession` + "`" + `, ` + "`" + `MsgRevokeAllSessions` + "`" + `, ` + "`" + `UnexpectedMessage` + "`" + `.
 	"""
 	value: MessageValue! @filterable
 }
@@ -3201,6 +3780,10 @@ input TransactionMessageInput {
 	` + "`" + `TransactionVmMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `vm` + "`" + `.
 	"""
 	vm_param: TransactionVmMessageInput
+	"""
+	` + "`" + `TransactionAuthMessageInput` + "`" + ` represents input parameters required when the message router is ` + "`" + `auth` + "`" + `.
+	"""
+	auth_param: TransactionAuthMessageInput
 }
 input TransactionOrder {
 	heightAndIndex: Order!
@@ -5459,6 +6042,384 @@ func (ec *executionContext) fieldContext_MsgCall_max_deposit(_ context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _MsgCreateSession_creator(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_creator,
+		func(ctx context.Context) (any, error) {
+			return obj.Creator, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_creator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCreateSession_session_key(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_session_key,
+		func(ctx context.Context) (any, error) {
+			return obj.SessionKey, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_session_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCreateSession_expires_at(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_expires_at,
+		func(ctx context.Context) (any, error) {
+			return obj.ExpiresAt, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal int
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_expires_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCreateSession_allow_paths(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_allow_paths,
+		func(ctx context.Context) (any, error) {
+			return obj.AllowPaths, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal []string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOString2ᚕstringᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_allow_paths(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCreateSession_spend_limit(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_spend_limit,
+		func(ctx context.Context) (any, error) {
+			return obj.SpendLimit, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_spend_limit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCreateSession_spend_period(ctx context.Context, field graphql.CollectedField, obj *model.MsgCreateSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCreateSession_spend_period,
+		func(ctx context.Context) (any, error) {
+			return obj.SpendPeriod, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal int
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCreateSession_spend_period(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCreateSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRevokeAllSessions_creator(ctx context.Context, field graphql.CollectedField, obj *model.MsgRevokeAllSessions) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRevokeAllSessions_creator,
+		func(ctx context.Context) (any, error) {
+			return obj.Creator, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRevokeAllSessions_creator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRevokeAllSessions",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRevokeSession_creator(ctx context.Context, field graphql.CollectedField, obj *model.MsgRevokeSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRevokeSession_creator,
+		func(ctx context.Context) (any, error) {
+			return obj.Creator, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRevokeSession_creator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRevokeSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRevokeSession_session_key(ctx context.Context, field graphql.CollectedField, obj *model.MsgRevokeSession) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRevokeSession_session_key,
+		func(ctx context.Context) (any, error) {
+			return obj.SessionKey, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRevokeSession_session_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRevokeSession",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MsgRun_caller(ctx context.Context, field graphql.CollectedField, obj *model.MsgRun) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5682,6 +6643,8 @@ func (ec *executionContext) fieldContext_Query_transactions(ctx context.Context,
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "signatures":
+				return ec.fieldContext_Transaction_signatures(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -5930,6 +6893,8 @@ func (ec *executionContext) fieldContext_Query_getTransactions(ctx context.Conte
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "signatures":
+				return ec.fieldContext_Transaction_signatures(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -6051,6 +7016,132 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Signature_pub_key(ctx context.Context, field graphql.CollectedField, obj *model.Signature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Signature_pub_key,
+		func(ctx context.Context) (any, error) {
+			return obj.PubKey, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Signature_pub_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Signature",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Signature_signature(ctx context.Context, field graphql.CollectedField, obj *model.Signature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Signature_signature,
+		func(ctx context.Context) (any, error) {
+			return obj.Signature, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Signature_signature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Signature",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Signature_session_addr(ctx context.Context, field graphql.CollectedField, obj *model.Signature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Signature_session_addr,
+		func(ctx context.Context) (any, error) {
+			return obj.SessionAddr, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Signature_session_addr(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Signature",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -6451,6 +7542,8 @@ func (ec *executionContext) fieldContext_Subscription_transactions(ctx context.C
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "signatures":
+				return ec.fieldContext_Transaction_signatures(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -6593,6 +7686,8 @@ func (ec *executionContext) fieldContext_Subscription_getTransactions(ctx contex
 				return ec.fieldContext_Transaction_memo(ctx, field)
 			case "response":
 				return ec.fieldContext_Transaction_response(ctx, field)
+			case "signatures":
+				return ec.fieldContext_Transaction_signatures(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
@@ -7168,6 +8263,56 @@ func (ec *executionContext) fieldContext_Transaction_response(_ context.Context,
 				return ec.fieldContext_TransactionResponse_events(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type TransactionResponse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Transaction_signatures(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Transaction_signatures,
+		func(ctx context.Context) (any, error) {
+			return obj.Signatures(), nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal []*model.Signature
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Transaction_signatures(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Transaction",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "pub_key":
+				return ec.fieldContext_Signature_pub_key(ctx, field)
+			case "signature":
+				return ec.fieldContext_Signature_signature(ctx, field)
+			case "session_addr":
+				return ec.fieldContext_Signature_session_addr(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Signature", field.Name)
 		},
 	}
 	return fc, nil
@@ -10171,7 +11316,7 @@ func (ec *executionContext) unmarshalInputFilterMessageValue(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun", "MsgCreateSession", "MsgRevokeSession", "MsgRevokeAllSessions"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10227,6 +11372,27 @@ func (ec *executionContext) unmarshalInputFilterMessageValue(ctx context.Context
 				return it, err
 			}
 			it.MsgRun = data
+		case "MsgCreateSession":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgCreateSession"))
+			data, err := ec.unmarshalONestedFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgCreateSession = data
+		case "MsgRevokeSession":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRevokeSession"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRevokeSession = data
+		case "MsgRevokeAllSessions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRevokeAllSessions"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRevokeAllSessions = data
 		}
 	}
 	return it, nil
@@ -10397,6 +11563,201 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputFilterMsgCreateSession(ctx context.Context, obj any) (model.FilterMsgCreateSession, error) {
+	var it model.FilterMsgCreateSession
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator", "session_key", "expires_at", "allow_paths", "spend_limit", "spend_period"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
+		case "expires_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("expires_at"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ExpiresAt = data
+		case "allow_paths":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allow_paths"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowPaths = data
+		case "spend_limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spend_limit"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SpendLimit = data
+		case "spend_period":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spend_period"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SpendPeriod = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterMsgRevokeAllSessions(ctx context.Context, obj any) (model.FilterMsgRevokeAllSessions, error) {
+	var it model.FilterMsgRevokeAllSessions
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterMsgRevokeSession(ctx context.Context, obj any) (model.FilterMsgRevokeSession, error) {
+	var it model.FilterMsgRevokeSession
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator", "session_key"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFilterMsgRun(ctx context.Context, obj any) (model.FilterMsgRun, error) {
 	var it model.FilterMsgRun
 	if obj == nil {
@@ -10464,6 +11825,71 @@ func (ec *executionContext) unmarshalInputFilterMsgRun(ctx context.Context, obj 
 				return it, err
 			}
 			it.MaxDeposit = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterSignature(ctx context.Context, obj any) (model.FilterSignature, error) {
+	var it model.FilterSignature
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "pub_key", "signature", "session_addr"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "pub_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pub_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PubKey = data
+		case "signature":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signature"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Signature = data
+		case "session_addr":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_addr"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionAddr = data
 		}
 	}
 	return it, nil
@@ -10719,7 +12145,7 @@ func (ec *executionContext) unmarshalInputFilterTransaction(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "hash", "success", "block_height", "gas_wanted", "gas_used", "gas_fee", "messages", "memo", "response"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "hash", "success", "block_height", "gas_wanted", "gas_used", "gas_fee", "messages", "memo", "response", "signatures"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10817,6 +12243,13 @@ func (ec *executionContext) unmarshalInputFilterTransaction(ctx context.Context,
 				return it, err
 			}
 			it.Response = data
+		case "signatures":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signatures"))
+			data, err := ec.unmarshalONestedFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Signatures = data
 		}
 	}
 	return it, nil
@@ -11297,6 +12730,124 @@ func (ec *executionContext) unmarshalInputMsgCallInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.Args = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputMsgCreateSessionInput(ctx context.Context, obj any) (model.MsgCreateSessionInput, error) {
+	var it model.MsgCreateSessionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"creator", "session_key", "allow_paths", "spend_limit"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
+		case "allow_paths":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allow_paths"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowPaths = data
+		case "spend_limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spend_limit"))
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SpendLimit = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputMsgRevokeAllSessionsInput(ctx context.Context, obj any) (model.MsgRevokeAllSessionsInput, error) {
+	var it model.MsgRevokeAllSessionsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"creator"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputMsgRevokeSessionInput(ctx context.Context, obj any) (model.MsgRevokeSessionInput, error) {
+	var it model.MsgRevokeSessionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"creator", "session_key"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
 		}
 	}
 	return it, nil
@@ -11863,7 +13414,7 @@ func (ec *executionContext) unmarshalInputNestedFilterMessageValue(ctx context.C
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun", "MsgCreateSession", "MsgRevokeSession", "MsgRevokeAllSessions"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11919,6 +13470,27 @@ func (ec *executionContext) unmarshalInputNestedFilterMessageValue(ctx context.C
 				return it, err
 			}
 			it.MsgRun = data
+		case "MsgCreateSession":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgCreateSession"))
+			data, err := ec.unmarshalONestedFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgCreateSession = data
+		case "MsgRevokeSession":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRevokeSession"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRevokeSession = data
+		case "MsgRevokeAllSessions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRevokeAllSessions"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRevokeAllSessions = data
 		}
 	}
 	return it, nil
@@ -12089,6 +13661,201 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputNestedFilterMsgCreateSession(ctx context.Context, obj any) (model.NestedFilterMsgCreateSession, error) {
+	var it model.NestedFilterMsgCreateSession
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator", "session_key", "expires_at", "allow_paths", "spend_limit", "spend_period"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
+		case "expires_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("expires_at"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ExpiresAt = data
+		case "allow_paths":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allow_paths"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowPaths = data
+		case "spend_limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spend_limit"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SpendLimit = data
+		case "spend_period":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spend_period"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SpendPeriod = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterMsgRevokeAllSessions(ctx context.Context, obj any) (model.NestedFilterMsgRevokeAllSessions, error) {
+	var it model.NestedFilterMsgRevokeAllSessions
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterMsgRevokeSession(ctx context.Context, obj any) (model.NestedFilterMsgRevokeSession, error) {
+	var it model.NestedFilterMsgRevokeSession
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "creator", "session_key"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "creator":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("creator"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Creator = data
+		case "session_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionKey = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputNestedFilterMsgRun(ctx context.Context, obj any) (model.NestedFilterMsgRun, error) {
 	var it model.NestedFilterMsgRun
 	if obj == nil {
@@ -12156,6 +13923,71 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgRun(ctx context.Context
 				return it, err
 			}
 			it.MaxDeposit = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterSignature(ctx context.Context, obj any) (model.NestedFilterSignature, error) {
+	var it model.NestedFilterSignature
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "pub_key", "signature", "session_addr"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "pub_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pub_key"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PubKey = data
+		case "signature":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signature"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Signature = data
+		case "session_addr":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_addr"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionAddr = data
 		}
 	}
 	return it, nil
@@ -12558,6 +14390,43 @@ func (ec *executionContext) unmarshalInputNestedFilterUnknownEvent(ctx context.C
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputSignatureInput(ctx context.Context, obj any) (model.SignatureInput, error) {
+	var it model.SignatureInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pub_key", "session_addr"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pub_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pub_key"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PubKey = data
+		case "session_addr":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_addr"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SessionAddr = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputStorageDepositEventInput(ctx context.Context, obj any) (model.StorageDepositEventInput, error) {
 	var it model.StorageDepositEventInput
 	if obj == nil {
@@ -12660,6 +14529,50 @@ func (ec *executionContext) unmarshalInputStorageUnlockEventInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputTransactionAuthMessageInput(ctx context.Context, obj any) (model.TransactionAuthMessageInput, error) {
+	var it model.TransactionAuthMessageInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"create_session", "revoke_session", "revoke_all_sessions"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "create_session":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("create_session"))
+			data, err := ec.unmarshalOMsgCreateSessionInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgCreateSessionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CreateSession = data
+		case "revoke_session":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revoke_session"))
+			data, err := ec.unmarshalOMsgRevokeSessionInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRevokeSessionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RevokeSession = data
+		case "revoke_all_sessions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revoke_all_sessions"))
+			data, err := ec.unmarshalOMsgRevokeAllSessionsInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRevokeAllSessionsInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RevokeAllSessions = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputTransactionBankMessageInput(ctx context.Context, obj any) (model.TransactionBankMessageInput, error) {
 	var it model.TransactionBankMessageInput
 	if obj == nil {
@@ -12701,7 +14614,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo", "success", "events"}
+	fieldsInOrder := [...]string{"from_block_height", "to_block_height", "from_index", "to_index", "from_gas_wanted", "to_gas_wanted", "from_gas_used", "to_gas_used", "hash", "message", "memo", "success", "events", "signatures"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12799,6 +14712,13 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 				return it, err
 			}
 			it.Events = data
+		case "signatures":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signatures"))
+			data, err := ec.unmarshalOSignatureInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Signatures = data
 		}
 	}
 	return it, nil
@@ -12815,7 +14735,7 @@ func (ec *executionContext) unmarshalInputTransactionMessageInput(ctx context.Co
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type_url", "route", "bank_param", "vm_param"}
+	fieldsInOrder := [...]string{"type_url", "route", "bank_param", "vm_param", "auth_param"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12850,6 +14770,13 @@ func (ec *executionContext) unmarshalInputTransactionMessageInput(ctx context.Co
 				return it, err
 			}
 			it.VMParam = data
+		case "auth_param":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("auth_param"))
+			data, err := ec.unmarshalOTransactionAuthMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionAuthMessageInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AuthParam = data
 		}
 	}
 	return it, nil
@@ -12992,6 +14919,27 @@ func (ec *executionContext) _MessageValue(ctx context.Context, sel ast.Selection
 			return graphql.Null
 		}
 		return ec._MsgRun(ctx, sel, obj)
+	case model.MsgRevokeSession:
+		return ec._MsgRevokeSession(ctx, sel, &obj)
+	case *model.MsgRevokeSession:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgRevokeSession(ctx, sel, obj)
+	case model.MsgRevokeAllSessions:
+		return ec._MsgRevokeAllSessions(ctx, sel, &obj)
+	case *model.MsgRevokeAllSessions:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgRevokeAllSessions(ctx, sel, obj)
+	case model.MsgCreateSession:
+		return ec._MsgCreateSession(ctx, sel, &obj)
+	case *model.MsgCreateSession:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgCreateSession(ctx, sel, obj)
 	case model.MsgCall:
 		return ec._MsgCall(ctx, sel, &obj)
 	case *model.MsgCall:
@@ -13592,6 +15540,150 @@ func (ec *executionContext) _MsgCall(ctx context.Context, sel ast.SelectionSet, 
 	return out
 }
 
+var msgCreateSessionImplementors = []string{"MsgCreateSession", "MessageValue"}
+
+func (ec *executionContext) _MsgCreateSession(ctx context.Context, sel ast.SelectionSet, obj *model.MsgCreateSession) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgCreateSessionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgCreateSession")
+		case "creator":
+			out.Values[i] = ec._MsgCreateSession_creator(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "session_key":
+			out.Values[i] = ec._MsgCreateSession_session_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "expires_at":
+			out.Values[i] = ec._MsgCreateSession_expires_at(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "allow_paths":
+			out.Values[i] = ec._MsgCreateSession_allow_paths(ctx, field, obj)
+		case "spend_limit":
+			out.Values[i] = ec._MsgCreateSession_spend_limit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "spend_period":
+			out.Values[i] = ec._MsgCreateSession_spend_period(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var msgRevokeAllSessionsImplementors = []string{"MsgRevokeAllSessions", "MessageValue"}
+
+func (ec *executionContext) _MsgRevokeAllSessions(ctx context.Context, sel ast.SelectionSet, obj *model.MsgRevokeAllSessions) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgRevokeAllSessionsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgRevokeAllSessions")
+		case "creator":
+			out.Values[i] = ec._MsgRevokeAllSessions_creator(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var msgRevokeSessionImplementors = []string{"MsgRevokeSession", "MessageValue"}
+
+func (ec *executionContext) _MsgRevokeSession(ctx context.Context, sel ast.SelectionSet, obj *model.MsgRevokeSession) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgRevokeSessionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgRevokeSession")
+		case "creator":
+			out.Values[i] = ec._MsgRevokeSession_creator(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "session_key":
+			out.Values[i] = ec._MsgRevokeSession_session_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var msgRunImplementors = []string{"MsgRun", "MessageValue"}
 
 func (ec *executionContext) _MsgRun(ctx context.Context, sel ast.SelectionSet, obj *model.MsgRun) graphql.Marshaler {
@@ -13771,6 +15863,55 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var signatureImplementors = []string{"Signature"}
+
+func (ec *executionContext) _Signature(ctx context.Context, sel ast.SelectionSet, obj *model.Signature) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, signatureImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Signature")
+		case "pub_key":
+			out.Values[i] = ec._Signature_pub_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "signature":
+			out.Values[i] = ec._Signature_signature(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "session_addr":
+			out.Values[i] = ec._Signature_session_addr(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -13991,6 +16132,8 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "signatures":
+			out.Values[i] = ec._Transaction_signatures(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -14743,6 +16886,21 @@ func (ec *executionContext) marshalNOrder2githubᚗcomᚋgnolangᚋtxᚑindexer�
 	return v
 }
 
+func (ec *executionContext) marshalNSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignature(ctx context.Context, sel ast.SelectionSet, v *model.Signature) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Signature(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNSignatureInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureInput(ctx context.Context, v any) (*model.SignatureInput, error) {
+	res, err := ec.unmarshalInputSignatureInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -15449,6 +17607,84 @@ func (ec *executionContext) unmarshalOFilterMsgCall2ᚖgithubᚗcomᚋgnolangᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx context.Context, v any) ([]*model.FilterMsgCreateSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterMsgCreateSession, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgCreateSession(ctx context.Context, v any) (*model.FilterMsgCreateSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterMsgCreateSession(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx context.Context, v any) ([]*model.FilterMsgRevokeAllSessions, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterMsgRevokeAllSessions, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeAllSessions(ctx context.Context, v any) (*model.FilterMsgRevokeAllSessions, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterMsgRevokeAllSessions(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx context.Context, v any) ([]*model.FilterMsgRevokeSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterMsgRevokeSession, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRevokeSession(ctx context.Context, v any) (*model.FilterMsgRevokeSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterMsgRevokeSession(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOFilterMsgRun2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRun(ctx context.Context, v any) ([]*model.FilterMsgRun, error) {
 	if v == nil {
 		return nil, nil
@@ -15472,6 +17708,32 @@ func (ec *executionContext) unmarshalOFilterMsgRun2ᚖgithubᚗcomᚋgnolangᚋt
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputFilterMsgRun(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx context.Context, v any) ([]*model.FilterSignature, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterSignature, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterSignature(ctx context.Context, v any) (*model.FilterSignature, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterSignature(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -15856,6 +18118,30 @@ func (ec *executionContext) unmarshalOMsgCallInput2ᚖgithubᚗcomᚋgnolangᚋt
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOMsgCreateSessionInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgCreateSessionInput(ctx context.Context, v any) (*model.MsgCreateSessionInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgCreateSessionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOMsgRevokeAllSessionsInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRevokeAllSessionsInput(ctx context.Context, v any) (*model.MsgRevokeAllSessionsInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgRevokeAllSessionsInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOMsgRevokeSessionInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRevokeSessionInput(ctx context.Context, v any) (*model.MsgRevokeSessionInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgRevokeSessionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOMsgRunInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRunInput(ctx context.Context, v any) (*model.MsgRunInput, error) {
 	if v == nil {
 		return nil, nil
@@ -16150,6 +18436,84 @@ func (ec *executionContext) unmarshalONestedFilterMsgCall2ᚖgithubᚗcomᚋgnol
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalONestedFilterMsgCreateSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx context.Context, v any) ([]*model.NestedFilterMsgCreateSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterMsgCreateSession, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgCreateSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgCreateSession(ctx context.Context, v any) (*model.NestedFilterMsgCreateSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterMsgCreateSession(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRevokeAllSessions2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx context.Context, v any) ([]*model.NestedFilterMsgRevokeAllSessions, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterMsgRevokeAllSessions, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRevokeAllSessions2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeAllSessions(ctx context.Context, v any) (*model.NestedFilterMsgRevokeAllSessions, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterMsgRevokeAllSessions(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRevokeSession2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx context.Context, v any) ([]*model.NestedFilterMsgRevokeSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterMsgRevokeSession, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRevokeSession2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRevokeSession(ctx context.Context, v any) (*model.NestedFilterMsgRevokeSession, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterMsgRevokeSession(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalONestedFilterMsgRun2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRun(ctx context.Context, v any) ([]*model.NestedFilterMsgRun, error) {
 	if v == nil {
 		return nil, nil
@@ -16173,6 +18537,32 @@ func (ec *executionContext) unmarshalONestedFilterMsgRun2ᚖgithubᚗcomᚋgnola
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputNestedFilterMsgRun(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx context.Context, v any) ([]*model.NestedFilterSignature, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterSignature, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterSignature(ctx context.Context, v any) (*model.NestedFilterSignature, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterSignature(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -16332,6 +18722,43 @@ func (ec *executionContext) unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalOSignature2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Signature) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNSignature2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignature(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOSignatureInput2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureInputᚄ(ctx context.Context, v any) ([]*model.SignatureInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.SignatureInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNSignatureInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSignatureInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
 func (ec *executionContext) unmarshalOStorageDepositEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐStorageDepositEventInput(ctx context.Context, v any) (*model.StorageDepositEventInput, error) {
 	if v == nil {
 		return nil, nil
@@ -16437,6 +18864,14 @@ func (ec *executionContext) marshalOTransaction2ᚕᚖgithubᚗcomᚋgnolangᚋt
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalOTransactionAuthMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionAuthMessageInput(ctx context.Context, v any) (*model.TransactionAuthMessageInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTransactionAuthMessageInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOTransactionBankMessageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionBankMessageInput(ctx context.Context, v any) (*model.TransactionBankMessageInput, error) {

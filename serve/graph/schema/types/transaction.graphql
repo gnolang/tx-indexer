@@ -61,20 +61,30 @@ type Transaction {
   It has `log`, `info`, `error`, and `data`.
   """
   response: TransactionResponse! @filterable
+
+  """
+  `signatures` are the signatures that signed the transaction.
+  Each signature includes the signer's public key, the signature bytes, and
+  an optional `session_addr` identifying the session account used for
+  delegated signing (empty for master-key signatures).
+  """
+  signatures: [Signature!] @filterable
 }
 
 """
 `MessageRoute` is route type of the transactional message.
-`MessageRoute` has the values of vm and bank.
+`MessageRoute` has the values of vm, bank and auth.
 """
 enum MessageRoute {
   vm
   bank
+  auth
 }
 
 """
 `MessageType` is message type of the transaction.
-`MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+`MessageType` has the values `send`, `exec`, `add_package`, `run`,
+`create_session`, `revoke_session`, and `revoke_all_sessions`.
 """
 enum MessageType {
   """
@@ -100,6 +110,24 @@ enum MessageType {
   This is a transactional message that executes an arbitrary Gno-coded TX message.
   """
   run
+
+  """
+  The route value for this message type is `auth`, and the value for transactional messages is `MsgCreateSession`.
+  This is a transactional message that creates a new session key on the creator's account.
+  """
+  create_session
+
+  """
+  The route value for this message type is `auth`, and the value for transactional messages is `MsgRevokeSession`.
+  This is a transactional message that revokes a specific session key from the creator's account.
+  """
+  revoke_session
+
+  """
+  The route value for this message type is `auth`, and the value for transactional messages is `MsgRevokeAllSessions`.
+  This is a transactional message that revokes all session keys from the creator's account.
+  """
+  revoke_all_sessions
 }
 
 type TransactionMessage {
@@ -117,12 +145,21 @@ type TransactionMessage {
 
   """
   MessageValue is the content of the transaction.
-  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`,
+  `MsgCreateSession`, `MsgRevokeSession`, `MsgRevokeAllSessions`, `UnexpectedMessage`.
   """
   value: MessageValue! @filterable
 }
 
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue =
+    BankMsgSend
+  | MsgCall
+  | MsgAddPackage
+  | MsgRun
+  | MsgCreateSession
+  | MsgRevokeSession
+  | MsgRevokeAllSessions
+  | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
@@ -249,6 +286,101 @@ type MsgRun {
   ex) `1000000ugnot`
   """
   max_deposit: String! @filterable
+}
+
+"""
+`MsgCreateSession` is a message with a message router of `auth` and a message type of `create_session`.
+`MsgCreateSession` creates a new session key on the creator's account for delegated signing.
+"""
+type MsgCreateSession {
+  """
+  the bech32 address of the account owner that creates the session.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String! @filterable
+
+  """
+  the bech32 address derived from the session public key.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_key: String! @filterable
+
+  """
+  the unix timestamp (in seconds) at which the session expires.
+  `0` means the session never expires until revoked.
+  """
+  expires_at: Int! @filterable
+
+  """
+  the realm path entries the session is allowed to access.
+  An empty list means the session is unrestricted.
+  """
+  allow_paths: [String!] @filterable
+
+  """
+  the maximum amount of funds the session may spend per period ("<amount><denomination>").
+  An empty value means the session may not spend any funds.
+  ex) `1000000ugnot`
+  """
+  spend_limit: String! @filterable
+
+  """
+  the spending period in seconds. `0` means `spend_limit` is a lifetime cap.
+  """
+  spend_period: Int! @filterable
+}
+
+"""
+`MsgRevokeSession` is a message with a message router of `auth` and a message type of `revoke_session`.
+`MsgRevokeSession` revokes a specific session key from the creator's account.
+"""
+type MsgRevokeSession {
+  """
+  the bech32 address of the account owner that revokes the session.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String! @filterable
+
+  """
+  the bech32 address derived from the session public key being revoked.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_key: String! @filterable
+}
+
+"""
+`MsgRevokeAllSessions` is a message with a message router of `auth` and a message type of `revoke_all_sessions`.
+`MsgRevokeAllSessions` revokes all session keys from the creator's account.
+"""
+type MsgRevokeAllSessions {
+  """
+  the bech32 address of the account owner that revokes all sessions.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  creator: String! @filterable
+}
+
+"""
+`Signature` is a wrapped signature that signed a transaction.
+"""
+type Signature {
+  """
+  the bech32 address of the signer derived from the public key.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  pub_key: String! @filterable
+
+  """
+  the signature bytes in base64 encoding.
+  """
+  signature: String! @filterable
+
+  """
+  the bech32 address of the session account used for delegated signing.
+  It is empty for master-key signatures.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  session_addr: String! @filterable
 }
 
 """

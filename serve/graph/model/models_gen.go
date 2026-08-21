@@ -330,6 +330,12 @@ type FilterMessageValue struct {
 	MsgAddPackage *NestedFilterMsgAddPackage `json:"MsgAddPackage,omitempty"`
 	// filter for MsgRun union type.
 	MsgRun *NestedFilterMsgRun `json:"MsgRun,omitempty"`
+	// filter for MsgCreateSession union type.
+	MsgCreateSession *NestedFilterMsgCreateSession `json:"MsgCreateSession,omitempty"`
+	// filter for MsgRevokeSession union type.
+	MsgRevokeSession *NestedFilterMsgRevokeSession `json:"MsgRevokeSession,omitempty"`
+	// filter for MsgRevokeAllSessions union type.
+	MsgRevokeAllSessions *NestedFilterMsgRevokeAllSessions `json:"MsgRevokeAllSessions,omitempty"`
 }
 
 // filter for MsgAddPackage objects
@@ -374,6 +380,54 @@ type FilterMsgCall struct {
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
+// filter for MsgCreateSession objects
+type FilterMsgCreateSession struct {
+	// logical operator for MsgCreateSession that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterMsgCreateSession `json:"_and,omitempty"`
+	// logical operator for MsgCreateSession that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterMsgCreateSession `json:"_or,omitempty"`
+	// logical operator for MsgCreateSession that will reverse conditions.
+	Not *FilterMsgCreateSession `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+	// filter for session_key field.
+	SessionKey *FilterString `json:"session_key,omitempty"`
+	// filter for expires_at field.
+	ExpiresAt *FilterInt `json:"expires_at,omitempty"`
+	// filter for allow_paths field.
+	AllowPaths *FilterString `json:"allow_paths,omitempty"`
+	// filter for spend_limit field.
+	SpendLimit *FilterString `json:"spend_limit,omitempty"`
+	// filter for spend_period field.
+	SpendPeriod *FilterInt `json:"spend_period,omitempty"`
+}
+
+// filter for MsgRevokeAllSessions objects
+type FilterMsgRevokeAllSessions struct {
+	// logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterMsgRevokeAllSessions `json:"_and,omitempty"`
+	// logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterMsgRevokeAllSessions `json:"_or,omitempty"`
+	// logical operator for MsgRevokeAllSessions that will reverse conditions.
+	Not *FilterMsgRevokeAllSessions `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+}
+
+// filter for MsgRevokeSession objects
+type FilterMsgRevokeSession struct {
+	// logical operator for MsgRevokeSession that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterMsgRevokeSession `json:"_and,omitempty"`
+	// logical operator for MsgRevokeSession that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterMsgRevokeSession `json:"_or,omitempty"`
+	// logical operator for MsgRevokeSession that will reverse conditions.
+	Not *FilterMsgRevokeSession `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+	// filter for session_key field.
+	SessionKey *FilterString `json:"session_key,omitempty"`
+}
+
 // filter for MsgRun objects
 type FilterMsgRun struct {
 	// logical operator for MsgRun that will combine two or more conditions, returning true if all of them are true.
@@ -390,6 +444,22 @@ type FilterMsgRun struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
+}
+
+// filter for Signature objects
+type FilterSignature struct {
+	// logical operator for Signature that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterSignature `json:"_and,omitempty"`
+	// logical operator for Signature that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterSignature `json:"_or,omitempty"`
+	// logical operator for Signature that will reverse conditions.
+	Not *FilterSignature `json:"_not,omitempty"`
+	// filter for pub_key field.
+	PubKey *FilterString `json:"pub_key,omitempty"`
+	// filter for signature field.
+	Signature *FilterString `json:"signature,omitempty"`
+	// filter for session_addr field.
+	SessionAddr *FilterString `json:"session_addr,omitempty"`
 }
 
 // filter for StorageDepositEvent objects
@@ -478,6 +548,8 @@ type FilterTransaction struct {
 	Memo *FilterString `json:"memo,omitempty"`
 	// filter for response field.
 	Response *NestedFilterTransactionResponse `json:"response,omitempty"`
+	// filter for signatures field.
+	Signatures *NestedFilterSignature `json:"signatures,omitempty"`
 }
 
 // filter for TransactionMessage objects
@@ -689,6 +761,88 @@ type MsgCallInput struct {
 	Args []string `json:"args,omitempty"`
 }
 
+// `MsgCreateSession` is a message with a message router of `auth` and a message type of `create_session`.
+// `MsgCreateSession` creates a new session key on the creator's account for delegated signing.
+type MsgCreateSession struct {
+	// the bech32 address of the account owner that creates the session.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator string `json:"creator"`
+	// the bech32 address derived from the session public key.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionKey string `json:"session_key"`
+	// the unix timestamp (in seconds) at which the session expires.
+	// `0` means the session never expires until revoked.
+	ExpiresAt int `json:"expires_at"`
+	// the realm path entries the session is allowed to access.
+	// An empty list means the session is unrestricted.
+	AllowPaths []string `json:"allow_paths,omitempty"`
+	// the maximum amount of funds the session may spend per period ("<amount><denomination>").
+	// An empty value means the session may not spend any funds.
+	// ex) `1000000ugnot`
+	SpendLimit string `json:"spend_limit"`
+	// the spending period in seconds. `0` means `spend_limit` is a lifetime cap.
+	SpendPeriod int `json:"spend_period"`
+}
+
+func (MsgCreateSession) IsMessageValue() {}
+
+// `MsgCreateSessionInput` represents input parameters required when the message type is `create_session`.
+type MsgCreateSessionInput struct {
+	// the bech32 address of the account owner that creates the session.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator *string `json:"creator,omitempty"`
+	// the bech32 address derived from the session public key.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionKey *string `json:"session_key,omitempty"`
+	// the realm path entries the session is allowed to access.
+	// The entries are checked in order and empty strings are excluded from the
+	// filtering criteria.
+	// ex) `["", "", "gno.land/r/demo/foo"]` <- Empty strings skip the condition.
+	AllowPaths []string `json:"allow_paths,omitempty"`
+	// the maximum amount of funds the session may spend per period.
+	SpendLimit *AmountInput `json:"spend_limit,omitempty"`
+}
+
+// `MsgRevokeAllSessions` is a message with a message router of `auth` and a message type of `revoke_all_sessions`.
+// `MsgRevokeAllSessions` revokes all session keys from the creator's account.
+type MsgRevokeAllSessions struct {
+	// the bech32 address of the account owner that revokes all sessions.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator string `json:"creator"`
+}
+
+func (MsgRevokeAllSessions) IsMessageValue() {}
+
+// `MsgRevokeAllSessionsInput` represents input parameters required when the message type is `revoke_all_sessions`.
+type MsgRevokeAllSessionsInput struct {
+	// the bech32 address of the account owner that revokes all sessions.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator *string `json:"creator,omitempty"`
+}
+
+// `MsgRevokeSession` is a message with a message router of `auth` and a message type of `revoke_session`.
+// `MsgRevokeSession` revokes a specific session key from the creator's account.
+type MsgRevokeSession struct {
+	// the bech32 address of the account owner that revokes the session.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator string `json:"creator"`
+	// the bech32 address derived from the session public key being revoked.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionKey string `json:"session_key"`
+}
+
+func (MsgRevokeSession) IsMessageValue() {}
+
+// `MsgRevokeSessionInput` represents input parameters required when the message type is `revoke_session`.
+type MsgRevokeSessionInput struct {
+	// the bech32 address of the account owner that revokes the session.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Creator *string `json:"creator,omitempty"`
+	// the bech32 address derived from the session public key being revoked.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionKey *string `json:"session_key,omitempty"`
+}
+
 // `MsgRun` is a message with a message router of `vm` and a message type of `run`.
 // `MsgRun is the execute arbitrary Gno code tx message`.
 type MsgRun struct {
@@ -860,6 +1014,12 @@ type NestedFilterMessageValue struct {
 	MsgAddPackage *NestedFilterMsgAddPackage `json:"MsgAddPackage,omitempty"`
 	// filter for MsgRun union type.
 	MsgRun *NestedFilterMsgRun `json:"MsgRun,omitempty"`
+	// filter for MsgCreateSession union type.
+	MsgCreateSession *NestedFilterMsgCreateSession `json:"MsgCreateSession,omitempty"`
+	// filter for MsgRevokeSession union type.
+	MsgRevokeSession *NestedFilterMsgRevokeSession `json:"MsgRevokeSession,omitempty"`
+	// filter for MsgRevokeAllSessions union type.
+	MsgRevokeAllSessions *NestedFilterMsgRevokeAllSessions `json:"MsgRevokeAllSessions,omitempty"`
 }
 
 // filter for MsgAddPackage objects
@@ -904,6 +1064,54 @@ type NestedFilterMsgCall struct {
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
 
+// filter for MsgCreateSession objects
+type NestedFilterMsgCreateSession struct {
+	// logical operator for MsgCreateSession that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterMsgCreateSession `json:"_and,omitempty"`
+	// logical operator for MsgCreateSession that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterMsgCreateSession `json:"_or,omitempty"`
+	// logical operator for MsgCreateSession that will reverse conditions.
+	Not *NestedFilterMsgCreateSession `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+	// filter for session_key field.
+	SessionKey *FilterString `json:"session_key,omitempty"`
+	// filter for expires_at field.
+	ExpiresAt *FilterInt `json:"expires_at,omitempty"`
+	// filter for allow_paths field.
+	AllowPaths *FilterString `json:"allow_paths,omitempty"`
+	// filter for spend_limit field.
+	SpendLimit *FilterString `json:"spend_limit,omitempty"`
+	// filter for spend_period field.
+	SpendPeriod *FilterInt `json:"spend_period,omitempty"`
+}
+
+// filter for MsgRevokeAllSessions objects
+type NestedFilterMsgRevokeAllSessions struct {
+	// logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterMsgRevokeAllSessions `json:"_and,omitempty"`
+	// logical operator for MsgRevokeAllSessions that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterMsgRevokeAllSessions `json:"_or,omitempty"`
+	// logical operator for MsgRevokeAllSessions that will reverse conditions.
+	Not *NestedFilterMsgRevokeAllSessions `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+}
+
+// filter for MsgRevokeSession objects
+type NestedFilterMsgRevokeSession struct {
+	// logical operator for MsgRevokeSession that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterMsgRevokeSession `json:"_and,omitempty"`
+	// logical operator for MsgRevokeSession that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterMsgRevokeSession `json:"_or,omitempty"`
+	// logical operator for MsgRevokeSession that will reverse conditions.
+	Not *NestedFilterMsgRevokeSession `json:"_not,omitempty"`
+	// filter for creator field.
+	Creator *FilterString `json:"creator,omitempty"`
+	// filter for session_key field.
+	SessionKey *FilterString `json:"session_key,omitempty"`
+}
+
 // filter for MsgRun objects
 type NestedFilterMsgRun struct {
 	// logical operator for MsgRun that will combine two or more conditions, returning true if all of them are true.
@@ -920,6 +1128,22 @@ type NestedFilterMsgRun struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
+}
+
+// filter for Signature objects
+type NestedFilterSignature struct {
+	// logical operator for Signature that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterSignature `json:"_and,omitempty"`
+	// logical operator for Signature that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterSignature `json:"_or,omitempty"`
+	// logical operator for Signature that will reverse conditions.
+	Not *NestedFilterSignature `json:"_not,omitempty"`
+	// filter for pub_key field.
+	PubKey *FilterString `json:"pub_key,omitempty"`
+	// filter for signature field.
+	Signature *FilterString `json:"signature,omitempty"`
+	// filter for session_addr field.
+	SessionAddr *FilterString `json:"session_addr,omitempty"`
 }
 
 // filter for StorageDepositEvent objects
@@ -1024,6 +1248,30 @@ type NestedFilterUnknownEvent struct {
 type Query struct {
 }
 
+// `Signature` is a wrapped signature that signed a transaction.
+type Signature struct {
+	// the bech32 address of the signer derived from the public key.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	PubKey string `json:"pub_key"`
+	// the signature bytes in base64 encoding.
+	Signature string `json:"signature"`
+	// the bech32 address of the session account used for delegated signing.
+	// It is empty for master-key signatures.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionAddr string `json:"session_addr"`
+}
+
+// Transaction's signature to filter transactions.
+// `SignatureInput` can be configured as a filter with a signature's `pub_key` or `session_addr`.
+type SignatureInput struct {
+	// the bech32 address of the signer derived from the public key.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	PubKey *string `json:"pub_key,omitempty"`
+	// the bech32 address of the session account used for delegated signing.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	SessionAddr *string `json:"session_addr,omitempty"`
+}
+
 // `StorageDepositEvent` is emitted when a storage deposit fee is locked.
 // It has `type`, `bytes_delta`, `fee_delta`, and `pkg_path`.
 type StorageDepositEvent struct {
@@ -1085,6 +1333,16 @@ type StorageUnlockEventInput struct {
 type Subscription struct {
 }
 
+// `TransactionAuthMessageInput` represents input parameters required when the message router is `auth`.
+type TransactionAuthMessageInput struct {
+	// `MsgCreateSessionInput` represents input parameters required when the message type is `create_session`.
+	CreateSession *MsgCreateSessionInput `json:"create_session,omitempty"`
+	// `MsgRevokeSessionInput` represents input parameters required when the message type is `revoke_session`.
+	RevokeSession *MsgRevokeSessionInput `json:"revoke_session,omitempty"`
+	// `MsgRevokeAllSessionsInput` represents input parameters required when the message type is `revoke_all_sessions`.
+	RevokeAllSessions *MsgRevokeAllSessionsInput `json:"revoke_all_sessions,omitempty"`
+}
+
 // `TransactionBankMessageInput` represents input parameters required when the message router is `bank`.
 type TransactionBankMessageInput struct {
 	// send represents input parameters required when the message type is `send`.
@@ -1128,6 +1386,11 @@ type TransactionFilter struct {
 	// `events` is entered as an array and works exclusively.
 	// ex) `events[0] || events[1] || events[2]`
 	Events []*EventInput `json:"events,omitempty"`
+	// `signatures` are the signatures that signed the transaction.
+	// `signatures` can be filtered with a specific signer, signature, or session address.
+	// `signatures` is entered as an array and works exclusively.
+	// ex) `signatures[0] || signatures[1] || signatures[2]`
+	Signatures []*SignatureInput `json:"signatures,omitempty"`
 }
 
 // Transaction's message to filter Transactions.
@@ -1143,6 +1406,8 @@ type TransactionMessageInput struct {
 	BankParam *TransactionBankMessageInput `json:"bank_param,omitempty"`
 	// `TransactionVmMessageInput` represents input parameters required when the message router is `vm`.
 	VMParam *TransactionVMMessageInput `json:"vm_param,omitempty"`
+	// `TransactionAuthMessageInput` represents input parameters required when the message router is `auth`.
+	AuthParam *TransactionAuthMessageInput `json:"auth_param,omitempty"`
 }
 
 type TransactionOrder struct {
@@ -1239,22 +1504,24 @@ func (e FilterableExtra) MarshalJSON() ([]byte, error) {
 }
 
 // `MessageRoute` is route type of the transactional message.
-// `MessageRoute` has the values of vm and bank.
+// `MessageRoute` has the values of vm, bank and auth.
 type MessageRoute string
 
 const (
 	MessageRouteVM   MessageRoute = "vm"
 	MessageRouteBank MessageRoute = "bank"
+	MessageRouteAuth MessageRoute = "auth"
 )
 
 var AllMessageRoute = []MessageRoute{
 	MessageRouteVM,
 	MessageRouteBank,
+	MessageRouteAuth,
 }
 
 func (e MessageRoute) IsValid() bool {
 	switch e {
-	case MessageRouteVM, MessageRouteBank:
+	case MessageRouteVM, MessageRouteBank, MessageRouteAuth:
 		return true
 	}
 	return false
@@ -1296,7 +1563,8 @@ func (e MessageRoute) MarshalJSON() ([]byte, error) {
 }
 
 // `MessageType` is message type of the transaction.
-// `MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+// `MessageType` has the values `send`, `exec`, `add_package`, `run`,
+// `create_session`, `revoke_session`, and `revoke_all_sessions`.
 type MessageType string
 
 const (
@@ -1312,6 +1580,15 @@ const (
 	// The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
 	// This is a transactional message that executes an arbitrary Gno-coded TX message.
 	MessageTypeRun MessageType = "run"
+	// The route value for this message type is `auth`, and the value for transactional messages is `MsgCreateSession`.
+	// This is a transactional message that creates a new session key on the creator's account.
+	MessageTypeCreateSession MessageType = "create_session"
+	// The route value for this message type is `auth`, and the value for transactional messages is `MsgRevokeSession`.
+	// This is a transactional message that revokes a specific session key from the creator's account.
+	MessageTypeRevokeSession MessageType = "revoke_session"
+	// The route value for this message type is `auth`, and the value for transactional messages is `MsgRevokeAllSessions`.
+	// This is a transactional message that revokes all session keys from the creator's account.
+	MessageTypeRevokeAllSessions MessageType = "revoke_all_sessions"
 )
 
 var AllMessageType = []MessageType{
@@ -1319,11 +1596,14 @@ var AllMessageType = []MessageType{
 	MessageTypeExec,
 	MessageTypeAddPackage,
 	MessageTypeRun,
+	MessageTypeCreateSession,
+	MessageTypeRevokeSession,
+	MessageTypeRevokeAllSessions,
 }
 
 func (e MessageType) IsValid() bool {
 	switch e {
-	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun:
+	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun, MessageTypeCreateSession, MessageTypeRevokeSession, MessageTypeRevokeAllSessions:
 		return true
 	}
 	return false
