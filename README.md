@@ -3,6 +3,7 @@
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Getting Started](#getting-started)
+- [Tutorial](#tutorial)
 - [GraphQL Endpoint](#graphql-endpoint)
     - [Hosted Example](#hosted-example)
   - [Examples](#examples)
@@ -56,13 +57,13 @@ make build
 3. **Run the indexer**
 
 ```bash
-./build/tx-indexer start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
+./build/tx-indexer start --remote https://rpc.test10.testnets.gno.land --db-path indexer-db
 ```
 
 or:
 
 ```bash
-go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
+go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test10.testnets.gno.land --db-path indexer-db
 ```
 
 The `--remote` flag specifies the JSON-RPC URL of the chain the indexer should index, and the `--db-path` specifies the
@@ -94,6 +95,10 @@ FLAGS
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
 ```
 
+## Tutorial
+
+For a comprehensive guide on using the `tx-indexer`, including detailed examples and best practices, check out our [Tutorial](docs/TUTORIAL.md).
+
 ## GraphQL Endpoint  
 The indexer provides a **GraphQL endpoint** for querying blockchain data (transactions, blocks) and subscribing to real-time events:  
 
@@ -108,10 +113,10 @@ http://<listen-address>/graphql
 ```  
 The playground includes built-in documentation for available queries, fields, and filters. 
 
-**Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).  
+**Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won't work).  
 
 #### Hosted Example
-- [Test7 Playground](https://indexer.test7.testnets.gno.land/graphql) 
+- [Test10 Playground](https://indexer.test10.testnets.gno.land/graphql) 
 
 ### Examples
 
