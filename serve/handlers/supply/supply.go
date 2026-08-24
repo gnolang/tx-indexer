@@ -7,13 +7,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gnolang/gno/gno.land/pkg/gnoland"
-	"github.com/gnolang/gno/tm2/pkg/amino"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/crypto"
 	"github.com/gnolang/gno/tm2/pkg/overflow"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"go.uber.org/zap"
+
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
 
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/methods"
@@ -29,9 +30,6 @@ const (
 	// defaultComputeTimeout bounds one snapshot rebuild, so a stuck node
 	// cannot stall the refresh loop.
 	defaultComputeTimeout = 30 * time.Second
-
-	// defaultBootstrapBackoff is the pause between genesis load attempts.
-	defaultBootstrapBackoff = 5 * time.Second
 )
 
 // ErrNotReady is returned before the first snapshot has been computed.
@@ -41,9 +39,6 @@ var ErrNotReady = errors.New("supply snapshot not ready yet")
 // the handler must stay testable against a mock, and the fetcher's Client
 // carries fetching concerns this handler does not have.
 type Client interface {
-	// GetGenesis returns the chain genesis, where vesting schedules live
-	GetGenesis(context.Context) (*core_types.ResultGenesis, error)
-
 	// GetStatus returns the chain status, for the height and block time
 	// the snapshot is computed at
 	GetStatus(context.Context) (*core_types.ResultStatus, error)
@@ -53,11 +48,71 @@ type Client interface {
 	ABCIQueryBatchAtHeight(ctx context.Context, height int64, paths []string) ([]*core_types.ResultABCIQuery, error)
 }
 
-// vestingEntry is one genesis vesting account, with the schedule pre-built
+// Vesting is one genesis vesting account, with the schedule pre-built
 // into an account so the locked math is the chain's own.
-type vestingEntry struct {
+type Vesting struct {
 	account std.VestingAccount
 	address crypto.Address
+}
+
+// NewVestings folds the genesis balance rows per address — last row wins,
+// and a plain row clears a previous vesting one, mirroring the chain's
+// applyBalance — and builds the chain accounts for the surviving schedules,
+// so a duplicated or overridden genesis row cannot double-count a lock.
+//
+// Pure: no network, no clock. The genesis balances come from the startup
+// bootstrap (fetch.BootstrapGenesis), so a failure here is a startup
+// failure, not something a background loop has to contain.
+func NewVestings(balances []gnoland.Balance) ([]Vesting, error) {
+	schedules := make(map[crypto.Address]gnoland.Balance)
+
+	for _, balance := range balances {
+		if !balance.IsVesting() {
+			// A plain row replaces any vesting row before it, exactly as
+			// the chain replaces the account.
+			delete(schedules, balance.Address)
+
+			continue
+		}
+
+		schedules[balance.Address] = balance
+	}
+
+	vestings := make([]Vesting, 0, len(schedules))
+
+	for address, balance := range schedules {
+		account, err := newVestingAccount(address, balance.Amount, balance.Vesting)
+		if err != nil {
+			// Fail rather than skip: a schedule the chain's own types
+			// cannot rebuild would silently undercount locked.
+			return nil, fmt.Errorf("invalid vesting balance for %s: %w", address, err)
+		}
+
+		vestings = append(vestings, Vesting{
+			account: account,
+			address: address,
+		})
+	}
+
+	return vestings, nil
+}
+
+// newVestingAccount rebuilds the chain's account for a genesis schedule,
+// funded with the row's amount so the chain constructor validates the
+// schedule against it exactly as InitChain does.
+func newVestingAccount(
+	addr crypto.Address,
+	coins std.Coins,
+	schedule *std.VestingSchedule,
+) (std.VestingAccount, error) {
+	base := std.NewBaseAccount(addr, coins, nil, 0, 0)
+
+	switch schedule.Type {
+	case std.VestingDelayed:
+		return std.NewDelayedVestingAccount(base, *schedule)
+	default:
+		return std.NewContinuousVestingAccount(base, *schedule)
+	}
 }
 
 // snapshot is one consistent view of the tracked supplies. Every figure in
@@ -72,19 +127,13 @@ type snapshot struct {
 // amplify into node load, and a snapshot is either served whole or the last
 // good one keeps serving while a refresh fails.
 type Handler struct {
-	client   Client
-	logger   *zap.Logger
-	denoms   []string
-	snapshot atomic.Pointer[snapshot]
-
-	// vesting holds the genesis schedules, written once by the bootstrap
-	// before vestingReady is set.
-	vesting      []vestingEntry
-	vestingReady atomic.Bool
-
-	refreshInterval  time.Duration
-	computeTimeout   time.Duration
-	bootstrapBackoff time.Duration
+	client          Client
+	logger          *zap.Logger
+	snapshot        atomic.Pointer[snapshot]
+	denoms          []string
+	vestings        []Vesting
+	refreshInterval time.Duration
+	computeTimeout  time.Duration
 }
 
 // Option is a functional option for the supply Handler.
@@ -104,6 +153,14 @@ func WithDenoms(denoms []string) Option {
 	}
 }
 
+// WithVestings sets the genesis vesting accounts, from NewVestings over the
+// bootstrap's genesis balances.
+func WithVestings(vestings []Vesting) Option {
+	return func(h *Handler) {
+		h.vestings = vestings
+	}
+}
+
 // WithRefreshInterval overrides how often the snapshot is rebuilt.
 func WithRefreshInterval(interval time.Duration) Option {
 	return func(h *Handler) {
@@ -118,20 +175,12 @@ func WithComputeTimeout(timeout time.Duration) Option {
 	}
 }
 
-// WithBootstrapBackoff overrides the pause between genesis load attempts.
-func WithBootstrapBackoff(backoff time.Duration) Option {
-	return func(h *Handler) {
-		h.bootstrapBackoff = backoff
-	}
-}
-
 func NewHandler(client Client, opts ...Option) *Handler {
 	h := &Handler{
-		client:           client,
-		logger:           zap.NewNop(),
-		refreshInterval:  defaultRefreshInterval,
-		computeTimeout:   defaultComputeTimeout,
-		bootstrapBackoff: defaultBootstrapBackoff,
+		client:          client,
+		logger:          zap.NewNop(),
+		refreshInterval: defaultRefreshInterval,
+		computeTimeout:  defaultComputeTimeout,
 	}
 
 	for _, opt := range opts {
@@ -141,31 +190,23 @@ func NewHandler(client Client, opts ...Option) *Handler {
 	return h
 }
 
-// Start runs the handler's own schedule: load the vesting schedules from
-// genesis (retrying until it works — never memoizing a failure), then
-// refresh the snapshot on a ticker. Blocks until ctx is done.
+// Start runs the handler's own schedule, refreshing the snapshot on a
+// ticker. Blocks until ctx is done.
 func (h *Handler) Start(ctx context.Context) error {
-	if err := h.bootstrapVesting(ctx); err != nil {
-		// Only ctx cancellation reaches here; a persistent chain problem
-		// keeps retrying inside.
-		return nil
-	}
-
-	// First refresh before serving, so the endpoint answers as soon as it
-	// can rather than after one interval.
-	h.refresh(ctx)
-
 	ticker := time.NewTicker(h.refreshInterval)
 	defer ticker.Stop()
 
 	for {
+		// The refresh also runs before the first tick, so the endpoint
+		// answers as soon as it can rather than after one interval.
+		h.refresh(ctx)
+
 		select {
 		case <-ctx.Done():
 			h.logger.Info("Supply handler shut down")
 
 			return nil
 		case <-ticker.C:
-			h.refresh(ctx)
 		}
 	}
 }
@@ -190,7 +231,9 @@ func (h *Handler) GetSupply(_ context.Context, denom string) (*methods.Supply, e
 
 	supply, ok := snap.supplies[denom]
 	if !ok {
-		return nil, fmt.Errorf("denom %q is not tracked (tracked: %v)", denom, h.denoms)
+		// Unreachable while snapshots are built from the tracked list; a
+		// distinct label so a bug here is not misread as an input problem.
+		return nil, fmt.Errorf("denom %q missing from the snapshot (tracked: %v)", denom, h.denoms)
 	}
 
 	return supply, nil
@@ -241,7 +284,11 @@ func (h *Handler) tracked(denom string) bool {
 func (h *Handler) refresh(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
-			h.logger.Error("panic refreshing supply snapshot, serving the previous one", zap.Any("panic", r))
+			h.logger.Error(
+				"panic refreshing supply snapshot, serving the previous one",
+				zap.Any("panic", r),
+				zap.Stack("stack"),
+			)
 		}
 	}()
 
@@ -270,13 +317,13 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 	// One batch, one height: the totals and every vesting balance come from
 	// the same block, and the round trips are the handler's own, not a
 	// request's.
-	paths := make([]string, 0, len(h.denoms)+len(h.vesting))
+	paths := make([]string, 0, len(h.denoms)+len(h.vestings))
 	for _, denom := range h.denoms {
 		paths = append(paths, "bank/supply/"+denom)
 	}
 
-	for _, entry := range h.vesting {
-		paths = append(paths, "bank/balances/"+crypto.AddressToBech32(entry.address))
+	for _, vesting := range h.vestings {
+		paths = append(paths, "bank/balances/"+crypto.AddressToBech32(vesting.address))
 	}
 
 	results, err := h.client.ABCIQueryBatchAtHeight(ctx, height, paths)
@@ -299,15 +346,15 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 		totals[denom] = total
 	}
 
-	balances := make(map[crypto.Address]std.Coins, len(h.vesting))
+	balances := make(map[crypto.Address]std.Coins, len(h.vestings))
 
-	for i, entry := range h.vesting {
+	for i, vesting := range h.vestings {
 		coins, err := decodeBalance(results[len(h.denoms)+i])
 		if err != nil {
-			return nil, fmt.Errorf("bank/balances/%s at height %d: %w", entry.address, height, err)
+			return nil, fmt.Errorf("bank/balances/%s at height %d: %w", vesting.address, height, err)
 		}
 
-		balances[entry.address] = coins
+		balances[vesting.address] = coins
 	}
 
 	supplies := make(map[string]*methods.Supply, len(h.denoms))
@@ -319,13 +366,13 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 		// locks nothing.
 		var locked int64
 
-		for _, entry := range h.vesting {
-			unvested := entry.account.LockedCoins(blockTime).AmountOf(denom)
+		for _, vesting := range h.vestings {
+			unvested := vesting.account.LockedCoins(blockTime).AmountOf(denom)
 			if unvested <= 0 {
 				continue
 			}
 
-			amount := min(balances[entry.address].AmountOf(denom), unvested)
+			amount := min(balances[vesting.address].AmountOf(denom), unvested)
 
 			sum, ok := overflow.Add(locked, amount)
 			if !ok {
@@ -354,120 +401,6 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 	}
 
 	return &snapshot{supplies: supplies}, nil
-}
-
-// bootstrapVesting loads the vesting schedules from genesis, retrying until
-// it succeeds or ctx is done. It runs on the handler's own schedule, outside
-// any request context, so a transient failure — or a disconnecting client —
-// cannot latch an error; only success is memoized.
-func (h *Handler) bootstrapVesting(ctx context.Context) error {
-	for {
-		entries, err := h.parseVesting(ctx)
-		if err == nil {
-			h.vesting = entries
-			h.vestingReady.Store(true)
-
-			h.logger.Info("loaded vesting schedules from genesis", zap.Int("count", len(entries)))
-
-			return nil
-		}
-
-		h.logger.Warn("unable to load vesting schedules from genesis, retrying", zap.Error(err))
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(h.bootstrapBackoff):
-		}
-	}
-}
-
-// parseVesting reads the vesting schedules from the chain genesis, with
-// the same panic containment the refresh loop has: the bootstrap retry loop
-// is a background loop too, and a panic here must not take the indexer down.
-func (h *Handler) parseVesting(ctx context.Context) ([]vestingEntry, error) {
-	var (
-		entries []vestingEntry
-		err     error
-	)
-
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				entries, err = nil, fmt.Errorf("panic parsing genesis: %v", r)
-			}
-		}()
-
-		entries, err = h.vestingFromGenesis(ctx)
-	}()
-
-	return entries, err
-}
-
-// vestingFromGenesis folds the genesis balance rows per address, last row
-// wins, and a plain row clears a previous vesting one — the same semantics
-// the chain's applyBalance applies, so a duplicated or overridden genesis
-// row cannot double-count a lock.
-func (h *Handler) vestingFromGenesis(ctx context.Context) ([]vestingEntry, error) {
-	genesis, err := h.client.GetGenesis(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to fetch genesis, %w", err)
-	}
-
-	if genesis.Genesis == nil {
-		return nil, errors.New("nil genesis doc")
-	}
-
-	state, ok := genesis.Genesis.AppState.(gnoland.GnoGenesisState)
-	if !ok {
-		return nil, fmt.Errorf("unexpected genesis app state type %T", genesis.Genesis.AppState)
-	}
-
-	schedules := make(map[crypto.Address]*std.VestingSchedule)
-
-	for _, balance := range state.Balances {
-		if !balance.IsVesting() {
-			// A plain row replaces any vesting row before it, exactly as
-			// the chain replaces the account.
-			delete(schedules, balance.Address)
-
-			continue
-		}
-
-		schedules[balance.Address] = balance.Vesting
-	}
-
-	var entries []vestingEntry
-
-	for address, schedule := range schedules {
-		account, err := newVestingAccount(address, schedule)
-		if err != nil {
-			// Fail rather than skip: a schedule the chain's own types
-			// cannot rebuild would silently undercount locked.
-			return nil, fmt.Errorf("invalid vesting balance for %s: %w", address, err)
-		}
-
-		entries = append(entries, vestingEntry{
-			account: account,
-			address: address,
-		})
-	}
-
-	return entries, nil
-}
-
-// newVestingAccount rebuilds the chain's account for a genesis schedule, so
-// the locked math is the chain's own implementation rather than a re-derived
-// copy of it.
-func newVestingAccount(addr crypto.Address, schedule *std.VestingSchedule) (std.VestingAccount, error) {
-	base := std.NewBaseAccount(addr, schedule.OriginalVesting, nil, 0, 0)
-
-	switch schedule.Type {
-	case std.VestingDelayed:
-		return std.NewDelayedVestingAccount(base, *schedule)
-	default:
-		return std.NewContinuousVestingAccount(base, *schedule)
-	}
 }
 
 func decodeSupply(res *core_types.ResultABCIQuery) (int64, error) {

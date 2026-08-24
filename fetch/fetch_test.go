@@ -191,6 +191,11 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		defer cancelFn()
 
 		// Run the fetch
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
+
 		require.NoError(t, f.FetchChainData(ctx))
 
 		// Verify the transactions are saved correctly
@@ -404,6 +409,11 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 		defer cancelFn()
 
 		// Run the fetch
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
+
 		require.NoError(t, f.FetchChainData(ctx))
 
 		// Verify the transactions are saved correctly
@@ -585,6 +595,11 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 		defer cancelFn()
 
 		// Run the fetch
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
+
 		require.NoError(t, f.FetchChainData(ctx))
 
 		// Verify the transactions are saved correctly
@@ -748,6 +763,11 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 		defer cancelFn()
 
 		// Run the fetch
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
+
 		require.NoError(t, f.FetchChainData(ctx))
 
 		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
@@ -894,6 +914,11 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 		defer cancelFn()
 
 		// Run the fetch
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
+
 		require.NoError(t, f.FetchChainData(ctx))
 
 		for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
@@ -1034,6 +1059,11 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 	defer cancelFn()
 
 	// Run the fetch
+	// Bootstrap the genesis first, the way cmd/start.go does, so the
+	// genesis slot precedes the fetched blocks exactly as in production.
+	_, bootstrapErr := f.BootstrapGenesis(context.Background())
+	require.NoError(t, bootstrapErr)
+
 	require.NoError(t, f.FetchChainData(ctx))
 
 	// Make sure correct blocks were attempted to be saved
@@ -1114,7 +1144,11 @@ func TestFetcher_Genesis(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData(context.Background()))
+	balances, err := f.bootstrapGenesis(context.Background())
+	require.NoError(t, err)
+	// The genesis balances are what the supply handler folds into vesting
+	// schedules; they must travel out of the bootstrap.
+	require.Empty(t, balances)
 
 	require.Len(t, capturedEvents, 1)
 
@@ -1139,26 +1173,51 @@ func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
 	t.Parallel()
 
 	var (
-		mockEvents = &mockEvents{}
+		mockEvents = &mockEvents{
+			signalEventFn: func(_ events.Event) {
+				require.Fail(t, "should not emit events")
+			},
+		}
 
 		mockStorage = &mock.Storage{
 			GetLatestSavedHeightFn: func() (uint64, error) {
 				return 0, nil
 			},
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not attempt to write to storage")
+
+				return nil
+			},
 		}
 
-		mockClient = &mockClient{}
+		mockClient = &mockClient{
+			getGenesisFn: func() (*core_types.ResultGenesis, error) {
+				// The genesis block is already stored, but the balances live
+				// only in the document, so it is still fetched.
+				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
+					AppState: gnoland.GnoGenesisState{},
+				}}, nil
+			},
+			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+				require.Fail(t, "should not fetch block results for a stored genesis")
+
+				return nil, nil
+			},
+		}
 	)
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.NoError(t, f.fetchGenesisData(context.Background()))
+	balances, err := f.bootstrapGenesis(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, balances)
 }
 
 func TestFetcher_GenesisFetchError(t *testing.T) {
 	t.Parallel()
 
 	var (
+		err       error
 		remoteErr = errors.New("remote error")
 
 		mockEvents = &mockEvents{
@@ -1195,13 +1254,15 @@ func TestFetcher_GenesisFetchError(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
+	_, err = f.bootstrapGenesis(context.Background())
+	require.ErrorIs(t, err, remoteErr)
 }
 
 func TestFetcher_GenesisInvalidState(t *testing.T) {
 	t.Parallel()
 
 	var (
+		err        error
 		mockEvents = &mockEvents{
 			signalEventFn: func(_ events.Event) {
 				require.Fail(t, "should not emit events")
@@ -1236,13 +1297,15 @@ func TestFetcher_GenesisInvalidState(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorContains(t, f.fetchGenesisData(context.Background()), "unknown genesis state kind 'int'")
+	_, err = f.bootstrapGenesis(context.Background())
+	require.ErrorContains(t, err, "unknown genesis state kind 'int'")
 }
 
 func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 	t.Parallel()
 
 	var (
+		err       error
 		remoteErr = errors.New("remote error")
 
 		mockEvents = &mockEvents{
@@ -1279,13 +1342,15 @@ func TestFetcher_GenesisFetchResultsError(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.ErrorIs(t, f.fetchGenesisData(context.Background()), remoteErr)
+	_, err = f.bootstrapGenesis(context.Background())
+	require.ErrorIs(t, err, remoteErr)
 }
 
 func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 	t.Parallel()
 
 	var (
+		err        error
 		mockEvents = &mockEvents{
 			signalEventFn: func(_ events.Event) {
 				require.Fail(t, "should not emit events")
@@ -1318,13 +1383,15 @@ func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData(context.Background()))
+	_, err = f.bootstrapGenesis(context.Background())
+	require.Error(t, err)
 }
 
 func TestFetcher_GenesisNilResults(t *testing.T) {
 	t.Parallel()
 
 	var (
+		err        error
 		mockEvents = &mockEvents{
 			signalEventFn: func(_ events.Event) {
 				require.Fail(t, "should not emit events")
@@ -1359,7 +1426,8 @@ func TestFetcher_GenesisNilResults(t *testing.T) {
 
 	f := New(mockStorage, mockClient, mockEvents)
 
-	require.Error(t, f.fetchGenesisData(context.Background()))
+	_, err = f.bootstrapGenesis(context.Background())
+	require.Error(t, err)
 }
 
 // TestFetcher_BatchResults_MatchTheirBlocks verifies that results fetched with
@@ -1515,6 +1583,11 @@ func TestFetcher_BatchResults_MatchTheirBlocks(t *testing.T) {
 	defer cancelFn()
 
 	// Run the fetch
+	// Bootstrap the genesis first, the way cmd/start.go does, so the
+	// genesis slot precedes the fetched blocks exactly as in production.
+	_, bootstrapErr := f.BootstrapGenesis(context.Background())
+	require.NoError(t, bootstrapErr)
+
 	require.NoError(t, f.FetchChainData(ctx))
 
 	require.NotEmpty(t, capturedEvents)
@@ -1687,6 +1760,11 @@ func TestFetcher_ChunkFetchError_NoSilentGap(t *testing.T) {
 	defer cancelFn()
 
 	// Run the fetch
+	// Bootstrap the genesis first, the way cmd/start.go does, so the
+	// genesis slot precedes the fetched blocks exactly as in production.
+	_, bootstrapErr := f.BootstrapGenesis(context.Background())
+	require.NoError(t, bootstrapErr)
+
 	require.NoError(t, f.FetchChainData(ctx))
 
 	mu.Lock()
@@ -1817,6 +1895,11 @@ func TestFetcher_ShutdownWithInFlightWorkers(t *testing.T) {
 		// shuts the fetcher down
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cancelFn = cancel
+
+		// Bootstrap the genesis first, the way cmd/start.go does, so the
+		// genesis slot precedes the fetched blocks exactly as in production.
+		_, bootstrapErr := f.BootstrapGenesis(context.Background())
+		require.NoError(t, bootstrapErr)
 
 		require.NoError(t, f.FetchChainData(ctx))
 

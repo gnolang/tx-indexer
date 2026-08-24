@@ -197,6 +197,15 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
+	// Bootstrap the chain genesis before any service starts: the fetcher
+	// needs the genesis block stored, and the supply handler needs the
+	// genesis balances where the vesting schedules live. One fetch, one
+	// decode, both consumers.
+	genesisBalances, err := f.BootstrapGenesis(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to bootstrap genesis, %w", err)
+	}
+
 	// The supply handler serves both the JSON-RPC and GraphQL surfaces, so
 	// they share one snapshot. Only the tracked denoms are ever queried, on
 	// the handler's own schedule — request input cannot reach the chain.
@@ -205,12 +214,18 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return err
 	}
 
+	vestings, err := supply.NewVestings(genesisBalances)
+	if err != nil {
+		return fmt.Errorf("unable to parse genesis vesting schedules, %w", err)
+	}
+
 	supplyHandler := supply.NewHandler(
 		tm2Client,
 		supply.WithLogger(
 			logger.Named("supply"),
 		),
 		supply.WithDenoms(denoms),
+		supply.WithVestings(vestings),
 	)
 
 	// Create the JSON-RPC service
@@ -273,9 +288,10 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 }
 
-// parseSupplyDenoms splits the comma-separated flag value and validates
-// each denomination, so an operator's typo fails at startup rather than at
-// the first query.
+// parseSupplyDenoms splits the comma-separated flag value, validates each
+// denomination and refuses an empty list — an operator's typo or an empty
+// value fails at startup rather than leaving getSupply answering nothing
+// but errors.
 func parseSupplyDenoms(raw string) ([]string, error) {
 	var denoms []string
 
@@ -292,6 +308,10 @@ func parseSupplyDenoms(raw string) ([]string, error) {
 		if !slices.Contains(denoms, denom) {
 			denoms = append(denoms, denom)
 		}
+	}
+
+	if len(denoms) == 0 {
+		return nil, errors.New("no supply denoms configured: --supply-denoms must list at least one denomination")
 	}
 
 	return denoms, nil

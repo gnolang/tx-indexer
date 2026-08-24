@@ -80,31 +80,63 @@ func New(
 	return f
 }
 
-func (f *Fetcher) fetchGenesisData(ctx context.Context) error {
-	_, err := f.storage.GetLatestHeight()
-	// Possible cases:
-	// - err is ErrNotFound: the storage is empty, we execute the rest of the routine and fetch+write genesis data
-	// - err is nil: the storage has a latest height, this means at least the genesis data has been written,
-	//   or some blocks past it, we do nothing and return nil
-	// - err is something else: there has been a storage error, we do nothing and return this error
-	if !errors.Is(err, storageErrors.ErrNotFound) {
-		return err
-	}
+// defaultGenesisBackoff is the pause between genesis bootstrap attempts.
+const defaultGenesisBackoff = 5 * time.Second
 
+// BootstrapGenesis loads the chain genesis, retrying until the node answers
+// or ctx is done. It runs before any other service starts, because two of
+// them depend on it: the fetcher needs the genesis block stored to index
+// from height 0, and the supply handler needs the genesis balances, where
+// the vesting schedules live. The returned balances are the genesis balance
+// rows, duplicated or not.
+func (f *Fetcher) BootstrapGenesis(ctx context.Context) ([]gnoland.Balance, error) {
+	for {
+		balances, err := f.bootstrapGenesis(ctx)
+		if err == nil {
+			return balances, nil
+		}
+
+		f.logger.Warn("unable to bootstrap genesis, retrying", zap.Error(err))
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(defaultGenesisBackoff):
+		}
+	}
+}
+
+// bootstrapGenesis fetches the genesis document and, when the storage is
+// empty, writes the genesis block to it — the same slot fetchGenesisData
+// wrote when this lived inside FetchChainData. The document is fetched even
+// on a populated storage: the balances are not part of the stored block, so
+// the supply handler's data can only come from the document itself.
+func (f *Fetcher) bootstrapGenesis(ctx context.Context) ([]gnoland.Balance, error) {
 	f.logger.Info("Fetching genesis")
 
-	block, err := getGenesisBlock(ctx, f.client)
+	block, state, err := getGenesisBlock(ctx, f.client)
 	if err != nil {
-		return fmt.Errorf("failed to fetch genesis block: %w", err)
+		return nil, fmt.Errorf("failed to fetch genesis block: %w", err)
+	}
+
+	_, err = f.storage.GetLatestHeight()
+	switch {
+	case err == nil:
+		// The storage already carries the chain — the genesis block is
+		// written, only the balances are needed.
+		return state.Balances, nil
+	case !errors.Is(err, storageErrors.ErrNotFound):
+		// A storage error, not an empty storage.
+		return nil, err
 	}
 
 	results, err := f.client.GetBlockResults(ctx, 0)
 	if err != nil {
-		return fmt.Errorf("failed to fetch genesis results: %w", err)
+		return nil, fmt.Errorf("failed to fetch genesis results: %w", err)
 	}
 
 	if results.Results == nil {
-		return errors.New("nil results")
+		return nil, errors.New("nil results")
 	}
 
 	txResults := make([]*bft_types.TxResult, len(block.Txs))
@@ -131,20 +163,17 @@ func (f *Fetcher) fetchGenesisData(ctx context.Context) error {
 		},
 	}
 
-	return f.writeSlot(s)
+	if err := f.writeSlot(s); err != nil {
+		return nil, err
+	}
+
+	return state.Balances, nil
 }
 
 // FetchChainData starts the fetching process that indexes
-// blockchain data
+// blockchain data. The genesis block itself is not handled here —
+// BootstrapGenesis loads it before any service starts.
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
-	// Attempt to fetch the genesis data
-	if err := f.fetchGenesisData(ctx); err != nil {
-		// We treat this error as soft, to ease migration, since
-		// some versions of gno networks don't support this.
-		// In the future, we should hard fail if genesis is not fetch-able
-		f.logger.Error("unable to fetch genesis data", zap.Error(err))
-	}
-
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state
@@ -389,26 +418,26 @@ func (f *Fetcher) IsReady(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func getGenesisBlock(ctx context.Context, client Client) (*bft_types.Block, error) {
+func getGenesisBlock(ctx context.Context, client Client) (*bft_types.Block, gnoland.GnoGenesisState, error) {
 	gblock, err := client.GetGenesis(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get genesis block: %w", err)
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to get genesis block: %w", err)
 	}
 
 	if gblock.Genesis == nil {
-		return nil, errInvalidGenesisState
+		return nil, gnoland.GnoGenesisState{}, errInvalidGenesisState
 	}
 
 	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
 	if !ok {
-		return nil, fmt.Errorf("unknown genesis state kind '%T'", gblock.Genesis.AppState)
+		return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unknown genesis state kind '%T'", gblock.Genesis.AppState)
 	}
 
 	txs := make([]bft_types.Tx, len(genesisState.Txs))
 	for i, tx := range genesisState.Txs {
 		txs[i], err = amino.Marshal(tx.Tx)
 		if err != nil {
-			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
+			return nil, gnoland.GnoGenesisState{}, fmt.Errorf("unable to marshal genesis tx: %w", err)
 		}
 	}
 
@@ -424,5 +453,5 @@ func getGenesisBlock(ctx context.Context, client Client) (*bft_types.Block, erro
 		},
 	}
 
-	return block, nil
+	return block, genesisState, nil
 }

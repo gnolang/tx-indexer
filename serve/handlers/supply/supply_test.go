@@ -14,7 +14,6 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
-	bft "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/crypto"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/serve/metadata"
@@ -28,19 +27,13 @@ const testDenom = "ugnot"
 // Mocks
 
 type (
-	batchQueryDelegate func(context.Context, int64, []string) ([]*core_types.ResultABCIQuery, error)
-	getGenesisDelegate func(context.Context) (*core_types.ResultGenesis, error)
 	getStatusDelegate  func(context.Context) (*core_types.ResultStatus, error)
+	batchQueryDelegate func(context.Context, int64, []string) ([]*core_types.ResultABCIQuery, error)
 )
 
 type mockClient struct {
 	batchQueryFn batchQueryDelegate
-	getGenesisFn getGenesisDelegate
 	getStatusFn  getStatusDelegate
-}
-
-func (m *mockClient) GetGenesis(ctx context.Context) (*core_types.ResultGenesis, error) {
-	return m.getGenesisFn(ctx)
 }
 
 func (m *mockClient) GetStatus(ctx context.Context) (*core_types.ResultStatus, error) {
@@ -113,14 +106,6 @@ func delayedSchedule(denom string, amount int64) *std.VestingSchedule {
 	}
 }
 
-func genesisWith(balances ...gnoland.Balance) *core_types.ResultGenesis {
-	return &core_types.ResultGenesis{
-		Genesis: &bft.GenesisDoc{
-			AppState: gnoland.GnoGenesisState{Balances: balances},
-		},
-	}
-}
-
 // vestingBalance is a genesis row that vests amount of the test denom.
 func vestingBalance(addr crypto.Address, schedule *std.VestingSchedule, amount int64) gnoland.Balance {
 	return gnoland.Balance{
@@ -152,35 +137,29 @@ func statusAt(height, unix int64) *core_types.ResultStatus {
 // bank/supply result carry an ABCI error — a chain without the route;
 // panicBatch, when set, makes the batch call panic.
 type chainFixture struct {
-	genesis           *core_types.ResultGenesis
-	status            *core_types.ResultStatus
-	supply            map[string]int64
-	balances          map[crypto.Address]std.Coins
-	rec               *batchRecorder
+	supply   map[string]int64
+	balances map[crypto.Address]std.Coins
+	rec      *batchRecorder
+	status   *core_types.ResultStatus
+
 	errBatch          error
 	errSupplyResponse error
-	mu                sync.Mutex
-	panicBatch        bool
+
+	mu         sync.Mutex
+	panicBatch bool
 }
 
 func newChainFixture() *chainFixture {
 	return &chainFixture{
-		genesis:  genesisWith(),
-		status:   statusAt(42, 150),
 		supply:   map[string]int64{},
 		balances: map[crypto.Address]std.Coins{},
 		rec:      &batchRecorder{},
+		status:   statusAt(42, 150),
 	}
 }
 
 func (f *chainFixture) client() *mockClient {
 	return &mockClient{
-		getGenesisFn: func(context.Context) (*core_types.ResultGenesis, error) {
-			f.mu.Lock()
-			defer f.mu.Unlock()
-
-			return f.genesis, nil
-		},
 		getStatusFn: func(context.Context) (*core_types.ResultStatus, error) {
 			f.mu.Lock()
 			defer f.mu.Unlock()
@@ -252,12 +231,60 @@ func abciError(err error) *core_types.ResultABCIQuery {
 	}
 }
 
-// loadVesting runs the bootstrap to completion against the fixture.
-func (h *Handler) loadVesting(t *testing.T) {
+// newHandler builds a handler over the fixture with the given genesis rows,
+// folding them the way the startup bootstrap does.
+func newHandler(t *testing.T, f *chainFixture, balances ...gnoland.Balance) *Handler {
 	t.Helper()
 
-	require.NoError(t, h.bootstrapVesting(context.Background()))
-	require.True(t, h.vestingReady.Load())
+	vestings, err := NewVestings(balances)
+	require.NoError(t, err)
+
+	return NewHandler(
+		f.client(),
+		WithDenoms([]string{testDenom}),
+		WithVestings(vestings),
+	)
+}
+
+// ---------------------------------------------------------------
+// The vesting fold, pure
+
+func TestNewVestingsFoldsDuplicateRows(t *testing.T) {
+	t.Parallel()
+
+	// The chain applies genesis rows last-row-wins (applyBalance): two
+	// vesting rows for one address keep only the last, and a plain row
+	// clears a vesting one entirely.
+	vestings, err := NewVestings([]gnoland.Balance{
+		vestingBalance(vesterA, continuousSchedule(), 1000),
+		// Same address again, different schedule: only this one counts.
+		vestingBalance(vesterA, delayedSchedule(testDenom, 1000), 1000),
+		// A vesting row then a plain row: the account is not vesting.
+		vestingBalance(vesterB, continuousSchedule(), 1000),
+		plainBalance(vesterB, 1000),
+	})
+	require.NoError(t, err)
+
+	require.Len(t, vestings, 1, "only one folded entry must remain")
+
+	// vesterA keeps the delayed schedule: at t=150 everything is locked.
+	require.Equal(t, vesterA, vestings[0].address)
+	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
+}
+
+func TestNewVestingsRejectsUnbuildableSchedule(t *testing.T) {
+	t.Parallel()
+
+	// A schedule naming more than the row's balance cannot become a chain
+	// account — NewVestings must refuse it rather than silently skip.
+	_, err := NewVestings([]gnoland.Balance{
+		{
+			Address: vesterA,
+			Amount:  std.NewCoins(coin(testDenom, 100)),
+			Vesting: continuousSchedule(), // names 1000
+		},
+	})
+	require.ErrorContains(t, err, "invalid vesting balance")
 }
 
 // ---------------------------------------------------------------
@@ -265,6 +292,9 @@ func (h *Handler) loadVesting(t *testing.T) {
 
 func TestUnvestedAmount(t *testing.T) {
 	t.Parallel()
+
+	vestings, err := NewVestings([]gnoland.Balance{vestingBalance(vesterA, continuousSchedule(), 1000)})
+	require.NoError(t, err)
 
 	cases := []struct {
 		name string
@@ -280,10 +310,7 @@ func TestUnvestedAmount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			acc, err := newVestingAccount(vesterA, continuousSchedule())
-			require.NoError(t, err)
-
-			unvested := acc.LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
+			unvested := vestings[0].account.LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
 			require.Equal(t, tc.want, unvested)
 		})
 	}
@@ -292,50 +319,15 @@ func TestUnvestedAmount(t *testing.T) {
 func TestDelayedScheduleUnvested(t *testing.T) {
 	t.Parallel()
 
-	acc, err := newVestingAccount(vesterA, delayedSchedule(testDenom, 1000))
+	vestings, err := NewVestings([]gnoland.Balance{
+		vestingBalance(vesterA, delayedSchedule(testDenom, 1000), 1000),
+	})
 	require.NoError(t, err)
 
-	require.Equal(t, int64(1000), acc.LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
 		"a cliff vests nothing before the end time")
-	require.Equal(t, int64(0), acc.LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(0), vestings[0].account.LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
 		"a cliff vests everything at the end time")
-}
-
-// ---------------------------------------------------------------
-// Genesis folding
-
-func TestParseVestingFoldsDuplicateRows(t *testing.T) {
-	t.Parallel()
-
-	// The chain applies genesis rows last-row-wins (applyBalance): two
-	// vesting rows for one address keep only the last, and a plain row
-	// clears a vesting one entirely.
-	fixture := &chainFixture{
-		genesis: genesisWith(
-			vestingBalance(vesterA, continuousSchedule(), 1000),
-			// Same address again, different schedule: only this one counts.
-			vestingBalance(vesterA, delayedSchedule(testDenom, 1000), 1000),
-			// A vesting row then a plain row: the account is not vesting.
-			vestingBalance(vesterB, continuousSchedule(), 1000),
-			plainBalance(vesterB, 1000),
-		),
-		status:   statusAt(42, 150),
-		supply:   map[string]int64{},
-		balances: map[crypto.Address]std.Coins{},
-		rec:      &batchRecorder{},
-	}
-
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
-
-	// vesterA keeps the delayed schedule: at t=150 everything is locked.
-	lockedA := h.vesting[0].account.LockedCoins(time.Unix(150, 0)).AmountOf(testDenom)
-	require.Equal(t, int64(1000), lockedA)
-	require.Len(t, h.vesting, 1, "only one folded entry must remain")
-
-	for _, entry := range h.vesting {
-		require.Equal(t, vesterA, entry.address, "the surviving entry must be the last row's schedule")
-	}
 }
 
 // ---------------------------------------------------------------
@@ -345,12 +337,6 @@ func TestRefreshBuildsConsistentSnapshot(t *testing.T) {
 	t.Parallel()
 
 	fixture := newChainFixture()
-	fixture.genesis = genesisWith(
-		vestingBalance(vesterA, continuousSchedule(), 1000),
-		vestingBalance(vesterB, continuousSchedule(), 1000),
-		vestingBalance(vesterC, delayedSchedule(testDenom, 2000), 2000),
-		plainBalance(plain, 4700),
-	)
 	fixture.supply[testDenom] = 10_000
 	fixture.balances = map[crypto.Address]std.Coins{
 		vesterA: std.NewCoins(coin(testDenom, 1000)), // continuous, untouched
@@ -359,8 +345,12 @@ func TestRefreshBuildsConsistentSnapshot(t *testing.T) {
 		plain:   std.NewCoins(coin(testDenom, 4700)), // not vesting
 	}
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture,
+		vestingBalance(vesterA, continuousSchedule(), 1000),
+		vestingBalance(vesterB, continuousSchedule(), 1000),
+		vestingBalance(vesterC, delayedSchedule(testDenom, 2000), 2000),
+		plainBalance(plain, 4700),
+	)
 	h.refresh(context.Background())
 
 	// Every read the refresh made happened at one height, in one batch.
@@ -389,15 +379,11 @@ func TestGetSupplyFullyVested(t *testing.T) {
 	t.Parallel()
 
 	fixture := newChainFixture()
-	fixture.genesis = genesisWith(
-		gnoland.Balance{Address: vesterA, Amount: std.NewCoins(coin(testDenom, 1000)), Vesting: continuousSchedule()},
-	)
 	fixture.status = statusAt(50, 300) // past the end time
 	fixture.supply[testDenom] = 1000
 	fixture.balances[vesterA] = std.NewCoins(coin(testDenom, 1000))
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture, vestingBalance(vesterA, continuousSchedule(), 1000))
 	h.refresh(context.Background())
 
 	supply, err := h.GetSupply(context.Background(), testDenom)
@@ -409,9 +395,7 @@ func TestGetSupplyFullyVested(t *testing.T) {
 func TestGetSupplyBeforeFirstRefresh(t *testing.T) {
 	t.Parallel()
 
-	fixture := newChainFixture()
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, newChainFixture())
 
 	_, err := h.GetSupply(context.Background(), testDenom)
 	require.ErrorIs(t, err, ErrNotReady)
@@ -424,8 +408,7 @@ func TestRefreshFailureKeepsLastSnapshot(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.supply[testDenom] = 100
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture)
 	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
@@ -450,8 +433,7 @@ func TestRefreshFailsOnUnsupportedSupplyRoute(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.errSupplyResponse = fmt.Errorf("unknown bank query endpoint")
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture)
 	h.refresh(context.Background())
 
 	_, err := h.GetSupply(context.Background(), testDenom)
@@ -466,8 +448,7 @@ func TestRefreshContainsPanics(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.supply[testDenom] = 100
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture)
 	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
@@ -495,13 +476,7 @@ func TestRefreshHonorsShutdownContext(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.supply[testDenom] = 100
 
-	mock := &mockClient{
-		getGenesisFn: func(context.Context) (*core_types.ResultGenesis, error) {
-			fixture.mu.Lock()
-			defer fixture.mu.Unlock()
-
-			return fixture.genesis, nil
-		},
+	client := &mockClient{
 		getStatusFn: func(ctx context.Context) (*core_types.ResultStatus, error) {
 			// A cancelled lifecycle ctx must fail here, before any batch.
 			if err := ctx.Err(); err != nil {
@@ -518,8 +493,10 @@ func TestRefreshHonorsShutdownContext(t *testing.T) {
 		},
 	}
 
-	h := NewHandler(mock, WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	vestings, err := NewVestings(nil)
+	require.NoError(t, err)
+
+	h := NewHandler(client, WithDenoms([]string{testDenom}), WithVestings(vestings))
 	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
@@ -537,6 +514,31 @@ func TestRefreshHonorsShutdownContext(t *testing.T) {
 	require.Equal(t, 1, fixture.rec.count(), "a cancelled lifecycle ctx must not reach the chain")
 }
 
+// Start refreshes once before the first tick, so the endpoint answers as
+// soon as the handler runs rather than after one interval.
+func TestStartRefreshesImmediately(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	fixture.supply[testDenom] = 100
+
+	h := newHandler(t, fixture)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		require.NoError(t, h.Start(ctx))
+	}()
+
+	require.Eventually(t, func() bool {
+		_, err := h.GetSupply(context.Background(), testDenom)
+
+		return err == nil
+	}, time.Second, 10*time.Millisecond, "a snapshot must exist before the first tick")
+
+	cancel()
+}
+
 // ---------------------------------------------------------------
 // Request validation
 
@@ -544,7 +546,7 @@ func TestGetSupplyValidatesInput(t *testing.T) {
 	t.Parallel()
 
 	fixture := newChainFixture()
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
+	h := newHandler(t, fixture)
 
 	// Both surfaces call GetSupply directly, so both get the validation.
 	_, err := h.GetSupply(context.Background(), "UPPER")
@@ -560,7 +562,7 @@ func TestGetSupplyValidatesInput(t *testing.T) {
 func TestGetSupplyHandlerParamValidation(t *testing.T) {
 	t.Parallel()
 
-	h := NewHandler(newChainFixture().client(), WithDenoms([]string{testDenom}))
+	h := newHandler(t, newChainFixture())
 
 	cases := []struct {
 		name   string
@@ -587,8 +589,7 @@ func TestGetSupplyHandlerServesSnapshot(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.supply[testDenom] = 100
 
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}))
-	h.loadVesting(t)
+	h := newHandler(t, fixture)
 	h.refresh(context.Background())
 
 	resp, rpcErr := h.GetSupplyHandler(metadata.NewMetadata(""), []any{testDenom})
@@ -597,70 +598,6 @@ func TestGetSupplyHandlerServesSnapshot(t *testing.T) {
 	supply, ok := resp.(*methods.Supply)
 	require.True(t, ok)
 	require.Equal(t, int64(100), supply.Total)
-}
-
-// ---------------------------------------------------------------
-// Bootstrap
-
-// The bootstrap retries until genesis parses; only success is memoized.
-func TestBootstrapRetriesUntilSuccess(t *testing.T) {
-	t.Parallel()
-
-	fixture := newChainFixture()
-
-	var attempts int32
-
-	client := &mockClient{
-		getGenesisFn: func(context.Context) (*core_types.ResultGenesis, error) {
-			fixture.mu.Lock()
-			defer fixture.mu.Unlock()
-
-			// Fail twice, then answer.
-			attempts++
-
-			if attempts < 3 {
-				return nil, fmt.Errorf("transient network error")
-			}
-
-			return fixture.genesis, nil
-		},
-		getStatusFn: func(context.Context) (*core_types.ResultStatus, error) {
-			fixture.mu.Lock()
-			defer fixture.mu.Unlock()
-
-			return fixture.status, nil
-		},
-		batchQueryFn: func(ctx context.Context, height int64, paths []string) ([]*core_types.ResultABCIQuery, error) {
-			return fixture.client().batchQueryFn(ctx, height, paths)
-		},
-	}
-
-	h := NewHandler(client, WithDenoms([]string{testDenom}), WithBootstrapBackoff(time.Millisecond))
-
-	require.NoError(t, h.bootstrapVesting(context.Background()))
-	require.True(t, h.vestingReady.Load())
-	require.Equal(t, int32(3), attempts)
-}
-
-func TestBootstrapFailsOnNonGnoState(t *testing.T) {
-	t.Parallel()
-
-	fixture := newChainFixture()
-	fixture.mu.Lock()
-	fixture.genesis = &core_types.ResultGenesis{
-		Genesis: &bft.GenesisDoc{AppState: "not-a-gno-state"},
-	}
-	fixture.mu.Unlock()
-
-	h := NewHandler(fixture.client(), WithDenoms([]string{testDenom}), WithBootstrapBackoff(time.Millisecond))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancel()
-
-	// A permanently failing parse keeps retrying; it must not memoize the
-	// error. Cancellation is the only way out.
-	require.ErrorIs(t, h.bootstrapVesting(ctx), context.DeadlineExceeded)
-	require.False(t, h.vestingReady.Load())
 }
 
 // ---------------------------------------------------------------
