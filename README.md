@@ -3,6 +3,7 @@
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Getting Started](#getting-started)
+  - [Genesis bootstrap](#genesis-bootstrap)
 - [GraphQL Endpoint](#graphql-endpoint)
   - [Hosted Example](#hosted-example)
   - [Examples](#examples)
@@ -96,6 +97,22 @@ FLAGS
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
   -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
+
+### Genesis bootstrap
+
+Before any service starts, the indexer loads the chain genesis into its database: the genesis block, so indexing can
+start from height 0, and the genesis balances, where the vesting schedules the supply endpoint needs live. This
+happens **once per database** — every later start reads what it needs from the DB and never fetches the genesis
+document again.
+
+Two consequences worth knowing when running it:
+
+- **The indexer will not start if it cannot bootstrap the genesis.** It retries while the node is unreachable, and
+  fails outright against a node that does not serve a readable gno genesis. Earlier versions logged the failure and
+  indexed anyway, at the cost of a missing block 0.
+- **A database is bound to its chain.** The chain ID is stored alongside the genesis and checked against the node on
+  every start, so pointing `--remote` at a different network while reusing `--db-path` refuses to start rather than
+  mixing two chains' data. Use a separate `--db-path` per chain.
 
 ## GraphQL Endpoint
 

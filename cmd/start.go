@@ -20,6 +20,7 @@ import (
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
+	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
@@ -197,12 +198,18 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
-	// Bootstrap the chain genesis before any service starts. The fetcher
-	// needs the genesis block stored, and the supply handler needs the
-	// genesis balances, which is where the vesting schedules live. Doing
-	// it here means one fetch and one decode for both.
-	genesisBalances, err := f.BootstrapGenesis(ctx)
-	if err != nil {
+	// Bootstrap the chain genesis into the storage before any service starts.
+	// Two of them read it from there afterwards: the fetcher indexes from
+	// height 0, and the supply handler folds the balances into vesting
+	// schedules. A no-op once the storage carries this chain's genesis.
+	if err := genesis.Bootstrap(
+		ctx,
+		db,
+		tm2Client,
+		genesis.WithLogger(
+			logger.Named("genesis"),
+		),
+	); err != nil {
 		return fmt.Errorf("unable to bootstrap genesis, %w", err)
 	}
 
@@ -214,18 +221,13 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return err
 	}
 
-	vestings, err := supply.NewVestings(genesisBalances)
-	if err != nil {
-		return fmt.Errorf("unable to parse genesis vesting schedules, %w", err)
-	}
-
 	supplyHandler := supply.NewHandler(
 		tm2Client,
+		db,
 		supply.WithLogger(
 			logger.Named("supply"),
 		),
 		supply.WithDenoms(denoms),
-		supply.WithVestings(vestings),
 	)
 
 	// Create the JSON-RPC service

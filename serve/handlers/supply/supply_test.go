@@ -3,6 +3,7 @@ package supply
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -34,6 +35,21 @@ type (
 type mockClient struct {
 	batchQueryFn batchQueryDelegate
 	getStatusFn  getStatusDelegate
+}
+
+// mockStorage serves the genesis balance rows the startup bootstrap would have
+// written. errBalances, when set, fails the read.
+type mockStorage struct {
+	balances    []gnoland.Balance
+	errBalances error
+}
+
+func (m *mockStorage) GetGenesisBalances() ([]gnoland.Balance, error) {
+	if m.errBalances != nil {
+		return nil, m.errBalances
+	}
+
+	return m.balances, nil
 }
 
 func (m *mockClient) GetStatus(ctx context.Context) (*core_types.ResultStatus, error) {
@@ -231,19 +247,22 @@ func abciError(err error) *core_types.ResultABCIQuery {
 	}
 }
 
-// newHandler builds a handler over the fixture with the given genesis rows,
-// folding them the way the startup bootstrap does.
+// newHandler builds a handler over the fixture, with the given genesis rows
+// waiting in the storage the way the startup bootstrap leaves them.
 func newHandler(t *testing.T, f *chainFixture, balances ...gnoland.Balance) *Handler {
 	t.Helper()
 
-	vestings, err := NewVestings(balances)
-	require.NoError(t, err)
-
-	return NewHandler(
+	h := NewHandler(
 		f.client(),
+		&mockStorage{balances: balances},
 		WithDenoms([]string{testDenom}),
-		WithVestings(vestings),
 	)
+
+	// Start loads the schedules before serving; these tests drive refresh
+	// directly, so they do the same.
+	require.NoError(t, h.loadVestings())
+
+	return h
 }
 
 // ---------------------------------------------------------------
@@ -493,10 +512,8 @@ func TestRefreshHonorsShutdownContext(t *testing.T) {
 		},
 	}
 
-	vestings, err := NewVestings(nil)
-	require.NoError(t, err)
-
-	h := NewHandler(client, WithDenoms([]string{testDenom}), WithVestings(vestings))
+	h := NewHandler(client, &mockStorage{}, WithDenoms([]string{testDenom}))
+	require.NoError(t, h.loadVestings())
 	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
@@ -537,6 +554,25 @@ func TestStartRefreshesImmediately(t *testing.T) {
 	}, time.Second, 10*time.Millisecond, "a snapshot must exist before the first tick")
 
 	cancel()
+}
+
+// The bootstrap commits the balances before any service starts, so a storage
+// that cannot serve them is corrupt. Start fails rather than serving a supply
+// with no vesting schedules, which would report everything as circulating.
+func TestStartFailsOnUnreadableVestings(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	readErr := errors.New("genesis balances missing")
+
+	h := NewHandler(
+		fixture.client(),
+		&mockStorage{errBalances: readErr},
+		WithDenoms([]string{testDenom}),
+	)
+
+	require.ErrorIs(t, h.Start(context.Background()), readErr)
+	require.Zero(t, fixture.rec.count(), "no refresh must run without the schedules")
 }
 
 // ---------------------------------------------------------------
