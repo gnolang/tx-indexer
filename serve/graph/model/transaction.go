@@ -97,7 +97,13 @@ func (t *Transaction) getStdTx() *std.Tx {
 	unmarshalTx := func() {
 		var stdTx std.Tx
 		if err := amino.Unmarshal(t.txResult.Tx, &stdTx); err != nil {
-			t.stdTx = nil
+			// Leave t.stdTx nil so callers can tell the payload apart from a
+			// transaction that genuinely carries nothing. The assignment used to
+			// be here, followed unconditionally by the one below, so it was dead:
+			// an undecodable transaction ended up pointing at a zero std.Tx and
+			// reported a zero gas fee, no memo and no messages as though those
+			// were facts about the chain.
+			return
 		}
 
 		t.mu.Lock()
@@ -114,6 +120,16 @@ func (t *Transaction) getMessages() []*TransactionMessage {
 	// Functions that unmarshal transaction messages are executed once.
 	unmarshalMessages := func() {
 		stdTx := t.getStdTx()
+		if stdTx == nil {
+			// Reachable now that a failed decode really does leave this nil.
+			// Memo and GasFee already guarded for it; this did not.
+			t.mu.Lock()
+			t.messages = []*TransactionMessage{}
+			t.mu.Unlock()
+
+			return
+		}
+
 		messages := make([]*TransactionMessage, 0, len(stdTx.GetMsgs()))
 
 		for _, message := range stdTx.GetMsgs() {
