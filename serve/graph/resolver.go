@@ -19,6 +19,23 @@ import (
 
 const maxElementsPerQuery = 10000
 
+// effectiveLimit resolves the caller's `limit` against the hard cap.
+//
+// Without one, a query that matches many rows returns up to maxElementsPerQuery
+// of them — 10,000 transactions a caller usually did not want and has to
+// transfer anyway. A page of twenty is the common case, and asking for twenty
+// should cost twenty.
+//
+// The cap stays the ceiling: limit only ever lowers it. A non-positive limit is
+// treated as absent rather than rejected, so `limit: 0` behaves as it does today
+// instead of silently returning nothing.
+func effectiveLimit(limit *int) int {
+	if limit == nil || *limit <= 0 || *limit > maxElementsPerQuery {
+		return maxElementsPerQuery
+	}
+	return *limit
+}
+
 func deref[T any](v *T) T {
 	if v == nil {
 		var zero T

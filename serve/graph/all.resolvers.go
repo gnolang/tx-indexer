@@ -127,7 +127,7 @@ func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 }
 
 // GetBlocks is the resolver for the getBlocks field.
-func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error) {
+func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder, limit *int) ([]*model.Block, error) {
 	fromh, toh := where.MinMaxHeight()
 	dfromh := uint64(deref(fromh))
 	dtoh := uint64(deref(toh))
@@ -162,10 +162,15 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 
 	var out []*model.Block
 
+	max := effectiveLimit(limit)
 	i := 0
 	for {
-		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+		if i == max {
+			// Only the hard cap is an error: reaching a limit the caller asked
+			// for is the query working as requested, not a truncated answer.
+			if max == maxElementsPerQuery {
+				graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			}
 			return out, nil
 		}
 
@@ -197,7 +202,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 }
 
 // GetTransactions is the resolver for the getTransactions field.
-func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error) {
+func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder, limit *int) ([]*model.Transaction, error) {
 	// corner case
 	if where.Hash != nil &&
 		where.Hash.Eq != nil &&
@@ -263,10 +268,15 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	defer it.Close()
 
 	var out []*model.Transaction
+	max := effectiveLimit(limit)
 	i := 0
 	for {
-		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+		if i == max {
+			// Only the hard cap is an error: reaching a limit the caller asked
+			// for is the query working as requested, not a truncated answer.
+			if max == maxElementsPerQuery {
+				graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			}
 			return out, nil
 		}
 

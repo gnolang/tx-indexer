@@ -123,8 +123,8 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Blocks            func(childComplexity int, filter model.BlockFilter) int
-		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.BlockOrder) int
-		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
+		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.BlockOrder, limit *int) int
+		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder, limit *int) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
 	}
@@ -196,8 +196,8 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
-	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error)
-	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error)
+	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder, limit *int) ([]*model.Block, error)
+	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder, limit *int) ([]*model.Transaction, error)
 }
 type SubscriptionResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) (<-chan *model.Transaction, error)
@@ -558,7 +558,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.BlockOrder)), true
+		return e.ComplexityRoot.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.BlockOrder), args["limit"].(*int)), true
 	case "Query.getTransactions":
 		if e.ComplexityRoot.Query.GetTransactions == nil {
 			break
@@ -569,7 +569,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.GetTransactions(childComplexity, args["where"].(model.FilterTransaction), args["order"].(*model.TransactionOrder)), true
+		return e.ComplexityRoot.Query.GetTransactions(childComplexity, args["where"].(model.FilterTransaction), args["order"].(*model.TransactionOrder), args["limit"].(*int)), true
 
 	case "Query.latestBlockHeight":
 		if e.ComplexityRoot.Query.LatestBlockHeight == nil {
@@ -2874,13 +2874,13 @@ type Query {
 	Incomplete results due to errors return both the partial Blocks and 
 	the associated errors.
 	"""
-	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
+	getBlocks(where: FilterBlock!, order: BlockOrder, limit: Int): [Block!]
 	"""
 	Retrieves a list of Transactions that match the given 
 	where criteria. If the result is incomplete due to errors, both partial
 	results and errors are returned.
 	"""
-	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
+	getTransactions(where: FilterTransaction!, order: TransactionOrder, limit: Int): [Transaction!]
 }
 """
 ` + "`" + `StorageDepositEvent` + "`" + ` is emitted when a storage deposit fee is locked.
@@ -3331,6 +3331,11 @@ func (ec *executionContext) field_Query_getBlocks_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["order"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg2
 	return args, nil
 }
 
@@ -3347,6 +3352,11 @@ func (ec *executionContext) field_Query_getTransactions_args(ctx context.Context
 		return nil, err
 	}
 	args["order"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg2
 	return args, nil
 }
 
@@ -5814,7 +5824,7 @@ func (ec *executionContext) _Query_getBlocks(ctx context.Context, field graphql.
 		ec.fieldContext_Query_getBlocks,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().GetBlocks(ctx, fc.Args["where"].(model.FilterBlock), fc.Args["order"].(*model.BlockOrder))
+			return ec.Resolvers.Query().GetBlocks(ctx, fc.Args["where"].(model.FilterBlock), fc.Args["order"].(*model.BlockOrder), fc.Args["limit"].(*int))
 		},
 		nil,
 		ec.marshalOBlock2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐBlockᚄ,
@@ -5891,7 +5901,7 @@ func (ec *executionContext) _Query_getTransactions(ctx context.Context, field gr
 		ec.fieldContext_Query_getTransactions,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().GetTransactions(ctx, fc.Args["where"].(model.FilterTransaction), fc.Args["order"].(*model.TransactionOrder))
+			return ec.Resolvers.Query().GetTransactions(ctx, fc.Args["where"].(model.FilterTransaction), fc.Args["order"].(*model.TransactionOrder), fc.Args["limit"].(*int))
 		},
 		nil,
 		ec.marshalOTransaction2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransactionᚄ,
