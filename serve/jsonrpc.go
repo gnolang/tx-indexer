@@ -140,7 +140,7 @@ func (j *JSONRPC) RegisterGasEndpoints(db gas.Storage) {
 }
 
 // RegisterSupplyEndpoints registers the supply endpoints. The handler is
-// shared with the GraphQL layer, so both surfaces serve one cache.
+// shared with the GraphQL layer, so both surfaces serve one snapshot.
 func (j *JSONRPC) RegisterSupplyEndpoints(h *supply.Handler) {
 	j.RegisterHandler(
 		"getSupply",

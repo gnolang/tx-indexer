@@ -132,10 +132,10 @@ func statusAt(height, unix int64) *core_types.ResultStatus {
 	}
 }
 
-// chainFixture answers one batch at one height, from plain maps. errBatch,
-// when set, fails the whole batch; errSupplyResponse, when set, makes every
-// bank/supply result carry an ABCI error — a chain without the route;
-// panicBatch, when set, makes the batch call panic.
+// chainFixture answers one batch at one height, from plain maps.
+// errBatch fails the whole batch when set; errSupplyResponse makes every
+// bank/supply result carry an ABCI error (a chain without the route);
+// panicBatch makes the batch call panic.
 type chainFixture struct {
 	supply   map[string]int64
 	balances map[crypto.Address]std.Coins
@@ -276,7 +276,7 @@ func TestNewVestingsRejectsUnbuildableSchedule(t *testing.T) {
 	t.Parallel()
 
 	// A schedule naming more than the row's balance cannot become a chain
-	// account — NewVestings must refuse it rather than silently skip.
+	// account, so NewVestings refuses it instead of silently skipping it.
 	_, err := NewVestings([]gnoland.Balance{
 		{
 			Address: vesterA,

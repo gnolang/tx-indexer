@@ -83,12 +83,12 @@ func New(
 // defaultGenesisBackoff is the pause between genesis bootstrap attempts.
 const defaultGenesisBackoff = 5 * time.Second
 
-// BootstrapGenesis loads the chain genesis, retrying until the node answers
-// or ctx is done. It runs before any other service starts, because two of
-// them depend on it: the fetcher needs the genesis block stored to index
-// from height 0, and the supply handler needs the genesis balances, where
-// the vesting schedules live. The returned balances are the genesis balance
-// rows, duplicated or not.
+// BootstrapGenesis loads the chain genesis, retrying until the node
+// answers or ctx is done. It runs before the other services because two
+// of them depend on it: the fetcher needs the genesis block stored to
+// index from height 0, and the supply handler needs the genesis balances
+// for the vesting schedules. The balances are returned as-is, duplicates
+// included.
 func (f *Fetcher) BootstrapGenesis(ctx context.Context) ([]gnoland.Balance, error) {
 	for {
 		balances, err := f.bootstrapGenesis(ctx)
@@ -107,10 +107,10 @@ func (f *Fetcher) BootstrapGenesis(ctx context.Context) ([]gnoland.Balance, erro
 }
 
 // bootstrapGenesis fetches the genesis document and, when the storage is
-// empty, writes the genesis block to it — the same slot fetchGenesisData
-// wrote when this lived inside FetchChainData. The document is fetched even
-// on a populated storage: the balances are not part of the stored block, so
-// the supply handler's data can only come from the document itself.
+// empty, writes the genesis block to it as a slot at height 0. The
+// document is fetched even when the storage is already populated: the
+// balances are not part of the stored block, so they can only come from
+// the document.
 func (f *Fetcher) bootstrapGenesis(ctx context.Context) ([]gnoland.Balance, error) {
 	f.logger.Info("Fetching genesis")
 
@@ -122,8 +122,8 @@ func (f *Fetcher) bootstrapGenesis(ctx context.Context) ([]gnoland.Balance, erro
 	_, err = f.storage.GetLatestHeight()
 	switch {
 	case err == nil:
-		// The storage already carries the chain — the genesis block is
-		// written, only the balances are needed.
+		// The storage already carries the chain. The genesis block is
+		// written, so only the balances are needed.
 		return state.Balances, nil
 	case !errors.Is(err, storageErrors.ErrNotFound):
 		// A storage error, not an empty storage.
@@ -170,9 +170,8 @@ func (f *Fetcher) bootstrapGenesis(ctx context.Context) ([]gnoland.Balance, erro
 	return state.Balances, nil
 }
 
-// FetchChainData starts the fetching process that indexes
-// blockchain data. The genesis block itself is not handled here —
-// BootstrapGenesis loads it before any service starts.
+// FetchChainData starts the fetching process that indexes blockchain
+// data. The genesis block is loaded beforehand by BootstrapGenesis.
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 

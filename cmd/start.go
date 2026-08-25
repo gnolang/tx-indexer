@@ -197,18 +197,18 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
-	// Bootstrap the chain genesis before any service starts: the fetcher
+	// Bootstrap the chain genesis before any service starts. The fetcher
 	// needs the genesis block stored, and the supply handler needs the
-	// genesis balances where the vesting schedules live. One fetch, one
-	// decode, both consumers.
+	// genesis balances, which is where the vesting schedules live. Doing
+	// it here means one fetch and one decode for both.
 	genesisBalances, err := f.BootstrapGenesis(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to bootstrap genesis, %w", err)
 	}
 
-	// The supply handler serves both the JSON-RPC and GraphQL surfaces, so
-	// they share one snapshot. Only the tracked denoms are ever queried, on
-	// the handler's own schedule — request input cannot reach the chain.
+	// The supply handler serves both the JSON-RPC and GraphQL surfaces from
+	// one shared snapshot. It only ever queries the tracked denoms, on its
+	// own schedule, so request input never reaches the chain.
 	denoms, err := parseSupplyDenoms(c.supplyDenoms)
 	if err != nil {
 		return err
@@ -289,9 +289,9 @@ func (c *startCfg) exec(ctx context.Context) error {
 }
 
 // parseSupplyDenoms splits the comma-separated flag value, validates each
-// denomination and refuses an empty list — an operator's typo or an empty
-// value fails at startup rather than leaving getSupply answering nothing
-// but errors.
+// denomination, and refuses an empty list. A typo or an empty value should
+// fail at startup instead of leaving getSupply to answer nothing but
+// errors.
 func parseSupplyDenoms(raw string) ([]string, error) {
 	var denoms []string
 

@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	// defaultRefreshInterval is how often the snapshot is rebuilt from the
-	// chain. The indexer talks to the node on its own schedule, like the
-	// fetcher — never on request.
+	// defaultRefreshInterval is how often the snapshot is rebuilt from
+	// the chain. Like the fetcher, the handler talks to the node on its
+	// own schedule and never on request.
 	defaultRefreshInterval = 10 * time.Second
 
 	// defaultComputeTimeout bounds one snapshot rebuild, so a stuck node
@@ -35,9 +35,9 @@ const (
 // ErrNotReady is returned before the first snapshot has been computed.
 var ErrNotReady = errors.New("supply snapshot not ready yet")
 
-// Client is the chain access the supply handler needs. Small on purpose:
-// the handler must stay testable against a mock, and the fetcher's Client
-// carries fetching concerns this handler does not have.
+// Client is the chain access the supply handler needs. Kept small so the
+// handler can be tested against a mock; the fetcher's Client drags in
+// fetching concerns this handler does not care about.
 type Client interface {
 	// GetStatus returns the chain status, for the height and block time
 	// the snapshot is computed at
@@ -55,14 +55,15 @@ type Vesting struct {
 	address crypto.Address
 }
 
-// NewVestings folds the genesis balance rows per address — last row wins,
-// and a plain row clears a previous vesting one, mirroring the chain's
-// applyBalance — and builds the chain accounts for the surviving schedules,
-// so a duplicated or overridden genesis row cannot double-count a lock.
+// NewVestings folds the genesis balance rows per address, with the same
+// rule the chain's applyBalance uses: the last row for an address wins,
+// and a plain row clears an earlier vesting one. It then rebuilds the
+// chain accounts for the surviving schedules, so a duplicated or
+// overridden row cannot double-count a lock.
 //
-// Pure: no network, no clock. The genesis balances come from the startup
-// bootstrap (fetch.BootstrapGenesis), so a failure here is a startup
-// failure, not something a background loop has to contain.
+// This is a pure function, no network and no clock. The balances come
+// from fetch.BootstrapGenesis at startup, so a failure here fails
+// startup instead of surfacing later in a background loop.
 func NewVestings(balances []gnoland.Balance) ([]Vesting, error) {
 	schedules := make(map[crypto.Address]gnoland.Balance)
 
@@ -97,9 +98,9 @@ func NewVestings(balances []gnoland.Balance) ([]Vesting, error) {
 	return vestings, nil
 }
 
-// newVestingAccount rebuilds the chain's account for a genesis schedule,
-// funded with the row's amount so the chain constructor validates the
-// schedule against it exactly as InitChain does.
+// newVestingAccount rebuilds the chain's account for a genesis schedule.
+// The account is funded with the row's amount so the chain constructor
+// validates the schedule against it, the same check InitChain runs.
 func newVestingAccount(
 	addr crypto.Address,
 	coins std.Coins,
@@ -122,10 +123,10 @@ type snapshot struct {
 }
 
 // Handler serves the supply of pre-registered denoms from a background
-// snapshot, refreshed on the handler's own schedule. Requests never reach
-// the chain: the denom set is fixed at construction, so request input cannot
-// amplify into node load, and a snapshot is either served whole or the last
-// good one keeps serving while a refresh fails.
+// snapshot that it refreshes on its own schedule. Requests never touch
+// the chain. The denom set is fixed at construction, so request input
+// cannot turn into node load, and when a refresh fails the last good
+// snapshot keeps serving.
 type Handler struct {
 	client          Client
 	logger          *zap.Logger
@@ -197,8 +198,8 @@ func (h *Handler) Start(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		// The refresh also runs before the first tick, so the endpoint
-		// answers as soon as it can rather than after one interval.
+		// The first refresh runs before the first tick, so the endpoint
+		// has an answer right away instead of after one interval.
 		h.refresh(ctx)
 
 		select {
@@ -274,13 +275,13 @@ func (h *Handler) tracked(denom string) bool {
 	return false
 }
 
-// refresh rebuilds the snapshot. Every read happens at one chain height, in
-// one batched round trip. The context is the lifecycle one Start runs under,
-// bounded by a timeout — so a shutdown cancels an in-flight refresh instead
-// of waiting out the timeout, while no request is ever waited on or able to
-// fail a refresh. A failed refresh leaves the previous snapshot serving, and
-// a panic is contained: this is a background loop with no request to unwind
-// into, and it must not take the indexer down.
+// refresh rebuilds the snapshot. All reads happen at one chain height,
+// in one batched round trip. The context comes from Start's lifecycle
+// context with a timeout on top: a shutdown cancels an in-flight
+// refresh instead of waiting out the timeout, and no request can ever
+// wait on it or fail it. If the rebuild fails, the previous snapshot
+// keeps serving. A panic is caught and logged, because a background
+// loop must not take the indexer down.
 func (h *Handler) refresh(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -314,9 +315,9 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 	height := status.SyncInfo.LatestBlockHeight
 	blockTime := status.SyncInfo.LatestBlockTime
 
-	// One batch, one height: the totals and every vesting balance come from
-	// the same block, and the round trips are the handler's own, not a
-	// request's.
+	// One batch at one height, so the totals and every vesting balance
+	// come from the same block. These round trips belong to the handler,
+	// never to a request.
 	paths := make([]string, 0, len(h.denoms)+len(h.vestings))
 	for _, denom := range h.denoms {
 		paths = append(paths, "bank/supply/"+denom)
@@ -360,10 +361,10 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 	supplies := make(map[string]*methods.Supply, len(h.denoms))
 
 	for _, denom := range h.denoms {
-		// Locked is the still-unvested amount clamped to the balance
-		// actually held — fees and storage refunds bypass the lock and can
-		// spend into the locked portion, and a lock on coins nobody holds
-		// locks nothing.
+		// Locked is the still-unvested amount, clamped to the balance the
+		// account actually holds. Fees and storage refunds bypass the lock
+		// and can eat into the locked portion, and there is nothing to
+		// lock if the coins are already gone.
 		var locked int64
 
 		for _, vesting := range h.vestings {

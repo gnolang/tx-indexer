@@ -273,18 +273,17 @@ returned:
 
 Returns the supply of a tracked denomination at a recent chain height, split by spendability: how much of it exists
 (`total`), how much of that is held by vesting accounts under a schedule that has not vested yet (`locked`), and the
-difference (`spendable`) — the figure data aggregators call the circulating supply.
+difference (`spendable`), which is what data aggregators call the circulating supply.
 
-- **Params**: `denom` — a tracked denomination, e.g. `ugnot`
+- **Params**: `denom`, a tracked denomination, e.g. `ugnot`
 - **Response**: `{ denom, height, total, spendable, locked }`, amounts as strings
 
-The figures are served from a background snapshot the indexer refreshes on its own schedule (every 10 seconds), so
-requests never reach the chain and a request cannot amplify into node load. The snapshot is bounded to the
-`--supply-denoms` flag (default `ugnot`): the total comes from the chain's per-denom supply counter, and the locked
-portion is computed from the vesting schedules in the chain genesis — vesting accounts are created only at genesis,
-and schedules are immutable — evaluated at the snapshot's block time and clamped to the balance each account actually
-holds. Every figure in one snapshot was read at the same height, in one batched query. A failed refresh keeps the
-last good snapshot serving.
+The figures come from a background snapshot the indexer refreshes on its own schedule (every 10 seconds), so requests
+never reach the chain. The snapshot covers only the denoms listed in `--supply-denoms` (default `ugnot`): the total is
+read from the chain's per-denom supply counter, and the locked portion is computed from the vesting schedules in the
+chain genesis, evaluated at the snapshot's block time and clamped to the balance each account actually holds. All
+figures in a snapshot were read at the same height, in one batched query. If a refresh fails, the last good snapshot
+keeps serving.
 
 Example request:
 
