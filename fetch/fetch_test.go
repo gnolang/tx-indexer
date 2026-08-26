@@ -1206,23 +1206,6 @@ func generateTransactions(t *testing.T, count int) []*std.Tx {
 	return txs
 }
 
-// generateGenesisTransactions generates dummy genesis transactions
-func generateGenesisTransactions(t *testing.T, count int) []*gnoland.TxWithMetadata {
-	t.Helper()
-
-	txs := make([]*gnoland.TxWithMetadata, count)
-
-	for i := 0; i < count; i++ {
-		txs[i] = &gnoland.TxWithMetadata{
-			Tx: std.Tx{
-				Memo: fmt.Sprintf("memo %d", i),
-			},
-		}
-	}
-
-	return txs
-}
-
 // generateBlocks generates dummy blocks
 func generateBlocks(
 	t *testing.T,
