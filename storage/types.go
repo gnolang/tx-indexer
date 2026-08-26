@@ -3,6 +3,7 @@ package storage
 import (
 	"io"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 )
 
@@ -18,6 +19,15 @@ type Reader interface {
 	io.Closer
 	// GetLatestHeight returns the latest block height from the storage
 	GetLatestHeight() (uint64, error)
+
+	// GetGenesisChainID returns the chain ID of the bootstrapped genesis, or
+	// ErrNotFound if the genesis has not been fully bootstrapped into this
+	// storage. It is written last, so its presence marks the bootstrap done —
+	// which is why the completion check never has to decode the balances
+	GetGenesisChainID() (string, error)
+
+	// GetGenesisBalances returns the stored genesis balance rows, unfolded
+	GetGenesisBalances() ([]gnoland.Balance, error)
 
 	// GetBlock fetches the block by its number
 	GetBlock(uint64) (*types.Block, error)
@@ -62,6 +72,11 @@ type Writer interface {
 type Batch interface {
 	// SetLatestHeight saves the latest block height to the storage
 	SetLatestHeight(uint64) error
+	// SetGenesisBalances saves the genesis balance rows to the permanent storage
+	SetGenesisBalances(balances []gnoland.Balance) error
+	// SetGenesisChainID saves the genesis chain ID. It marks the bootstrap
+	// complete, so it must be committed after everything else genesis writes
+	SetGenesisChainID(chainID string) error
 	// SetBlock saves the block to the permanent storage
 	SetBlock(block *types.Block) error
 	// SetTx saves the transaction to the permanent storage

@@ -16,15 +16,17 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 
-	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
+	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
 	"github.com/gnolang/tx-indexer/storage"
+
+	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
 const (
@@ -197,15 +199,6 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
-	// Bootstrap the chain genesis before any service starts. The fetcher
-	// needs the genesis block stored, and the supply handler needs the
-	// genesis balances, which is where the vesting schedules live. Doing
-	// it here means one fetch and one decode for both.
-	genesisBalances, err := f.BootstrapGenesis(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to bootstrap genesis, %w", err)
-	}
-
 	// The supply handler serves both the JSON-RPC and GraphQL surfaces from
 	// one shared snapshot. It only ever queries the tracked denoms, on its
 	// own schedule, so request input never reaches the chain.
@@ -214,18 +207,13 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return err
 	}
 
-	vestings, err := supply.NewVestings(genesisBalances)
-	if err != nil {
-		return fmt.Errorf("unable to parse genesis vesting schedules, %w", err)
-	}
-
 	supplyHandler := supply.NewHandler(
 		tm2Client,
+		db,
 		supply.WithLogger(
 			logger.Named("supply"),
 		),
 		supply.WithDenoms(denoms),
-		supply.WithVestings(vestings),
 	)
 
 	// Create the JSON-RPC service
@@ -272,20 +260,68 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// Create a new waiter
 	w := newWaiter(ctx)
 
-	// Add the fetcher service
-	w.add(f.FetchChainData)
+	// genesisReady is closed once the chain genesis is in the storage. Two
+	// services read it from there and so wait on it: the fetcher indexes from
+	// height 0, and the supply handler folds the genesis balances into vesting
+	// schedules.
+	genesisReady := make(chan struct{})
 
-	// Add the supply snapshot refresher
-	w.add(supplyHandler.Start)
+	// Add the genesis bootstrap. It runs beside the HTTP server rather than
+	// ahead of it, because it retries until the node answers: a restart during
+	// a node outage keeps serving what the storage already holds instead of
+	// leaving every port shut until the node is back. A no-op once the storage
+	// carries this chain's genesis.
+	w.add(func(ctx context.Context) error {
+		if err := genesis.Bootstrap(
+			ctx,
+			db,
+			tm2Client,
+			genesis.WithLogger(
+				logger.Named("genesis"),
+			),
+		); err != nil {
+			if errors.Is(err, context.Canceled) {
+				// Shut down while still retrying, like the other services
+				// returning on a cancelled context
+				return nil
+			}
+
+			return fmt.Errorf("unable to bootstrap genesis, %w", err)
+		}
+
+		close(genesisReady)
+
+		return nil
+	})
 
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
+
+	// Add the fetcher service
+	w.add(afterGenesis(genesisReady, f.FetchChainData))
+
+	// Add the supply snapshot refresher
+	w.add(afterGenesis(genesisReady, supplyHandler.Start))
 
 	// Wait for the services to stop
 	return errors.Join(
 		w.wait(),
 		logger.Sync(),
 	)
+}
+
+// afterGenesis holds a service back until the genesis bootstrap has stored the
+// chain genesis, for the services that read it from the storage. A shutdown
+// before the bootstrap succeeds never starts the service at all.
+func afterGenesis(ready <-chan struct{}, fn waitFunc) waitFunc {
+	return func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ready:
+			return fn(ctx)
+		}
+	}
 }
 
 // parseSupplyDenoms splits the comma-separated flag value, validates each

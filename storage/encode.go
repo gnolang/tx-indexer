@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/pkg/errors"
@@ -259,4 +260,26 @@ func decodeTx(encodedTx []byte) (*types.TxResult, error) {
 	}
 
 	return &tx, nil
+}
+
+// genesisBalances wraps the rows so amino has a struct to work with, and so
+// the record can gain fields later without breaking what is already on disk.
+type genesisBalances struct {
+	Balances []gnoland.Balance
+}
+
+// encodeGenesisBalances encodes the genesis balance rows in Amino binary
+func encodeGenesisBalances(balances []gnoland.Balance) ([]byte, error) {
+	return amino.Marshal(genesisBalances{Balances: balances})
+}
+
+// decodeGenesisBalances decodes the Amino encoded genesis balance rows
+func decodeGenesisBalances(encodedBalances []byte) ([]gnoland.Balance, error) {
+	var wrapped genesisBalances
+
+	if err := amino.Unmarshal(encodedBalances, &wrapped); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal Amino genesis balances, %w", err)
+	}
+
+	return wrapped.Balances, nil
 }

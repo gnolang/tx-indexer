@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"go.uber.org/multierr"
 
@@ -17,6 +18,14 @@ const (
 	// keyLatestHeight is the quick lookup key
 	// for the latest height saved in the DB
 	keyLatestHeight = "/meta/lh"
+
+	// keyGenesisChainID is the chain ID of the bootstrapped genesis. Kept
+	// apart from the balances so the bootstrap can check for a completed
+	// genesis without decoding them
+	keyGenesisChainID = "/meta/genesis/chainid"
+
+	// keyGenesisBalances holds the genesis balance rows, unfolded
+	keyGenesisBalances = "/meta/genesis/balances"
 
 	// prefixKeyBlocks is the key for each block saved. They are stored by height
 	prefixKeyBlocks = "/data/blocks/"
@@ -94,6 +103,40 @@ func (s *Pebble) GetLatestHeight() (uint64, error) {
 	_, val, err := decodeUint64Ascending(height)
 
 	return val, err
+}
+
+// GetGenesisChainID fetches the chain ID of the bootstrapped genesis, if any
+func (s *Pebble) GetGenesisChainID() (string, error) {
+	chainID, c, err := s.db.Get([]byte(keyGenesisChainID))
+	if errors.Is(err, pebble.ErrNotFound) {
+		return "", storageErrors.ErrNotFound
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	defer c.Close()
+
+	// Stored raw: a chain ID is a string, and amino would only add a header
+	// to a value the bootstrap reads on every startup.
+	return string(chainID), nil
+}
+
+// GetGenesisBalances fetches the genesis balance rows from storage, if any
+func (s *Pebble) GetGenesisBalances() ([]gnoland.Balance, error) {
+	balances, c, err := s.db.Get([]byte(keyGenesisBalances))
+	if errors.Is(err, pebble.ErrNotFound) {
+		return nil, storageErrors.ErrNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer c.Close()
+
+	return decodeGenesisBalances(balances)
 }
 
 // GetBlock fetches the specified block from storage, if any
@@ -494,6 +537,19 @@ func (b *PebbleBatch) SetLatestHeight(h uint64) error {
 	val = encodeUint64Ascending(val, h)
 
 	return b.b.Set([]byte(keyLatestHeight), val, pebble.NoSync)
+}
+
+func (b *PebbleBatch) SetGenesisBalances(balances []gnoland.Balance) error {
+	eb, err := encodeGenesisBalances(balances)
+	if err != nil {
+		return err
+	}
+
+	return b.b.Set([]byte(keyGenesisBalances), eb, pebble.NoSync)
+}
+
+func (b *PebbleBatch) SetGenesisChainID(chainID string) error {
+	return b.b.Set([]byte(keyGenesisChainID), []byte(chainID), pebble.NoSync)
 }
 
 func (b *PebbleBatch) SetBlock(block *types.Block) error {

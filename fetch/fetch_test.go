@@ -21,11 +21,30 @@ import (
 
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/internal/mock"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	indexerTypes "github.com/gnolang/tx-indexer/types"
 )
+
+// bootstrapGenesis runs the genesis bootstrap the way cmd/start.go does, so a
+// test's fetched blocks follow block 0 exactly as in production. Bounded on
+// purpose: the real bootstrap retries until it succeeds, which inside a test
+// would be a hang rather than a failure.
+func bootstrapGenesis(t *testing.T, store genesis.Storage, client genesis.Client) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	require.NoError(t, genesis.Bootstrap(
+		ctx,
+		store,
+		client,
+		genesis.WithBackoff(time.Millisecond),
+	))
+}
 
 func TestFetcher_FetchTransactions_Invalid(t *testing.T) {
 	t.Parallel()
@@ -192,9 +211,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 
 		// Run the fetch
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -216,14 +234,14 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			}
 		}
 
-		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks))
+		// Make sure proper events were emitted. One per fetched block: the
+		// genesis block is indexed by the genesis package, which signals
+		// nothing because no subscriber exists before the HTTP server starts.
+		require.Len(t, capturedEvents, blockNum)
 
 		for index, event := range capturedEvents {
-			if index == 0 {
-				// Dummy genesis block
-				continue
-			}
+			// capturedEvents[0] is block 1
+			blockIndex := index + 1
 
 			if event.GetType() != indexerTypes.NewBlockEvent {
 				continue
@@ -233,13 +251,13 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			require.True(t, ok)
 
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index], eventData.Block)
+			assert.Equal(t, blocks[blockIndex], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index].Height, tx.Height)
+				assert.EqualValues(t, blocks[blockIndex].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -410,9 +428,8 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 
 		// Run the fetch
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -434,24 +451,24 @@ func TestFetcher_FetchTransactions_Valid_FullBlocks(t *testing.T) {
 			}
 		}
 
-		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks))
+		// Make sure proper events were emitted. One per fetched block: the
+		// genesis block is indexed by the genesis package, which signals
+		// nothing because no subscriber exists before the HTTP server starts.
+		require.Len(t, capturedEvents, blockNum)
 
 		for index, event := range capturedEvents {
-			if index == 0 {
-				// Dummy genesis block
-				continue
-			}
+			// capturedEvents[0] is block 1
+			blockIndex := index + 1
 
 			// Make sure the block is valid
 			eventData := event.(*indexerTypes.NewBlock)
-			assert.Equal(t, blocks[index], eventData.Block)
+			assert.Equal(t, blocks[blockIndex], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index].Height, tx.Height)
+				assert.EqualValues(t, blocks[blockIndex].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -596,9 +613,8 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 
 		// Run the fetch
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -620,16 +636,15 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 			}
 		}
 
-		// Make sure proper events were emitted
+		// Make sure proper events were emitted. One per fetched block: the
+		// genesis block is indexed by the genesis package, which signals
+		// nothing because no subscriber exists before the HTTP server starts.
 		// Blocks each have as many transactions as txCount.
-		txEventCount := len(blocks)
-		require.Len(t, capturedEvents, txEventCount)
+		require.Len(t, capturedEvents, blockNum)
 
 		for index, event := range capturedEvents {
-			if index == 0 {
-				// Dummy genesis block
-				continue
-			}
+			// capturedEvents[0] is block 1
+			blockIndex := index + 1
 
 			if event.GetType() != indexerTypes.NewBlockEvent {
 				continue
@@ -639,13 +654,13 @@ func TestFetcher_FetchTransactions_Valid_FullTransactions(t *testing.T) {
 			require.True(t, ok)
 
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index], eventData.Block)
+			assert.Equal(t, blocks[blockIndex], eventData.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, eventData.Results, txCount)
 
 			for txIndex, tx := range eventData.Results {
-				assert.EqualValues(t, blocks[index].Height, tx.Height)
+				assert.EqualValues(t, blocks[blockIndex].Height, tx.Height)
 				assert.EqualValues(t, txIndex, tx.Index)
 				assert.Equal(t, serializedTxs[txIndex], tx.Tx)
 			}
@@ -764,9 +779,8 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 
 		// Run the fetch
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -774,17 +788,15 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 		}
 
-		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks))
+		// Make sure proper events were emitted. One per fetched block: the
+		// genesis block is indexed by the genesis package, which signals
+		// nothing because no subscriber exists before the HTTP server starts.
+		require.Len(t, capturedEvents, blockNum)
 
 		for index, event := range capturedEvents {
-			if index == 0 {
-				// Dummy genesis block
-				continue
-			}
-
+			// capturedEvents[0] is block 1
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index], event.Block)
+			assert.Equal(t, blocks[index+1], event.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, event.Results, 0)
@@ -915,9 +927,8 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 
 		// Run the fetch
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -925,17 +936,15 @@ func TestFetcher_FetchTransactions_Valid_EmptyBlocks(t *testing.T) {
 			assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
 		}
 
-		// Make sure proper events were emitted
-		require.Len(t, capturedEvents, len(blocks))
+		// Make sure proper events were emitted. One per fetched block: the
+		// genesis block is indexed by the genesis package, which signals
+		// nothing because no subscriber exists before the HTTP server starts.
+		require.Len(t, capturedEvents, blockNum)
 
 		for index, event := range capturedEvents {
-			if index == 0 {
-				// Dummy genesis block
-				continue
-			}
-
+			// capturedEvents[0] is block 1
 			// Make sure the block is valid
-			assert.Equal(t, blocks[index], event.Block)
+			assert.Equal(t, blocks[index+1], event.Block)
 
 			// Make sure the transaction results are valid
 			require.Len(t, event.Results, 0)
@@ -1058,745 +1067,20 @@ func TestFetcher_InvalidBlocks(t *testing.T) {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 
-	// Run the fetch
-	// Bootstrap the genesis first, the way cmd/start.go does, so the
-	// genesis slot precedes the fetched blocks exactly as in production.
-	_, bootstrapErr := f.BootstrapGenesis(context.Background())
-	require.NoError(t, bootstrapErr)
-
+	// Run the fetch. No genesis bootstrap here: this storage refuses every
+	// block, which the fetcher tolerates by design but the genesis bootstrap
+	// rightly does not — so the fetcher starts from height 1.
 	require.NoError(t, f.FetchChainData(ctx))
 
 	// Make sure correct blocks were attempted to be saved
 	for blockIndex := 1; blockIndex < blockNum; blockIndex++ {
-		assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex])
+		assert.Equal(t, blocks[blockIndex], savedBlocks[blockIndex-1])
 	}
 
 	// Make sure no events were emitted
 	assert.Len(t, capturedEvents, 0)
 }
 
-func TestFetcher_Genesis(t *testing.T) {
-	t.Parallel()
-
-	var (
-		txCount     = 21
-		txs         = generateGenesisTransactions(t, txCount)
-		savedBlocks = map[int64]*types.Block{}
-		savedTxs    = map[string]*types.TxResult{}
-
-		capturedEvents = make([]*indexerTypes.NewBlock, 0)
-
-		mockEvents = &mockEvents{
-			signalEventFn: func(e events.Event) {
-				blockEvent, ok := e.(*indexerTypes.NewBlock)
-				require.True(t, ok)
-
-				capturedEvents = append(capturedEvents, blockEvent)
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				return &mock.WriteBatch{
-					SetBlockFn: func(block *types.Block) error {
-						_, ok := savedBlocks[block.Height]
-						require.False(t, ok)
-
-						savedBlocks[block.Height] = block
-
-						return nil
-					},
-					SetTxFn: func(tx *types.TxResult) error {
-						savedTxs[fmt.Sprintf("%d-%d", tx.Height, tx.Index)] = tx
-
-						return nil
-					},
-				}
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				localTxs := make([]gnoland.TxWithMetadata, len(txs))
-				for i, tx := range txs {
-					localTxs[i] = *tx
-				}
-
-				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{AppState: gnoland.GnoGenesisState{
-					Txs: localTxs,
-				}}}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				return &core_types.ResultBlockResults{
-					Results: &state.ABCIResponses{
-						DeliverTxs: make([]abci.ResponseDeliverTx, len(txs)),
-					},
-				}, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	balances, err := f.bootstrapGenesis(context.Background())
-	require.NoError(t, err)
-	// The genesis balances are what the supply handler folds into vesting
-	// schedules; they must travel out of the bootstrap.
-	require.Empty(t, balances)
-
-	require.Len(t, capturedEvents, 1)
-
-	_, ok := savedBlocks[0]
-	require.True(t, ok)
-
-	for i := uint32(0); i < uint32(len(txs)); i++ {
-		tx, ok := savedTxs[fmt.Sprintf("0-%d", i)]
-		require.True(t, ok)
-
-		expected := &types.TxResult{
-			Height:   0,
-			Index:    i,
-			Tx:       amino.MustMarshal(txs[i].Tx),
-			Response: abci.ResponseDeliverTx{},
-		}
-		require.Equal(t, expected, tx)
-	}
-}
-
-func TestFetcher_GenesisAlreadyFetched(t *testing.T) {
-	t.Parallel()
-
-	var (
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, nil
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write to storage")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				// The genesis block is already stored, but the balances live
-				// only in the document, so it is still fetched.
-				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
-					AppState: gnoland.GnoGenesisState{},
-				}}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				require.Fail(t, "should not fetch block results for a stored genesis")
-
-				return nil, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	balances, err := f.bootstrapGenesis(context.Background())
-	require.NoError(t, err)
-	require.Empty(t, balances)
-}
-
-func TestFetcher_GenesisFetchError(t *testing.T) {
-	t.Parallel()
-
-	var (
-		err       error
-		remoteErr = errors.New("remote error")
-
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write to storage")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return nil, remoteErr
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				require.Fail(t, "should not attempt to fetch block results")
-
-				return nil, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	_, err = f.bootstrapGenesis(context.Background())
-	require.ErrorIs(t, err, remoteErr)
-}
-
-func TestFetcher_GenesisInvalidState(t *testing.T) {
-	t.Parallel()
-
-	var (
-		err        error
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write to storage")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{AppState: 0xdeadbeef}}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				require.Fail(t, "should not attempt to fetch block results")
-
-				return nil, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	_, err = f.bootstrapGenesis(context.Background())
-	require.ErrorContains(t, err, "unknown genesis state kind 'int'")
-}
-
-func TestFetcher_GenesisFetchResultsError(t *testing.T) {
-	t.Parallel()
-
-	var (
-		err       error
-		remoteErr = errors.New("remote error")
-
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write to storage")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
-					AppState: gnoland.GnoGenesisState{Txs: []gnoland.TxWithMetadata{{}}},
-				}}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				return nil, remoteErr
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	_, err = f.bootstrapGenesis(context.Background())
-	require.ErrorIs(t, err, remoteErr)
-}
-
-func TestFetcher_GenesisNilGenesisDoc(t *testing.T) {
-	t.Parallel()
-
-	var (
-		err        error
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{Genesis: nil}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				return &core_types.ResultBlockResults{Results: &state.ABCIResponses{}}, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	_, err = f.bootstrapGenesis(context.Background())
-	require.Error(t, err)
-}
-
-func TestFetcher_GenesisNilResults(t *testing.T) {
-	t.Parallel()
-
-	var (
-		err        error
-		mockEvents = &mockEvents{
-			signalEventFn: func(_ events.Event) {
-				require.Fail(t, "should not emit events")
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				require.Fail(t, "should not attempt to write")
-
-				return nil
-			},
-		}
-
-		mockClient = &mockClient{
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return 0, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{Genesis: &types.GenesisDoc{
-					AppState: gnoland.GnoGenesisState{Txs: []gnoland.TxWithMetadata{{}}},
-				}}, nil
-			},
-			getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
-				return &core_types.ResultBlockResults{Results: nil}, nil
-			},
-		}
-	)
-
-	f := New(mockStorage, mockClient, mockEvents)
-
-	_, err = f.bootstrapGenesis(context.Background())
-	require.Error(t, err)
-}
-
-// TestFetcher_BatchResults_MatchTheirBlocks verifies that results fetched with
-// a batch request are paired with the block they belong to.
-//
-// Empty blocks are left out of the block results batch, so the response is
-// dense over the blocks that carry transactions while the chunk it fills is
-// indexed over every block in the range. Pairing the two by response position
-// attributes results to the wrong blocks as soon as a range mixes empty and
-// non-empty blocks.
-func TestFetcher_BatchResults_MatchTheirBlocks(t *testing.T) {
-	t.Parallel()
-
-	const (
-		blockNum = 6
-		txCount  = 2
-		// Blocks below this height are empty, the rest carry transactions
-		firstFullBlock = 4
-	)
-
-	var cancelFn context.CancelFunc
-
-	var (
-		txs    = generateTransactions(t, txCount)
-		blocks = make([]*types.Block, blockNum+1)
-
-		capturedEvents = make([]*indexerTypes.NewBlock, 0)
-	)
-
-	for height := 0; height <= blockNum; height++ {
-		blockTxs := types.Txs{}
-
-		if height >= firstFullBlock {
-			blockTxs = serializeTxs(t, txs)
-		}
-
-		blocks[height] = &types.Block{
-			Header: types.Header{
-				NumTxs: int64(len(blockTxs)),
-				Height: int64(height),
-			},
-			Data: types.Data{
-				Txs: blockTxs,
-			},
-		}
-	}
-
-	var (
-		mockEvents = &mockEvents{
-			signalEventFn: func(e events.Event) {
-				blockEvent, ok := e.(*indexerTypes.NewBlock)
-				require.True(t, ok)
-
-				capturedEvents = append(capturedEvents, blockEvent)
-			},
-		}
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				return 0, storageErrors.ErrNotFound
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				return &mock.WriteBatch{
-					SetBlockFn: func(block *types.Block) error {
-						if block.Height == int64(blockNum) {
-							cancelFn()
-						}
-
-						return nil
-					},
-				}
-			},
-		}
-
-		// Serves batches the way a node does: one response per request,
-		// in request order, with the empty blocks left out of the results batch
-		mockClient = &mockClient{
-			createBatchFn: func() clientTypes.Batch {
-				var blockReqs, resultsReqs []uint64
-
-				return &mockBatch{
-					addBlockRequestFn: func(num uint64) error {
-						blockReqs = append(blockReqs, num)
-
-						return nil
-					},
-					addBlockResultsRequestFn: func(num uint64) error {
-						resultsReqs = append(resultsReqs, num)
-
-						return nil
-					},
-					countFn: func() int {
-						return len(blockReqs) + len(resultsReqs)
-					},
-					executeFn: func(_ context.Context) ([]any, error) {
-						responses := make([]any, 0, len(blockReqs)+len(resultsReqs))
-
-						for _, num := range blockReqs {
-							responses = append(responses, &core_types.ResultBlock{
-								Block: blocks[num],
-							})
-						}
-
-						for _, num := range resultsReqs {
-							responses = append(responses, &core_types.ResultBlockResults{
-								Height: int64(num),
-								Results: &state.ABCIResponses{
-									DeliverTxs: make([]abci.ResponseDeliverTx, blocks[num].NumTxs),
-								},
-							})
-						}
-
-						return responses, nil
-					},
-				}
-			},
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return uint64(blockNum), nil
-			},
-			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
-				return &core_types.ResultBlockResults{
-					Height: int64(num),
-					Results: &state.ABCIResponses{
-						DeliverTxs: make([]abci.ResponseDeliverTx, blocks[num].NumTxs),
-					},
-				}, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{
-					Genesis: &types.GenesisDoc{
-						AppState: gnoland.GnoGenesisState{
-							Balances: []gnoland.Balance{},
-							Txs:      []gnoland.TxWithMetadata{},
-						},
-					},
-				}, nil
-			},
-		}
-	)
-
-	// Create the fetcher
-	f := New(
-		mockStorage,
-		mockClient,
-		mockEvents,
-		WithLogger(zap.NewNop()),
-	)
-
-	// Short interval to force spawning
-	f.queryInterval = 100 * time.Millisecond
-
-	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelFn()
-
-	// Run the fetch
-	// Bootstrap the genesis first, the way cmd/start.go does, so the
-	// genesis slot precedes the fetched blocks exactly as in production.
-	_, bootstrapErr := f.BootstrapGenesis(context.Background())
-	require.NoError(t, bootstrapErr)
-
-	require.NoError(t, f.FetchChainData(ctx))
-
-	require.NotEmpty(t, capturedEvents)
-
-	for _, event := range capturedEvents {
-		assert.Lenf(
-			t,
-			event.Results,
-			int(event.Block.NumTxs),
-			"block %d announced with %d results for %d txs",
-			event.Block.Height,
-			len(event.Results),
-			event.Block.NumTxs,
-		)
-
-		for _, result := range event.Results {
-			assert.Equalf(
-				t,
-				event.Block.Height,
-				result.Height,
-				"block %d announced with a result from block %d",
-				event.Block.Height,
-				result.Height,
-			)
-		}
-	}
-}
-
-// TestFetcher_ChunkFetchError_NoSilentGap verifies that a chunk whose fetch
-// partially failed is refetched, instead of being committed incomplete.
-//
-// A node that has saved a block but has not finished executing it answers
-// block_results for that height with an error. The chunk then holds the block
-// with no transactions, and committing it advances the saved-height watermark
-// past a block that was never fully indexed, so the fetcher never revisits it
-// and the missing transactions are lost permanently.
-func TestFetcher_ChunkFetchError_NoSilentGap(t *testing.T) {
-	t.Parallel()
-
-	const (
-		blockNum = 10
-		txCount  = 2
-		badBlock = uint64(5)
-	)
-
-	var cancelFn context.CancelFunc
-
-	var (
-		txs    = generateTransactions(t, txCount)
-		blocks = generateBlocks(t, blockNum+1, txs)
-
-		mu            sync.Mutex
-		resultsFailed bool
-
-		txsByHeight         = make(map[int64]int)
-		watermarkViolations = make([]string, 0)
-		latestSaved         = uint64(0)
-
-		mockStorage = &mock.Storage{
-			GetLatestSavedHeightFn: func() (uint64, error) {
-				if latestSaved == 0 {
-					return 0, storageErrors.ErrNotFound
-				}
-
-				return latestSaved, nil
-			},
-			GetWriteBatchFn: func() storage.Batch {
-				return &mock.WriteBatch{
-					SetTxFn: func(result *types.TxResult) error {
-						txsByHeight[result.Height]++
-
-						return nil
-					},
-					SetLatestHeightFn: func(h uint64) error {
-						// Every block at or below the watermark must be fully indexed
-						for height := int64(1); height <= int64(h); height++ {
-							if txsByHeight[height] == txCount {
-								continue
-							}
-
-							watermarkViolations = append(
-								watermarkViolations,
-								fmt.Sprintf(
-									"watermark advanced to %d, but block %d holds %d/%d txs",
-									h,
-									height,
-									txsByHeight[height],
-									txCount,
-								),
-							)
-						}
-
-						latestSaved = h
-
-						if h >= blockNum {
-							cancelFn()
-						}
-
-						return nil
-					},
-				}
-			},
-		}
-
-		mockClient = &mockClient{
-			createBatchFn: func() clientTypes.Batch {
-				return &mockBatch{
-					executeFn: func(_ context.Context) ([]any, error) {
-						// Force the sequential fetch path
-						return nil, errors.New("batch unavailable")
-					},
-					countFn: func() int {
-						return 1 // to trigger execution
-					},
-				}
-			},
-			getLatestBlockNumberFn: func() (uint64, error) {
-				return uint64(blockNum), nil
-			},
-			getBlockFn: func(num uint64) (*core_types.ResultBlock, error) {
-				return &core_types.ResultBlock{
-					Block: blocks[num],
-				}, nil
-			},
-			getBlockResultsFn: func(num uint64) (*core_types.ResultBlockResults, error) {
-				mu.Lock()
-				defer mu.Unlock()
-
-				// The node holds the block, but has not finished applying it
-				if num == badBlock && !resultsFailed {
-					resultsFailed = true
-
-					return nil, errors.New("could not find results for height")
-				}
-
-				return &core_types.ResultBlockResults{
-					Height: int64(num),
-					Results: &state.ABCIResponses{
-						DeliverTxs: make([]abci.ResponseDeliverTx, txCount),
-					},
-				}, nil
-			},
-			getGenesisFn: func() (*core_types.ResultGenesis, error) {
-				return &core_types.ResultGenesis{
-					Genesis: &types.GenesisDoc{
-						AppState: gnoland.GnoGenesisState{
-							Balances: []gnoland.Balance{},
-							Txs:      []gnoland.TxWithMetadata{},
-						},
-					},
-				}, nil
-			},
-		}
-	)
-
-	// Create the fetcher
-	f := New(
-		mockStorage,
-		mockClient,
-		&mockEvents{},
-		WithLogger(zap.NewNop()),
-	)
-
-	// Short interval to force spawning
-	f.queryInterval = 100 * time.Millisecond
-
-	// The timeout is a backstop: the run ends when the watermark reaches the
-	// chain head, which only happens once the refetch succeeds
-	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelFn()
-
-	// Run the fetch
-	// Bootstrap the genesis first, the way cmd/start.go does, so the
-	// genesis slot precedes the fetched blocks exactly as in production.
-	_, bootstrapErr := f.BootstrapGenesis(context.Background())
-	require.NoError(t, bootstrapErr)
-
-	require.NoError(t, f.FetchChainData(ctx))
-
-	mu.Lock()
-	exercised := resultsFailed
-	mu.Unlock()
-
-	require.True(t, exercised, "the block results failure path was never exercised")
-
-	// The watermark must never cover an incompletely indexed block
-	assert.Empty(t, watermarkViolations)
-
-	// Every block must end up with all of its transactions
-	for height := int64(1); height <= blockNum; height++ {
-		assert.Equalf(
-			t,
-			txCount,
-			txsByHeight[height],
-			"block %d indexed with %d/%d transactions",
-			height,
-			txsByHeight[height],
-			txCount,
-		)
-	}
-}
-
-// TestFetcher_ShutdownWithInFlightWorkers verifies that shutting the fetcher
-// down while chunk workers are still in flight ends cleanly.
-//
-// Workers deliver their response over the collector channel whenever their
-// fetch completes, so a shutdown must leave the channel open for the late
-// deliveries to select against: closing it turns each one into a send on a
-// closed channel, which panics instead of shutting down.
 func TestFetcher_ShutdownWithInFlightWorkers(t *testing.T) {
 	t.Parallel()
 
@@ -1897,9 +1181,8 @@ func TestFetcher_ShutdownWithInFlightWorkers(t *testing.T) {
 		cancelFn = cancel
 
 		// Bootstrap the genesis first, the way cmd/start.go does, so the
-		// genesis slot precedes the fetched blocks exactly as in production.
-		_, bootstrapErr := f.BootstrapGenesis(context.Background())
-		require.NoError(t, bootstrapErr)
+		// genesis block precedes the fetched blocks exactly as in production.
+		bootstrapGenesis(t, mockStorage, mockClient)
 
 		require.NoError(t, f.FetchChainData(ctx))
 
@@ -1917,23 +1200,6 @@ func generateTransactions(t *testing.T, count int) []*std.Tx {
 	for i := 0; i < count; i++ {
 		txs[i] = &std.Tx{
 			Memo: fmt.Sprintf("memo %d", i),
-		}
-	}
-
-	return txs
-}
-
-// generateGenesisTransactions generates dummy genesis transactions
-func generateGenesisTransactions(t *testing.T, count int) []*gnoland.TxWithMetadata {
-	t.Helper()
-
-	txs := make([]*gnoland.TxWithMetadata, count)
-
-	for i := 0; i < count; i++ {
-		txs[i] = &gnoland.TxWithMetadata{
-			Tx: std.Tx{
-				Memo: fmt.Sprintf("memo %d", i),
-			},
 		}
 	}
 

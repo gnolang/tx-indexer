@@ -7,14 +7,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	"github.com/gnolang/gno/tm2/pkg/amino"
 	core_types "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/crypto"
 	"github.com/gnolang/gno/tm2/pkg/overflow"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"go.uber.org/zap"
-
-	"github.com/gnolang/gno/gno.land/pkg/gnoland"
-	"github.com/gnolang/gno/tm2/pkg/amino"
 
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/methods"
@@ -48,6 +47,14 @@ type Client interface {
 	ABCIQueryBatchAtHeight(ctx context.Context, height int64, paths []string) ([]*core_types.ResultABCIQuery, error)
 }
 
+// Storage is the storage access the supply handler needs. The genesis balance
+// rows are put there by the startup bootstrap, so the handler reads its own
+// input instead of having it threaded down from main.
+type Storage interface {
+	// GetGenesisBalances returns the stored genesis balance rows, unfolded
+	GetGenesisBalances() ([]gnoland.Balance, error)
+}
+
 // Vesting is one genesis vesting account, with the schedule pre-built
 // into an account so the locked math is the chain's own.
 type Vesting struct {
@@ -61,9 +68,9 @@ type Vesting struct {
 // chain accounts for the surviving schedules, so a duplicated or
 // overridden row cannot double-count a lock.
 //
-// This is a pure function, no network and no clock. The balances come
-// from fetch.BootstrapGenesis at startup, so a failure here fails
-// startup instead of surfacing later in a background loop.
+// Pure: no network, no clock. The rows come from the storage, where the
+// startup bootstrap put them, so they are folded fresh on every boot — a fix
+// to the fold reaches an existing database without refetching genesis.
 func NewVestings(balances []gnoland.Balance) ([]Vesting, error) {
 	schedules := make(map[crypto.Address]gnoland.Balance)
 
@@ -129,6 +136,7 @@ type snapshot struct {
 // snapshot keeps serving.
 type Handler struct {
 	client          Client
+	storage         Storage
 	logger          *zap.Logger
 	snapshot        atomic.Pointer[snapshot]
 	denoms          []string
@@ -154,14 +162,6 @@ func WithDenoms(denoms []string) Option {
 	}
 }
 
-// WithVestings sets the genesis vesting accounts, from NewVestings over the
-// bootstrap's genesis balances.
-func WithVestings(vestings []Vesting) Option {
-	return func(h *Handler) {
-		h.vestings = vestings
-	}
-}
-
 // WithRefreshInterval overrides how often the snapshot is rebuilt.
 func WithRefreshInterval(interval time.Duration) Option {
 	return func(h *Handler) {
@@ -176,9 +176,10 @@ func WithComputeTimeout(timeout time.Duration) Option {
 	}
 }
 
-func NewHandler(client Client, opts ...Option) *Handler {
+func NewHandler(client Client, store Storage, opts ...Option) *Handler {
 	h := &Handler{
 		client:          client,
+		storage:         store,
 		logger:          zap.NewNop(),
 		refreshInterval: defaultRefreshInterval,
 		computeTimeout:  defaultComputeTimeout,
@@ -194,6 +195,10 @@ func NewHandler(client Client, opts ...Option) *Handler {
 // Start runs the handler's own schedule, refreshing the snapshot on a
 // ticker. Blocks until ctx is done.
 func (h *Handler) Start(ctx context.Context) error {
+	if err := h.loadVestings(); err != nil {
+		return fmt.Errorf("unable to load the genesis vesting schedules: %w", err)
+	}
+
 	ticker := time.NewTicker(h.refreshInterval)
 	defer ticker.Stop()
 
@@ -210,6 +215,26 @@ func (h *Handler) Start(ctx context.Context) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+// loadVestings reads the genesis balance rows the bootstrap stored and folds
+// them into the vesting accounts the locked math needs.
+func (h *Handler) loadVestings() error {
+	balances, err := h.storage.GetGenesisBalances()
+	if err != nil {
+		return fmt.Errorf("unable to read the genesis balances: %w", err)
+	}
+
+	vestings, err := NewVestings(balances)
+	if err != nil {
+		return err
+	}
+
+	h.vestings = vestings
+
+	h.logger.Info("Loaded the genesis vesting schedules", zap.Int("count", len(vestings)))
+
+	return nil
 }
 
 // GetSupply returns the supply of denom split into total, spendable and
