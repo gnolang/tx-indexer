@@ -56,12 +56,12 @@ func testBalance(t *testing.T) gnoland.Balance {
 // recorder captures what a bootstrap wrote, in order.
 type recorder struct {
 	batch        *mock.WriteBatch
+	latestHeight *uint64
+	chainID      string
 	writes       []string
 	blocks       []*bft_types.Block
 	txs          []*bft_types.TxResult
 	balances     []gnoland.Balance
-	chainID      string
-	latestHeight *uint64
 }
 
 func newRecorder() *recorder {
@@ -237,12 +237,6 @@ func TestBootstrap_BlockIndexedChainIDMissing(t *testing.T) {
 func TestBootstrap_ChainIDMismatch(t *testing.T) {
 	t.Parallel()
 
-	noWrites := func() storage.Batch {
-		require.Fail(t, "should not write anything")
-
-		return nil
-	}
-
 	t.Run("stored chain ID disagrees with the node", func(t *testing.T) {
 		t.Parallel()
 
@@ -250,7 +244,11 @@ func TestBootstrap_ChainIDMismatch(t *testing.T) {
 			GetGenesisChainIDFn: func() (string, error) {
 				return "test3", nil
 			},
-			GetWriteBatchFn: noWrites,
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not write anything")
+
+				return nil
+			},
 		}
 
 		client := &mockClient{
@@ -271,7 +269,11 @@ func TestBootstrap_ChainIDMismatch(t *testing.T) {
 			GetLatestSavedHeightFn: func() (uint64, error) {
 				return 0, storageErrors.ErrNotFound
 			},
-			GetWriteBatchFn: noWrites,
+			GetWriteBatchFn: func() storage.Batch {
+				require.Fail(t, "should not write anything")
+
+				return nil
+			},
 		}
 
 		client := &mockClient{

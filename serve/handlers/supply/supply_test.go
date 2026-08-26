@@ -40,8 +40,8 @@ type mockClient struct {
 // mockStorage serves the genesis balance rows the startup bootstrap would have
 // written. errBalances, when set, fails the read.
 type mockStorage struct {
-	balances    []gnoland.Balance
 	errBalances error
+	balances    []gnoland.Balance
 }
 
 func (m *mockStorage) GetGenesisBalances() ([]gnoland.Balance, error) {
