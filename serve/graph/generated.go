@@ -124,6 +124,7 @@ type ComplexityRoot struct {
 	Query struct {
 		Blocks            func(childComplexity int, filter model.BlockFilter) int
 		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.BlockOrder) int
+		GetSupply         func(childComplexity int, denom string) int
 		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
@@ -148,6 +149,14 @@ type ComplexityRoot struct {
 		GetBlocks       func(childComplexity int, where model.FilterBlock) int
 		GetTransactions func(childComplexity int, where model.FilterTransaction) int
 		Transactions    func(childComplexity int, filter model.TransactionFilter) int
+	}
+
+	Supply struct {
+		Denom     func(childComplexity int) int
+		Height    func(childComplexity int) int
+		Locked    func(childComplexity int) int
+		Spendable func(childComplexity int) int
+		Total     func(childComplexity int) int
 	}
 
 	Transaction struct {
@@ -196,6 +205,7 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
+	GetSupply(ctx context.Context, denom string) (*model.Supply, error)
 	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error)
 	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error)
 }
@@ -559,6 +569,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.BlockOrder)), true
+	case "Query.getSupply":
+		if e.ComplexityRoot.Query.GetSupply == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getSupply_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.GetSupply(childComplexity, args["denom"].(string)), true
 	case "Query.getTransactions":
 		if e.ComplexityRoot.Query.GetTransactions == nil {
 			break
@@ -683,6 +704,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+
+	case "Supply.denom":
+		if e.ComplexityRoot.Supply.Denom == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Denom(childComplexity), true
+	case "Supply.height":
+		if e.ComplexityRoot.Supply.Height == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Height(childComplexity), true
+	case "Supply.locked":
+		if e.ComplexityRoot.Supply.Locked == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Locked(childComplexity), true
+	case "Supply.spendable":
+		if e.ComplexityRoot.Supply.Spendable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Spendable(childComplexity), true
+	case "Supply.total":
+		if e.ComplexityRoot.Supply.Total == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Total(childComplexity), true
 
 	case "Transaction.block_height":
 		if e.ComplexityRoot.Transaction.BlockHeight == nil {
@@ -2870,6 +2922,10 @@ type Query {
 	"""
 	latestBlockHeight: Int!
 	"""
+	Returns the supply of a single denomination at the latest chain height, split into total, spendable and locked.
+	"""
+	getSupply(denom: String!): Supply!
+	"""
 	Fetches Blocks matching the specified where criteria. 
 	Incomplete results due to errors return both the partial Blocks and 
 	the associated errors.
@@ -3027,6 +3083,34 @@ type Subscription {
 	allowing subscribers to process or analyze new Blocks in real time.
 	"""
 	getBlocks(where: FilterBlock!): Block!
+}
+"""
+The supply of a single denomination at a chain height, split by spendability.
+"""
+type Supply {
+	"""
+	The denomination these figures describe, e.g. "ugnot".
+	"""
+	denom: String!
+	"""
+	The chain height the figures were computed at.
+	"""
+	height: Int!
+	"""
+	The total amount of the denomination in existence, from the chain's
+	per-denom supply counter.
+	"""
+	total: String!
+	"""
+	The portion held by vesting accounts under a schedule that has not vested
+	yet, clamped to the balance each account actually holds.
+	"""
+	locked: String!
+	"""
+	The difference between total and locked. Data aggregators call this the
+	circulating supply.
+	"""
+	spendable: String!
 }
 """
 Field representing a point on time. It is following the RFC3339Nano format ("2006-01-02T15:04:05.999999999Z07:00")
@@ -3331,6 +3415,17 @@ func (ec *executionContext) field_Query_getBlocks_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["order"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getSupply_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "denom", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["denom"] = arg0
 	return args, nil
 }
 
@@ -5806,6 +5901,59 @@ func (ec *executionContext) fieldContext_Query_latestBlockHeight(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_getSupply(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_getSupply,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().GetSupply(ctx, fc.Args["denom"].(string))
+		},
+		nil,
+		ec.marshalNSupply2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_getSupply(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "denom":
+				return ec.fieldContext_Supply_denom(ctx, field)
+			case "height":
+				return ec.fieldContext_Supply_height(ctx, field)
+			case "total":
+				return ec.fieldContext_Supply_total(ctx, field)
+			case "locked":
+				return ec.fieldContext_Supply_locked(ctx, field)
+			case "spendable":
+				return ec.fieldContext_Supply_spendable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Supply", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getSupply_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_getBlocks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6684,6 +6832,151 @@ func (ec *executionContext) fieldContext_Subscription_getBlocks(ctx context.Cont
 	if fc.Args, err = ec.field_Subscription_getBlocks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_denom(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_denom,
+		func(ctx context.Context) (any, error) {
+			return obj.Denom(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_denom(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_height(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_height,
+		func(ctx context.Context) (any, error) {
+			return obj.Height(), nil
+		},
+		nil,
+		ec.marshalNInt2int64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_height(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_total(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_total,
+		func(ctx context.Context) (any, error) {
+			return obj.Total(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_locked(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_locked,
+		func(ctx context.Context) (any, error) {
+			return obj.Locked(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_locked(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_spendable(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_spendable,
+		func(ctx context.Context) (any, error) {
+			return obj.Spendable(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_spendable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
 	}
 	return fc, nil
 }
@@ -13725,6 +14018,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getSupply":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getSupply(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getBlocks":
 			field := field
 
@@ -13926,6 +14241,65 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
+}
+
+var supplyImplementors = []string{"Supply"}
+
+func (ec *executionContext) _Supply(ctx context.Context, sel ast.SelectionSet, obj *model.Supply) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, supplyImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Supply")
+		case "denom":
+			out.Values[i] = ec._Supply_denom(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "height":
+			out.Values[i] = ec._Supply_height(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "total":
+			out.Values[i] = ec._Supply_total(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "locked":
+			out.Values[i] = ec._Supply_locked(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "spendable":
+			out.Values[i] = ec._Supply_spendable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
 }
 
 var transactionImplementors = []string{"Transaction"}
@@ -14757,6 +15131,20 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNSupply2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply(ctx context.Context, sel ast.SelectionSet, v model.Supply) graphql.Marshaler {
+	return ec._Supply(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSupply2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply(ctx context.Context, sel ast.SelectionSet, v *model.Supply) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Supply(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {

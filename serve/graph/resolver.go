@@ -9,6 +9,7 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 
 	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/gnolang/tx-indexer/types"
 )
@@ -71,8 +72,9 @@ func handleChannel[T any](
 type Resolver struct {
 	store   storage.Storage
 	manager *events.Manager
+	supply  *supply.Handler
 }
 
-func NewResolver(s storage.Storage, m *events.Manager) *Resolver {
-	return &Resolver{store: s, manager: m}
+func NewResolver(s storage.Storage, m *events.Manager, sup *supply.Handler) *Resolver {
+	return &Resolver{store: s, manager: m, supply: sup}
 }

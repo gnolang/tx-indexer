@@ -4,22 +4,24 @@
 - [Key Features](#key-features)
 - [Getting Started](#getting-started)
 - [GraphQL Endpoint](#graphql-endpoint)
-    - [Hosted Example](#hosted-example)
+  - [Hosted Example](#hosted-example)
   - [Examples](#examples)
     - [Get all Transactions with add\_package messages. Show the creator, package name and path.](#get-all-transactions-with-add_package-messages-show-the-creator-package-name-and-path)
     - [Subscribe to get all new blocks in real-time](#subscribe-to-get-all-new-blocks-in-real-time)
+    - [Get the supply of a denomination](#get-the-supply-of-a-denomination)
 - [RPC Endpoints](#rpc-endpoints)
   - [Block Endpoints](#block-endpoints)
     - [`getBlock`](#getblock)
   - [Transaction Endpoints](#transaction-endpoints)
     - [`getTxResult`](#gettxresult)
+  - [Supply Endpoints](#supply-endpoints)
+    - [`getSupply`](#getsupply)
   - [Filter Endpoints](#filter-endpoints)
     - [`newBlockFilter`](#newblockfilter)
     - [`getFilterChanges`](#getfilterchanges)
     - [`uninstallFilter`](#uninstallfilter)
     - [`subscribe`](#subscribe)
     - [`unsubscribe`](#unsubscribe)
-
 
 ## Overview
 
@@ -92,26 +94,32 @@ FLAGS
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
+  -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
 
-## GraphQL Endpoint  
-The indexer provides a **GraphQL endpoint** for querying blockchain data (transactions, blocks) and subscribing to real-time events:  
+## GraphQL Endpoint
 
-**Endpoint:**  
+The indexer provides a **GraphQL endpoint** for querying blockchain data (transactions, blocks) and subscribing to real-time events:
+
+**Endpoint:**
+
 ```
 http://<listen-address>/graphql/query
-```  
+```
 
-**Playground (Interactive UI):**  
+**Playground (Interactive UI):**
+
 ```
 http://<listen-address>/graphql
-```  
-The playground includes built-in documentation for available queries, fields, and filters. 
+```
 
-**Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).  
+The playground includes built-in documentation for available queries, fields, and filters.
+
+**Note**: Introspection is enabled by default `--disable-introspection=false`; disable it only if security is a priority (Playground won’t work).
 
 #### Hosted Example
-- [Test7 Playground](https://indexer.test7.testnets.gno.land/graphql) 
+
+- [Test7 Playground](https://indexer.test7.testnets.gno.land/graphql)
 
 ### Examples
 
@@ -119,7 +127,7 @@ The playground includes built-in documentation for available queries, fields, an
 
 ```graphql
 {
-  getTransactions(where: {messages: {value: {MsgAddPackage: {}}}}) {
+  getTransactions(where: { messages: { value: { MsgAddPackage: {} } } }) {
     index
     hash
     block_height
@@ -141,6 +149,7 @@ The playground includes built-in documentation for available queries, fields, an
   }
 }
 ```
+
 #### Subscribe to get all new blocks in real-time
 
 ```graphql
@@ -151,6 +160,23 @@ subscription {
     chain_id
     time
     proposer_address_raw
+  }
+}
+```
+
+#### Get the supply of a denomination
+
+Total, spendable (what data aggregators call the circulating supply) and locked supply, served from the indexer's
+background snapshot (see [`getSupply`](#getsupply)); only the denoms from `--supply-denoms` are tracked.
+
+```graphql
+{
+  getSupply(denom: "ugnot") {
+    denom
+    height
+    total
+    spendable
+    locked
   }
 }
 ```
@@ -176,9 +202,7 @@ Example request:
   "id": 1,
   "jsonrpc": "2.0",
   "method": "getBlock",
-  "params": [
-    "10"
-  ]
+  "params": ["10"]
 }
 ```
 
@@ -218,9 +242,7 @@ Example request:
   "id": 1,
   "jsonrpc": "2.0",
   "method": "getTxResult",
-  "params": [
-    "AP9YX+QXrIByqonIqStod8G9EI5AMiUZhsXk58wr0ws="
-  ]
+  "params": ["AP9YX+QXrIByqonIqStod8G9EI5AMiUZhsXk58wr0ws="]
 }
 ```
 
@@ -240,6 +262,51 @@ returned:
 ```json
 {
   "result": null,
+  "jsonrpc": "2.0",
+  "id": 1
+}
+```
+
+### Supply Endpoints
+
+#### `getSupply`
+
+Returns the supply of a tracked denomination at a recent chain height, split by spendability: how much of it exists
+(`total`), how much of that is held by vesting accounts under a schedule that has not vested yet (`locked`), and the
+difference (`spendable`), which is what data aggregators call the circulating supply.
+
+- **Params**: `denom`, a tracked denomination, e.g. `ugnot`
+- **Response**: `{ denom, height, total, spendable, locked }`, amounts as strings
+
+The figures come from a background snapshot the indexer refreshes on its own schedule (every 10 seconds), so requests
+never reach the chain. The snapshot covers only the denoms listed in `--supply-denoms` (default `ugnot`): the total is
+read from the chain's per-denom supply counter, and the locked portion is computed from the vesting schedules in the
+chain genesis, evaluated at the snapshot's block time and clamped to the balance each account actually holds. All
+figures in a snapshot were read at the same height, in one batched query. If a refresh fails, the last good snapshot
+keeps serving.
+
+Example request:
+
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "getSupply",
+  "params": ["ugnot"]
+}
+```
+
+Example response:
+
+```json
+{
+  "result": {
+    "denom": "ugnot",
+    "height": 1337,
+    "total": "1000000000000",
+    "spendable": "700000000000",
+    "locked": "300000000000"
+  },
   "jsonrpc": "2.0",
   "id": 1
 }
@@ -283,7 +350,7 @@ Filters that are inactive (not polled) for `5min` are automatically cleaned up.
 
 - **Params**: the filter ID (`string`)
 - **Response**: array containing filter data.
-    - In case of a block filter, the response is an array of base64 encoded, Amino binary block headers
+  - In case of a block filter, the response is an array of base64 encoded, Amino binary block headers
 
 Example request:
 
@@ -292,9 +359,7 @@ Example request:
   "id": 1,
   "jsonrpc": "2.0",
   "method": "getFilterChanges",
-  "params": [
-    "c77000bb-700c-41b9-830c-e8b35bdef246"
-  ]
+  "params": ["c77000bb-700c-41b9-830c-e8b35bdef246"]
 }
 ```
 
@@ -319,18 +384,18 @@ Uninstalls a filter with the given filter ID.
 - **Response**: `true` if the filter was successfully uninstalled, otherwise `false` (`boolean`)
 
 Example request:
+
 ```json
 {
   "id": 1,
   "jsonrpc": "2.0",
   "method": "uninstallFilter",
-  "params": [
-    "c77000bb-700c-41b9-830c-e8b35bdef246"
-  ]
+  "params": ["c77000bb-700c-41b9-830c-e8b35bdef246"]
 }
 ```
 
 Example response:
+
 ```json
 {
   "result": true,
@@ -349,7 +414,7 @@ Available events:
 
 - **Params**: the event type [`newHeads`] (`string`)
 - **Response**: the subscription ID (`string`) (initial response), then event data (see example below)
-    - For `newHeads` events, the result is a base64 encoded, Amino binary block header
+  - For `newHeads` events, the result is a base64 encoded, Amino binary block header
 
 Since this endpoint is only supported over WS connections, it will write data directly to the client.
 
@@ -360,9 +425,7 @@ Example request (over WS):
   "id": 1,
   "jsonrpc": "2.0",
   "method": "subscribe",
-  "params": [
-    "newHeads"
-  ]
+  "params": ["newHeads"]
 }
 ```
 
@@ -403,9 +466,7 @@ Example request (over WS):
   "id": 1,
   "jsonrpc": "2.0",
   "method": "unsubscribe",
-  "params": [
-    "b8934e81-5758-4249-8953-da90aa777ef9"
-  ]
+  "params": ["b8934e81-5758-4249-8953-da90aa777ef9"]
 }
 ```
 
