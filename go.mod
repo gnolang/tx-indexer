@@ -6,7 +6,7 @@ require (
 	github.com/99designs/gqlgen v0.17.88
 	github.com/ajnavarro/gqlfiltergen v0.1.2
 	github.com/cockroachdb/pebble v1.1.5
-	github.com/gnolang/gno v0.0.0-20260814155525-1b0c2c0bf3d7
+	github.com/gnolang/gno v0.0.0-20260827075919-c4c72fdd288c
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/httprate v0.15.0
