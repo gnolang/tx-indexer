@@ -80,8 +80,8 @@ github.com/fsnotify/fsnotify v1.4.9 h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWo
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/getsentry/sentry-go v0.43.0 h1:XbXLpFicpo8HmBDaInk7dum18G9KSLcjZiyUKS+hLW4=
 github.com/getsentry/sentry-go v0.43.0/go.mod h1:XDotiNZbgf5U8bPDUAfvcFmOnMQQceESxyKaObSssW0=
-github.com/gnolang/gno v0.0.0-20260814155525-1b0c2c0bf3d7 h1:bS8VAZezUxRt8kEX/w7DgjMYhyvxJn7VJMJbKIDow9w=
-github.com/gnolang/gno v0.0.0-20260814155525-1b0c2c0bf3d7/go.mod h1:Vby9oL4oRmmpg4W8+lVqiD9uQMf2GnPB8CtsMq0pD/c=
+github.com/gnolang/gno v0.0.0-20260827075919-c4c72fdd288c h1:PekVuHNpxCw706owgIeylN3/zXH5GRpjyH1BNZCKMJ8=
+github.com/gnolang/gno v0.0.0-20260827075919-c4c72fdd288c/go.mod h1:Vby9oL4oRmmpg4W8+lVqiD9uQMf2GnPB8CtsMq0pD/c=
 github.com/go-chi/chi/v5 v5.2.5 h1:Eg4myHZBjyvJmAFjFvWgrqDTXFyOzjj7YIm3L3mu6Ug=
 github.com/go-chi/chi/v5 v5.2.5/go.mod h1:X7Gx4mteadT3eDOMTsXzmI4/rwUpOwBHLpAfupzFJP0=
 github.com/go-chi/cors v1.2.2 h1:Jmey33TE+b+rB7fT8MUy1u0I4L+NARQlK6LhzKPSyQE=
