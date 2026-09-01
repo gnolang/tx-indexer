@@ -13,9 +13,8 @@ jobs:
     with:
       app-name: "tx-indexer"
       env: "dev-gnoswap-v2"
-      helm-chart-repo: "gnoswap-labs/gnoswap-helm-chart"
-      helm-branch: "dev-gnoswap-v2"
-      helm-values-file: "values-dev-gnoswap-v2.yaml"
+      helm-chart-repo: "gnoswap-labs/gnoswap-helm-charts"
+      helm-branch: "dev"
     secrets:
       AWS_IAM_OIDC: ${{ secrets.AWS_IAM_OIDC }}
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
