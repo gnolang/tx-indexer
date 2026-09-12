@@ -55,11 +55,11 @@ type Storage interface {
 	GetGenesisBalances() ([]gnoland.Balance, error)
 }
 
-// Vesting is one genesis vesting account, with the schedule pre-built
-// into an account so the locked math is the chain's own.
+// Vesting is one genesis vesting account. The schedule is the chain's own
+// type, so the locked math is the chain's own.
 type Vesting struct {
-	account std.VestingAccount
-	address crypto.Address
+	schedule std.VestingSchedule
+	address  crypto.Address
 }
 
 // NewVestings folds the genesis balance rows per address, with the same
@@ -89,38 +89,38 @@ func NewVestings(balances []gnoland.Balance) ([]Vesting, error) {
 	vestings := make([]Vesting, 0, len(schedules))
 
 	for address, balance := range schedules {
-		account, err := newVestingAccount(address, balance.Amount, balance.Vesting)
-		if err != nil {
-			// Fail rather than skip: a schedule the chain's own types
-			// cannot rebuild would silently undercount locked.
+		if err := validateVesting(balance.Amount, *balance.Vesting); err != nil {
+			// Fail rather than skip: a schedule the chain itself would
+			// reject would silently undercount locked.
 			return nil, fmt.Errorf("invalid vesting balance for %s: %w", address, err)
 		}
 
 		vestings = append(vestings, Vesting{
-			account: account,
-			address: address,
+			schedule: *balance.Vesting,
+			address:  address,
 		})
 	}
 
 	return vestings, nil
 }
 
-// newVestingAccount rebuilds the chain's account for a genesis schedule.
-// The account is funded with the row's amount so the chain constructor
-// validates the schedule against it, the same check InitChain runs.
-func newVestingAccount(
-	addr crypto.Address,
-	coins std.Coins,
-	schedule *std.VestingSchedule,
-) (std.VestingAccount, error) {
-	base := std.NewBaseAccount(addr, coins, nil, 0, 0)
-
-	switch schedule.Type {
-	case std.VestingDelayed:
-		return std.NewDelayedVestingAccount(base, *schedule)
-	default:
-		return std.NewContinuousVestingAccount(base, *schedule)
+// newVestingAccoun// validateVesting runs the same checks the chain's applyBalance runs at
+// InitChain: the schedule must be well-formed and the row's amount must cover
+// the vesting amount.
+func validateVesting(coins std.Coins, schedule std.VestingSchedule) error {
+	if err := schedule.Validate(); err != nil {
+		return err
 	}
+
+	if !coins.IsAllGTE(schedule.OriginalVesting) {
+		return fmt.Errorf(
+			"vesting amount (%s) exceeds the balance (%s)",
+			schedule.OriginalVesting,
+			coins,
+		)
+	}
+
+	return nil
 }
 
 // snapshot is one consistent view of the tracked supplies. Every figure in
@@ -393,7 +393,7 @@ func (h *Handler) computeSnapshot(ctx context.Context) (*snapshot, error) {
 		var locked int64
 
 		for _, vesting := range h.vestings {
-			unvested := vesting.account.LockedCoins(blockTime).AmountOf(denom)
+			unvested := vesting.schedule.LockedCoins(blockTime).AmountOf(denom)
 			if unvested <= 0 {
 				continue
 			}

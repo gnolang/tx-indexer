@@ -288,7 +288,7 @@ func TestNewVestingsFoldsDuplicateRows(t *testing.T) {
 
 	// vesterA keeps the delayed schedule: at t=150 everything is locked.
 	require.Equal(t, vesterA, vestings[0].address)
-	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
+	require.Equal(t, int64(1000), vestings[0].schedule.LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
 }
 
 func TestNewVestingsRejectsUnbuildableSchedule(t *testing.T) {
@@ -329,7 +329,7 @@ func TestUnvestedAmount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			unvested := vestings[0].account.LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
+			unvested := vestings[0].schedule.LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
 			require.Equal(t, tc.want, unvested)
 		})
 	}
@@ -343,9 +343,9 @@ func TestDelayedScheduleUnvested(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(1000), vestings[0].schedule.LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
 		"a cliff vests nothing before the end time")
-	require.Equal(t, int64(0), vestings[0].account.LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(0), vestings[0].schedule.LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
 		"a cliff vests everything at the end time")
 }
 
