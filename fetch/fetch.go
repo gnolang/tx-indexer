@@ -206,10 +206,14 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				zap.Uint64("to", gap.to),
 			)
 
-			// Spawn worker
+			// Spawn worker with the same retry policy and logger as the
+			// initial fetch, so a refetch also retries transient failures and
+			// reports the heights it could not recover
 			info := &workerInfo{
 				chunkRange: gap,
 				resCh:      collectorCh,
+				retry:      f.retry,
+				logger:     f.logger,
 			}
 
 			go handleChunk(ctx, f.client, info)
@@ -241,10 +245,13 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			}
 		case response := <-collectorCh:
 			if response.error != nil {
+				// The missing heights are logged here so a range that keeps
+				// failing can be traced to the block(s) the node cannot serve
 				f.logger.Error(
 					"error encountered during chunk fetch, refetching range",
 					zap.Uint64("from", response.chunkRange.from),
 					zap.Uint64("to", response.chunkRange.to),
+					zap.Uint64s("missingHeights", response.missingBlocks),
 					zap.String("error", response.error.Error()),
 				)
 
