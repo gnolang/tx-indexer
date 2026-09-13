@@ -276,6 +276,14 @@ func filteredTransactionMessageBy(
 		if !filteredMessageOfMsgRunBy(tm.VMMsgRun(), messageInput.VMParam) {
 			return false
 		}
+	case model.MessageTypeEnablePackage.String():
+		if !filteredMessageOfMsgEnablePackageBy(tm.VMMsgEnablePackage(), messageInput.VMParam) {
+			return false
+		}
+	case model.MessageTypeRejectPackage.String():
+		if !filteredMessageOfMsgRejectPackageBy(tm.VMMsgRejectPackage(), messageInput.VMParam) {
+			return false
+		}
 	case model.MessageTypeCreateSession.String():
 		if !filteredMessageOfMsgCreateSessionBy(tm.AuthMsgCreateSession(), messageInput.AuthParam) {
 			return false
@@ -431,6 +439,64 @@ func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.
 		if deref(params.Run.Package.Path) != messageValue.Package.Path {
 			return false
 		}
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgEnablePackageBy` checks the conditions of a message of type MsgEnablePackage
+func filteredMessageOfMsgEnablePackageBy(
+	messageValue model.MsgEnablePackage,
+	vmMessageInput *model.TransactionVMMessageInput,
+) bool {
+	params := vmMessageInput
+	if params == nil {
+		return true
+	}
+
+	if params.EnablePackage == nil {
+		return false
+	}
+
+	if params.EnablePackage.Approver != nil && deref(params.EnablePackage.Approver) != messageValue.Approver {
+		return false
+	}
+
+	if params.EnablePackage.PkgPath != nil && deref(params.EnablePackage.PkgPath) != messageValue.PkgPath {
+		return false
+	}
+
+	if params.EnablePackage.PkgHash != nil && deref(params.EnablePackage.PkgHash) != messageValue.PkgHash {
+		return false
+	}
+
+	if params.EnablePackage.PkgHeight != nil && deref(params.EnablePackage.PkgHeight) != messageValue.PkgHeight {
+		return false
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgRejectPackageBy` checks the conditions of a message of type MsgRejectPackage
+func filteredMessageOfMsgRejectPackageBy(
+	messageValue model.MsgRejectPackage,
+	vmMessageInput *model.TransactionVMMessageInput,
+) bool {
+	params := vmMessageInput
+	if params == nil {
+		return true
+	}
+
+	if params.RejectPackage == nil {
+		return false
+	}
+
+	if params.RejectPackage.Sender != nil && deref(params.RejectPackage.Sender) != messageValue.Sender {
+		return false
+	}
+
+	if params.RejectPackage.PkgPath != nil && deref(params.RejectPackage.PkgPath) != messageValue.PkgPath {
+		return false
 	}
 
 	return true

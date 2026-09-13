@@ -247,6 +247,18 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 				TypeURL: MessageTypeRun.String(),
 				Value:   makeVMMsgRun(message),
 			}
+		case MessageTypeEnablePackage.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeEnablePackage.String(),
+				Value:   makeVMMsgEnablePackage(message),
+			}
+		case MessageTypeRejectPackage.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeRejectPackage.String(),
+				Value:   makeVMMsgRejectPackage(message),
+			}
 		}
 	case auth.ModuleName:
 		switch message.Type() {
@@ -298,6 +310,14 @@ func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
 }
 
+func (tm *TransactionMessage) VMMsgEnablePackage() MsgEnablePackage {
+	return tm.Value.(MsgEnablePackage)
+}
+
+func (tm *TransactionMessage) VMMsgRejectPackage() MsgRejectPackage {
+	return tm.Value.(MsgRejectPackage)
+}
+
 func (tm *TransactionMessage) AuthMsgCreateSession() MsgCreateSession {
 	return tm.Value.(MsgCreateSession)
 }
@@ -316,7 +336,7 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 		return nil, err
 	}
 
-	switch abciEvent.(type) {
+	switch event := abciEvent.(type) {
 	case chain.Event:
 		var gnoEvent *GnoEvent
 
@@ -345,6 +365,15 @@ func makeEvent(abciEvent abci.Event) (Event, error) {
 
 			return storageUnlockEvent, nil
 		}
+	case bank.TransferEvent:
+		// Coins are exposed as a single "<amount><denomination>" string,
+		// consistent with the message amount fields.
+		return &TransferEvent{
+			Type:  "TransferEvent",
+			From:  event.From,
+			To:    event.To,
+			Coins: event.Coins.String(),
+		}, nil
 	}
 
 	return &UnknownEvent{
@@ -431,6 +460,32 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
+	}
+}
+
+func makeVMMsgEnablePackage(value std.Msg) MsgEnablePackage {
+	decodedMessage, err := cast[vm.MsgEnablePackage](value)
+	if err != nil {
+		return MsgEnablePackage{}
+	}
+
+	return MsgEnablePackage{
+		Approver:  decodedMessage.Approver.String(),
+		PkgPath:   decodedMessage.PkgPath,
+		PkgHash:   decodedMessage.PkgHash,
+		PkgHeight: int(decodedMessage.PkgHeight),
+	}
+}
+
+func makeVMMsgRejectPackage(value std.Msg) MsgRejectPackage {
+	decodedMessage, err := cast[vm.MsgRejectPackage](value)
+	if err != nil {
+		return MsgRejectPackage{}
+	}
+
+	return MsgRejectPackage{
+		Sender:  decodedMessage.Sender.String(),
+		PkgPath: decodedMessage.PkgPath,
 	}
 }
 

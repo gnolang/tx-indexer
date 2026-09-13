@@ -83,7 +83,7 @@ enum MessageRoute {
 
 """
 `MessageType` is message type of the transaction.
-`MessageType` has the values `send`, `exec`, `add_package`, `run`,
+`MessageType` has the values `send`, `exec`, `add_package`, `run`, `enable_package`, `reject_package`,
 `create_session`, `revoke_session`, and `revoke_all_sessions`.
 """
 enum MessageType {
@@ -110,6 +110,18 @@ enum MessageType {
   This is a transactional message that executes an arbitrary Gno-coded TX message.
   """
   run
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgEnablePackage`.
+  This is a transactional message that activates a package parked awaiting approval.
+  """
+  enable_package
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgRejectPackage`.
+  This is a transactional message that removes a package parked awaiting approval.
+  """
+  reject_package
 
   """
   The route value for this message type is `auth`, and the value for transactional messages is `MsgCreateSession`.
@@ -145,7 +157,7 @@ type TransactionMessage {
 
   """
   MessageValue is the content of the transaction.
-  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`,
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `MsgEnablePackage`, `MsgRejectPackage`,
   `MsgCreateSession`, `MsgRevokeSession`, `MsgRevokeAllSessions`, `UnexpectedMessage`.
   """
   value: MessageValue! @filterable
@@ -156,6 +168,8 @@ union MessageValue =
   | MsgCall
   | MsgAddPackage
   | MsgRun
+  | MsgEnablePackage
+  | MsgRejectPackage
   | MsgCreateSession
   | MsgRevokeSession
   | MsgRevokeAllSessions
@@ -286,6 +300,50 @@ type MsgRun {
   ex) `1000000ugnot`
   """
   max_deposit: String! @filterable
+}
+
+"""
+`MsgEnablePackage` is a message with a message router of `vm` and a message type of `enable_package`.
+`MsgEnablePackage` activates a package parked awaiting approval so it becomes importable on-chain.
+"""
+type MsgEnablePackage {
+  """
+  the bech32 address of the approver that enables the package.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  approver: String! @filterable
+
+  """
+  the gno package path being enabled.
+  """
+  pkg_path: String! @filterable
+
+  """
+  the content hash of the package source being approved.
+  """
+  pkg_hash: String! @filterable
+
+  """
+  the block height of the package submission being approved. `0` means unpinned.
+  """
+  pkg_height: Int! @filterable
+}
+
+"""
+`MsgRejectPackage` is a message with a message router of `vm` and a message type of `reject_package`.
+`MsgRejectPackage` removes a package parked awaiting approval.
+"""
+type MsgRejectPackage {
+  """
+  the bech32 address of the sender that rejects the package. It is either an approver or the package creator.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  sender: String! @filterable
+
+  """
+  the gno package path being rejected.
+  """
+  pkg_path: String! @filterable
 }
 
 """
@@ -486,7 +544,7 @@ type TransactionResponse {
   events: [Event] @filterable
 }
 
-union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
+union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | TransferEvent | UnknownEvent
 
 """
 `GnoEvent` is the event information exported by the Gno VM.
@@ -553,7 +611,7 @@ type StorageDepositEvent {
 
 """
 `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
-It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
+It has `type`, `bytes_delta`, `fee_refund`, `pkg_path`, and `refund_withheld`.
 """
 type StorageUnlockEvent {
   """
@@ -575,6 +633,38 @@ type StorageUnlockEvent {
   `pkg_path` is the path to the package that emitted the event.
   """
   pkg_path: String! @filterable
+
+  """
+  `refund_withheld` is true if the refund was retained because of a token lock.
+  """
+  refund_withheld: Boolean! @filterable
+}
+
+"""
+`TransferEvent` is emitted by the bank module when a transfer succeeds.
+It has `type`, `from`, `to`, and `coins`.
+"""
+type TransferEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String! @filterable
+
+  """
+  `from` is the bech32 address of the sender.
+  """
+  from: String! @filterable
+
+  """
+  `to` is the bech32 address of the receiver.
+  """
+  to: String! @filterable
+
+  """
+  `coins` is the amount of coins transferred ("<amount><denomination>").
+  ex) `1000000ugnot`
+  """
+  coins: String! @filterable
 }
 
 """

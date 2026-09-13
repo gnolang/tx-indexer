@@ -95,6 +95,64 @@ func (f *NestedFilterTxFee) Eval(obj *TxFee) bool {
 	return true
 }
 
+func (f *NestedFilterTransferEvent) Eval(obj *TransferEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle To field
+	toEvalTo := obj.To
+	if f.To != nil && !f.To.Eval(&toEvalTo) {
+		return false
+	}
+
+	// Handle From field
+	toEvalFrom := obj.From
+	if f.From != nil && !f.From.Eval(&toEvalFrom) {
+		return false
+	}
+
+	// Handle Coins field
+	toEvalCoins := obj.Coins
+	if f.Coins != nil && !f.Coins.Eval(&toEvalCoins) {
+		return false
+	}
+
+	return true
+}
+
 func (f *NestedFilterTransactionResponse) Eval(obj *TransactionResponse) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -254,6 +312,12 @@ func (f *NestedFilterStorageUnlockEvent) Eval(obj *StorageUnlockEvent) bool {
 	// Handle Type field
 	toEvalType := obj.Type
 	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle RefundWithheld field
+	toEvalRefundWithheld := obj.RefundWithheld
+	if f.RefundWithheld != nil && !f.RefundWithheld.Eval(&toEvalRefundWithheld) {
 		return false
 	}
 
@@ -532,6 +596,110 @@ func (f *NestedFilterMsgRevokeAllSessions) Eval(obj *MsgRevokeAllSessions) bool 
 	return true
 }
 
+func (f *NestedFilterMsgRejectPackage) Eval(obj *MsgRejectPackage) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Sender field
+	toEvalSender := obj.Sender
+	if f.Sender != nil && !f.Sender.Eval(&toEvalSender) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterMsgEnablePackage) Eval(obj *MsgEnablePackage) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle PkgHeight field
+	toEvalPkgHeight := toIntPtr(obj.PkgHeight)
+	if f.PkgHeight != nil && !f.PkgHeight.Eval(toEvalPkgHeight) {
+		return false
+	}
+
+	// Handle PkgHash field
+	toEvalPkgHash := obj.PkgHash
+	if f.PkgHash != nil && !f.PkgHash.Eval(&toEvalPkgHash) {
+		return false
+	}
+
+	// Handle Approver field
+	toEvalApprover := obj.Approver
+	if f.Approver != nil && !f.Approver.Eval(&toEvalApprover) {
+		return false
+	}
+
+	return true
+}
+
 func (f *NestedFilterMsgCreateSession) Eval(obj *MsgCreateSession) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -786,7 +954,7 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgEnablePackage != nil || f.MsgRejectPackage != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -845,6 +1013,32 @@ func (f *NestedFilterMessageValue) Eval(obj *MessageValue) bool {
 	if uObj, ok := tobj.(*MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgEnablePackage); ok {
+		matchedType = true
+		if f.MsgEnablePackage != nil && f.MsgEnablePackage.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgEnablePackage); ok {
+		matchedType = true
+		if f.MsgEnablePackage != nil && f.MsgEnablePackage.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRejectPackage); ok {
+		matchedType = true
+		if f.MsgRejectPackage != nil && f.MsgRejectPackage.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRejectPackage); ok {
+		matchedType = true
+		if f.MsgRejectPackage != nil && f.MsgRejectPackage.Eval(uObj) {
 			return true
 		}
 	}
@@ -1142,7 +1336,7 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.UnknownEvent != nil || false
+	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.TransferEvent != nil || f.UnknownEvent != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -1188,6 +1382,19 @@ func (f *NestedFilterEvent) Eval(obj *Event) bool {
 	if uObj, ok := tobj.(*StorageUnlockEvent); ok {
 		matchedType = true
 		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(TransferEvent); ok {
+		matchedType = true
+		if f.TransferEvent != nil && f.TransferEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*TransferEvent); ok {
+		matchedType = true
+		if f.TransferEvent != nil && f.TransferEvent.Eval(uObj) {
 			return true
 		}
 	}
@@ -1443,6 +1650,64 @@ func (f *FilterTxFee) Eval(obj *TxFee) bool {
 	// Handle GasFee field
 	toEvalGasFee := obj.GasFee
 	if f.GasFee != nil && !f.GasFee.Eval(toEvalGasFee) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterTransferEvent) Eval(obj *TransferEvent) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Type field
+	toEvalType := obj.Type
+	if f.Type != nil && !f.Type.Eval(&toEvalType) {
+		return false
+	}
+
+	// Handle To field
+	toEvalTo := obj.To
+	if f.To != nil && !f.To.Eval(&toEvalTo) {
+		return false
+	}
+
+	// Handle From field
+	toEvalFrom := obj.From
+	if f.From != nil && !f.From.Eval(&toEvalFrom) {
+		return false
+	}
+
+	// Handle Coins field
+	toEvalCoins := obj.Coins
+	if f.Coins != nil && !f.Coins.Eval(&toEvalCoins) {
 		return false
 	}
 
@@ -1837,6 +2102,12 @@ func (f *FilterStorageUnlockEvent) Eval(obj *StorageUnlockEvent) bool {
 		return false
 	}
 
+	// Handle RefundWithheld field
+	toEvalRefundWithheld := obj.RefundWithheld
+	if f.RefundWithheld != nil && !f.RefundWithheld.Eval(&toEvalRefundWithheld) {
+		return false
+	}
+
 	// Handle PkgPath field
 	toEvalPkgPath := obj.PkgPath
 	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
@@ -2112,6 +2383,110 @@ func (f *FilterMsgRevokeAllSessions) Eval(obj *MsgRevokeAllSessions) bool {
 	return true
 }
 
+func (f *FilterMsgRejectPackage) Eval(obj *MsgRejectPackage) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Sender field
+	toEvalSender := obj.Sender
+	if f.Sender != nil && !f.Sender.Eval(&toEvalSender) {
+		return false
+	}
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterMsgEnablePackage) Eval(obj *MsgEnablePackage) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle PkgPath field
+	toEvalPkgPath := obj.PkgPath
+	if f.PkgPath != nil && !f.PkgPath.Eval(&toEvalPkgPath) {
+		return false
+	}
+
+	// Handle PkgHeight field
+	toEvalPkgHeight := toIntPtr(obj.PkgHeight)
+	if f.PkgHeight != nil && !f.PkgHeight.Eval(toEvalPkgHeight) {
+		return false
+	}
+
+	// Handle PkgHash field
+	toEvalPkgHash := obj.PkgHash
+	if f.PkgHash != nil && !f.PkgHash.Eval(&toEvalPkgHash) {
+		return false
+	}
+
+	// Handle Approver field
+	toEvalApprover := obj.Approver
+	if f.Approver != nil && !f.Approver.Eval(&toEvalApprover) {
+		return false
+	}
+
+	return true
+}
+
 func (f *FilterMsgCreateSession) Eval(obj *MsgCreateSession) bool {
 	// Evaluate logical operators first
 	if len(f.And) > 0 {
@@ -2366,7 +2741,7 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
+	filtersSpecified := f.BankMsgSend != nil || f.MsgCall != nil || f.MsgAddPackage != nil || f.MsgRun != nil || f.MsgEnablePackage != nil || f.MsgRejectPackage != nil || f.MsgCreateSession != nil || f.MsgRevokeSession != nil || f.MsgRevokeAllSessions != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -2425,6 +2800,32 @@ func (f *FilterMessageValue) Eval(obj *MessageValue) bool {
 	if uObj, ok := tobj.(*MsgRun); ok {
 		matchedType = true
 		if f.MsgRun != nil && f.MsgRun.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgEnablePackage); ok {
+		matchedType = true
+		if f.MsgEnablePackage != nil && f.MsgEnablePackage.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgEnablePackage); ok {
+		matchedType = true
+		if f.MsgEnablePackage != nil && f.MsgEnablePackage.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(MsgRejectPackage); ok {
+		matchedType = true
+		if f.MsgRejectPackage != nil && f.MsgRejectPackage.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*MsgRejectPackage); ok {
+		matchedType = true
+		if f.MsgRejectPackage != nil && f.MsgRejectPackage.Eval(uObj) {
 			return true
 		}
 	}
@@ -2722,7 +3123,7 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	// Handle union objects depending of the type
 
 	// Check if any filters are specified
-	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.UnknownEvent != nil || false
+	filtersSpecified := f.GnoEvent != nil || f.StorageDepositEvent != nil || f.StorageUnlockEvent != nil || f.TransferEvent != nil || f.UnknownEvent != nil || false
 
 	// If no filters are specified for any types, accept all objects
 	if !filtersSpecified {
@@ -2768,6 +3169,19 @@ func (f *FilterEvent) Eval(obj *Event) bool {
 	if uObj, ok := tobj.(*StorageUnlockEvent); ok {
 		matchedType = true
 		if f.StorageUnlockEvent != nil && f.StorageUnlockEvent.Eval(uObj) {
+			return true
+		}
+	}
+
+	if uObj, ok := tobj.(TransferEvent); ok {
+		matchedType = true
+		if f.TransferEvent != nil && f.TransferEvent.Eval(&uObj) {
+			return true
+		}
+	}
+	if uObj, ok := tobj.(*TransferEvent); ok {
+		matchedType = true
+		if f.TransferEvent != nil && f.TransferEvent.Eval(uObj) {
 			return true
 		}
 	}

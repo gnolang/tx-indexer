@@ -124,6 +124,8 @@ type EventInput struct {
 	StorageDepositEvent *StorageDepositEventInput `json:"storage_deposit_event,omitempty"`
 	// `storage_unlock_event` input for events of type of StorageUnlockEvent.
 	StorageUnlockEvent *StorageUnlockEventInput `json:"storage_unlock_event,omitempty"`
+	// `transfer_event` input for events of type of TransferEvent.
+	TransferEvent *TransferEventInput `json:"transfer_event,omitempty"`
 }
 
 // filter for BankMsgSend objects
@@ -238,6 +240,8 @@ type FilterEvent struct {
 	StorageDepositEvent *NestedFilterStorageDepositEvent `json:"StorageDepositEvent,omitempty"`
 	// filter for StorageUnlockEvent union type.
 	StorageUnlockEvent *NestedFilterStorageUnlockEvent `json:"StorageUnlockEvent,omitempty"`
+	// filter for TransferEvent union type.
+	TransferEvent *NestedFilterTransferEvent `json:"TransferEvent,omitempty"`
 	// filter for UnknownEvent union type.
 	UnknownEvent *NestedFilterUnknownEvent `json:"UnknownEvent,omitempty"`
 }
@@ -330,6 +334,10 @@ type FilterMessageValue struct {
 	MsgAddPackage *NestedFilterMsgAddPackage `json:"MsgAddPackage,omitempty"`
 	// filter for MsgRun union type.
 	MsgRun *NestedFilterMsgRun `json:"MsgRun,omitempty"`
+	// filter for MsgEnablePackage union type.
+	MsgEnablePackage *NestedFilterMsgEnablePackage `json:"MsgEnablePackage,omitempty"`
+	// filter for MsgRejectPackage union type.
+	MsgRejectPackage *NestedFilterMsgRejectPackage `json:"MsgRejectPackage,omitempty"`
 	// filter for MsgCreateSession union type.
 	MsgCreateSession *NestedFilterMsgCreateSession `json:"MsgCreateSession,omitempty"`
 	// filter for MsgRevokeSession union type.
@@ -400,6 +408,38 @@ type FilterMsgCreateSession struct {
 	SpendLimit *FilterString `json:"spend_limit,omitempty"`
 	// filter for spend_period field.
 	SpendPeriod *FilterInt `json:"spend_period,omitempty"`
+}
+
+// filter for MsgEnablePackage objects
+type FilterMsgEnablePackage struct {
+	// logical operator for MsgEnablePackage that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterMsgEnablePackage `json:"_and,omitempty"`
+	// logical operator for MsgEnablePackage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterMsgEnablePackage `json:"_or,omitempty"`
+	// logical operator for MsgEnablePackage that will reverse conditions.
+	Not *FilterMsgEnablePackage `json:"_not,omitempty"`
+	// filter for approver field.
+	Approver *FilterString `json:"approver,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+	// filter for pkg_hash field.
+	PkgHash *FilterString `json:"pkg_hash,omitempty"`
+	// filter for pkg_height field.
+	PkgHeight *FilterInt `json:"pkg_height,omitempty"`
+}
+
+// filter for MsgRejectPackage objects
+type FilterMsgRejectPackage struct {
+	// logical operator for MsgRejectPackage that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterMsgRejectPackage `json:"_and,omitempty"`
+	// logical operator for MsgRejectPackage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterMsgRejectPackage `json:"_or,omitempty"`
+	// logical operator for MsgRejectPackage that will reverse conditions.
+	Not *FilterMsgRejectPackage `json:"_not,omitempty"`
+	// filter for sender field.
+	Sender *FilterString `json:"sender,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
 }
 
 // filter for MsgRevokeAllSessions objects
@@ -496,6 +536,8 @@ type FilterStorageUnlockEvent struct {
 	FeeRefund *NestedFilterCoin `json:"fee_refund,omitempty"`
 	// filter for pkg_path field.
 	PkgPath *FilterString `json:"pkg_path,omitempty"`
+	// filter for refund_withheld field.
+	RefundWithheld *FilterBoolean `json:"refund_withheld,omitempty"`
 }
 
 // Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
@@ -586,6 +628,24 @@ type FilterTransactionResponse struct {
 	Data *FilterString `json:"data,omitempty"`
 	// filter for events field.
 	Events *NestedFilterEvent `json:"events,omitempty"`
+}
+
+// filter for TransferEvent objects
+type FilterTransferEvent struct {
+	// logical operator for TransferEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterTransferEvent `json:"_and,omitempty"`
+	// logical operator for TransferEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterTransferEvent `json:"_or,omitempty"`
+	// logical operator for TransferEvent that will reverse conditions.
+	Not *FilterTransferEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for from field.
+	From *FilterString `json:"from,omitempty"`
+	// filter for to field.
+	To *FilterString `json:"to,omitempty"`
+	// filter for coins field.
+	Coins *FilterString `json:"coins,omitempty"`
 }
 
 // filter for TxFee objects
@@ -803,6 +863,56 @@ type MsgCreateSessionInput struct {
 	SpendLimit *AmountInput `json:"spend_limit,omitempty"`
 }
 
+// `MsgEnablePackage` is a message with a message router of `vm` and a message type of `enable_package`.
+// `MsgEnablePackage` activates a package parked awaiting approval so it becomes importable on-chain.
+type MsgEnablePackage struct {
+	// the bech32 address of the approver that enables the package.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Approver string `json:"approver"`
+	// the gno package path being enabled.
+	PkgPath string `json:"pkg_path"`
+	// the content hash of the package source being approved.
+	PkgHash string `json:"pkg_hash"`
+	// the block height of the package submission being approved. `0` means unpinned.
+	PkgHeight int `json:"pkg_height"`
+}
+
+func (MsgEnablePackage) IsMessageValue() {}
+
+// `MsgEnablePackageInput` represents input parameters required when the message type is `enable_package`.
+type MsgEnablePackageInput struct {
+	// the bech32 address of the approver that enables the package.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Approver *string `json:"approver,omitempty"`
+	// the gno package path being enabled.
+	PkgPath *string `json:"pkg_path,omitempty"`
+	// the content hash of the package source being approved.
+	PkgHash *string `json:"pkg_hash,omitempty"`
+	// the block height of the package submission being approved.
+	PkgHeight *int `json:"pkg_height,omitempty"`
+}
+
+// `MsgRejectPackage` is a message with a message router of `vm` and a message type of `reject_package`.
+// `MsgRejectPackage` removes a package parked awaiting approval.
+type MsgRejectPackage struct {
+	// the bech32 address of the sender that rejects the package. It is either an approver or the package creator.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Sender string `json:"sender"`
+	// the gno package path being rejected.
+	PkgPath string `json:"pkg_path"`
+}
+
+func (MsgRejectPackage) IsMessageValue() {}
+
+// `MsgRejectPackageInput` represents input parameters required when the message type is `reject_package`.
+type MsgRejectPackageInput struct {
+	// the bech32 address of the sender that rejects the package.
+	// ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+	Sender *string `json:"sender,omitempty"`
+	// the gno package path being rejected.
+	PkgPath *string `json:"pkg_path,omitempty"`
+}
+
 // `MsgRevokeAllSessions` is a message with a message router of `auth` and a message type of `revoke_all_sessions`.
 // `MsgRevokeAllSessions` revokes all session keys from the creator's account.
 type MsgRevokeAllSessions struct {
@@ -934,6 +1044,8 @@ type NestedFilterEvent struct {
 	StorageDepositEvent *NestedFilterStorageDepositEvent `json:"StorageDepositEvent,omitempty"`
 	// filter for StorageUnlockEvent union type.
 	StorageUnlockEvent *NestedFilterStorageUnlockEvent `json:"StorageUnlockEvent,omitempty"`
+	// filter for TransferEvent union type.
+	TransferEvent *NestedFilterTransferEvent `json:"TransferEvent,omitempty"`
 	// filter for UnknownEvent union type.
 	UnknownEvent *NestedFilterUnknownEvent `json:"UnknownEvent,omitempty"`
 }
@@ -1014,6 +1126,10 @@ type NestedFilterMessageValue struct {
 	MsgAddPackage *NestedFilterMsgAddPackage `json:"MsgAddPackage,omitempty"`
 	// filter for MsgRun union type.
 	MsgRun *NestedFilterMsgRun `json:"MsgRun,omitempty"`
+	// filter for MsgEnablePackage union type.
+	MsgEnablePackage *NestedFilterMsgEnablePackage `json:"MsgEnablePackage,omitempty"`
+	// filter for MsgRejectPackage union type.
+	MsgRejectPackage *NestedFilterMsgRejectPackage `json:"MsgRejectPackage,omitempty"`
 	// filter for MsgCreateSession union type.
 	MsgCreateSession *NestedFilterMsgCreateSession `json:"MsgCreateSession,omitempty"`
 	// filter for MsgRevokeSession union type.
@@ -1084,6 +1200,38 @@ type NestedFilterMsgCreateSession struct {
 	SpendLimit *FilterString `json:"spend_limit,omitempty"`
 	// filter for spend_period field.
 	SpendPeriod *FilterInt `json:"spend_period,omitempty"`
+}
+
+// filter for MsgEnablePackage objects
+type NestedFilterMsgEnablePackage struct {
+	// logical operator for MsgEnablePackage that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterMsgEnablePackage `json:"_and,omitempty"`
+	// logical operator for MsgEnablePackage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterMsgEnablePackage `json:"_or,omitempty"`
+	// logical operator for MsgEnablePackage that will reverse conditions.
+	Not *NestedFilterMsgEnablePackage `json:"_not,omitempty"`
+	// filter for approver field.
+	Approver *FilterString `json:"approver,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
+	// filter for pkg_hash field.
+	PkgHash *FilterString `json:"pkg_hash,omitempty"`
+	// filter for pkg_height field.
+	PkgHeight *FilterInt `json:"pkg_height,omitempty"`
+}
+
+// filter for MsgRejectPackage objects
+type NestedFilterMsgRejectPackage struct {
+	// logical operator for MsgRejectPackage that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterMsgRejectPackage `json:"_and,omitempty"`
+	// logical operator for MsgRejectPackage that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterMsgRejectPackage `json:"_or,omitempty"`
+	// logical operator for MsgRejectPackage that will reverse conditions.
+	Not *NestedFilterMsgRejectPackage `json:"_not,omitempty"`
+	// filter for sender field.
+	Sender *FilterString `json:"sender,omitempty"`
+	// filter for pkg_path field.
+	PkgPath *FilterString `json:"pkg_path,omitempty"`
 }
 
 // filter for MsgRevokeAllSessions objects
@@ -1180,6 +1328,8 @@ type NestedFilterStorageUnlockEvent struct {
 	FeeRefund *NestedFilterCoin `json:"fee_refund,omitempty"`
 	// filter for pkg_path field.
 	PkgPath *FilterString `json:"pkg_path,omitempty"`
+	// filter for refund_withheld field.
+	RefundWithheld *FilterBoolean `json:"refund_withheld,omitempty"`
 }
 
 // filter for TransactionMessage objects
@@ -1216,6 +1366,24 @@ type NestedFilterTransactionResponse struct {
 	Data *FilterString `json:"data,omitempty"`
 	// filter for events field.
 	Events *NestedFilterEvent `json:"events,omitempty"`
+}
+
+// filter for TransferEvent objects
+type NestedFilterTransferEvent struct {
+	// logical operator for TransferEvent that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterTransferEvent `json:"_and,omitempty"`
+	// logical operator for TransferEvent that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterTransferEvent `json:"_or,omitempty"`
+	// logical operator for TransferEvent that will reverse conditions.
+	Not *NestedFilterTransferEvent `json:"_not,omitempty"`
+	// filter for type field.
+	Type *FilterString `json:"type,omitempty"`
+	// filter for from field.
+	From *FilterString `json:"from,omitempty"`
+	// filter for to field.
+	To *FilterString `json:"to,omitempty"`
+	// filter for coins field.
+	Coins *FilterString `json:"coins,omitempty"`
 }
 
 // filter for TxFee objects
@@ -1301,7 +1469,7 @@ type StorageDepositEventInput struct {
 }
 
 // `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
-// It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
+// It has `type`, `bytes_delta`, `fee_refund`, `pkg_path`, and `refund_withheld`.
 type StorageUnlockEvent struct {
 	// `type` is the type of transaction event emitted.
 	Type string `json:"type"`
@@ -1311,12 +1479,14 @@ type StorageUnlockEvent struct {
 	FeeRefund *Coin `json:"fee_refund"`
 	// `pkg_path` is the path to the package that emitted the event.
 	PkgPath string `json:"pkg_path"`
+	// `refund_withheld` is true if the refund was retained because of a token lock.
+	RefundWithheld bool `json:"refund_withheld"`
 }
 
 func (StorageUnlockEvent) IsEvent() {}
 
 // Transaction's event of type of StorageUnlockEvent to filter transactions.
-// "StorageUnlockEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_refund` and `pkg_path`.
+// "StorageUnlockEventInput" can be configured as a filter with a transaction event's `type`, `bytes_delta`, `fee_refund`, `pkg_path` and `refund_withheld`.
 type StorageUnlockEventInput struct {
 	// `type` is the type of transaction event emitted.
 	Type *string `json:"type,omitempty"`
@@ -1326,6 +1496,8 @@ type StorageUnlockEventInput struct {
 	FeeRefund *CoinInput `json:"fee_refund,omitempty"`
 	// `pkg_path` is the path to the package that emitted the event.
 	PkgPath *string `json:"pkg_path,omitempty"`
+	// `refund_withheld` is true if the refund was retained because of a token lock.
+	RefundWithheld *bool `json:"refund_withheld,omitempty"`
 }
 
 // Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
@@ -1422,6 +1594,39 @@ type TransactionVMMessageInput struct {
 	AddPackage *MsgAddPackageInput `json:"add_package,omitempty"`
 	// `MsgRunInput` represents input parameters required when the message type is `run`.
 	Run *MsgRunInput `json:"run,omitempty"`
+	// `MsgEnablePackageInput` represents input parameters required when the message type is `enable_package`.
+	EnablePackage *MsgEnablePackageInput `json:"enable_package,omitempty"`
+	// `MsgRejectPackageInput` represents input parameters required when the message type is `reject_package`.
+	RejectPackage *MsgRejectPackageInput `json:"reject_package,omitempty"`
+}
+
+// `TransferEvent` is emitted by the bank module when a transfer succeeds.
+// It has `type`, `from`, `to`, and `coins`.
+type TransferEvent struct {
+	// `type` is the type of transaction event emitted.
+	Type string `json:"type"`
+	// `from` is the bech32 address of the sender.
+	From string `json:"from"`
+	// `to` is the bech32 address of the receiver.
+	To string `json:"to"`
+	// `coins` is the amount of coins transferred ("<amount><denomination>").
+	// ex) `1000000ugnot`
+	Coins string `json:"coins"`
+}
+
+func (TransferEvent) IsEvent() {}
+
+// Transaction's event of type of TransferEvent to filter transactions.
+// "TransferEventInput" can be configured as a filter with a transaction event's `type`, `from`, `to` and `coins`.
+type TransferEventInput struct {
+	// `type` is the type of transaction event emitted.
+	Type *string `json:"type,omitempty"`
+	// `from` is the bech32 address of the sender.
+	From *string `json:"from,omitempty"`
+	// `to` is the bech32 address of the receiver.
+	To *string `json:"to,omitempty"`
+	// `coins` is the amount of coins transferred.
+	Coins *AmountInput `json:"coins,omitempty"`
 }
 
 // The `TxFee` has information about the fee used in the transaction and the maximum gas fee specified by the user.
@@ -1563,7 +1768,7 @@ func (e MessageRoute) MarshalJSON() ([]byte, error) {
 }
 
 // `MessageType` is message type of the transaction.
-// `MessageType` has the values `send`, `exec`, `add_package`, `run`,
+// `MessageType` has the values `send`, `exec`, `add_package`, `run`, `enable_package`, `reject_package`,
 // `create_session`, `revoke_session`, and `revoke_all_sessions`.
 type MessageType string
 
@@ -1580,6 +1785,12 @@ const (
 	// The route value for this message type is `vm`, and the value for transactional messages is `MsgRun`.
 	// This is a transactional message that executes an arbitrary Gno-coded TX message.
 	MessageTypeRun MessageType = "run"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgEnablePackage`.
+	// This is a transactional message that activates a package parked awaiting approval.
+	MessageTypeEnablePackage MessageType = "enable_package"
+	// The route value for this message type is `vm`, and the value for transactional messages is `MsgRejectPackage`.
+	// This is a transactional message that removes a package parked awaiting approval.
+	MessageTypeRejectPackage MessageType = "reject_package"
 	// The route value for this message type is `auth`, and the value for transactional messages is `MsgCreateSession`.
 	// This is a transactional message that creates a new session key on the creator's account.
 	MessageTypeCreateSession MessageType = "create_session"
@@ -1596,6 +1807,8 @@ var AllMessageType = []MessageType{
 	MessageTypeExec,
 	MessageTypeAddPackage,
 	MessageTypeRun,
+	MessageTypeEnablePackage,
+	MessageTypeRejectPackage,
 	MessageTypeCreateSession,
 	MessageTypeRevokeSession,
 	MessageTypeRevokeAllSessions,
@@ -1603,7 +1816,7 @@ var AllMessageType = []MessageType{
 
 func (e MessageType) IsValid() bool {
 	switch e {
-	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun, MessageTypeCreateSession, MessageTypeRevokeSession, MessageTypeRevokeAllSessions:
+	case MessageTypeSend, MessageTypeExec, MessageTypeAddPackage, MessageTypeRun, MessageTypeEnablePackage, MessageTypeRejectPackage, MessageTypeCreateSession, MessageTypeRevokeSession, MessageTypeRevokeAllSessions:
 		return true
 	}
 	return false
