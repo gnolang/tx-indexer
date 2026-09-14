@@ -289,8 +289,8 @@ returned:
 #### `getSupply`
 
 Returns the supply of a tracked denomination at a recent chain height, split by spendability: how much of it exists
-(`total`), how much of that is held by vesting accounts under a schedule that has not vested yet (`locked`), and the
-difference (`spendable`), which is what data aggregators call the circulating supply.
+(`total`), how much of that the genesis vesting schedules still lock (`locked`), and the difference (`spendable`),
+which is what data aggregators call the circulating supply.
 
 - **Params**: `denom`, a tracked denomination, e.g. `ugnot`
 - **Response**: `{ denom, height, total, spendable, locked }`, amounts as strings
@@ -298,9 +298,13 @@ difference (`spendable`), which is what data aggregators call the circulating su
 The figures come from a background snapshot the indexer refreshes on its own schedule (every 10 seconds), so requests
 never reach the chain. The snapshot covers only the denoms listed in `--supply-denoms` (default `ugnot`): the total is
 read from the chain's per-denom supply counter, and the locked portion is computed from the vesting schedules in the
-chain genesis, evaluated at the snapshot's block time and clamped to the balance each account actually holds. All
-figures in a snapshot were read at the same height, in one batched query. If a refresh fails, the last good snapshot
-keeps serving.
+chain genesis, evaluated at the snapshot's block time. Locked is not clamped to each account's live balance, so for
+accounts that spent below their schedule through fees it can exceed what they still hold; in exchange a refresh reads
+one counter per denom instead of one balance per vesting account. Schedules sharing a vesting window are summed and
+evaluated as one, so a refresh costs the same whether the genesis holds ten vesting accounts or millions; the summed
+figure can be lower than a per-account evaluation by less than one unit of the denom per account. Locked never
+exceeds the total, so `total = spendable + locked` always holds. All figures in a snapshot were read at the same
+height, in one batched query. If a refresh fails, the last good snapshot keeps serving.
 
 Example request:
 

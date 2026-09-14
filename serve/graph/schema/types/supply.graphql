@@ -19,8 +19,10 @@ type Supply {
   total: String!
 
   """
-  The portion held by vesting accounts under a schedule that has not vested
-  yet, clamped to the balance each account actually holds.
+  The portion of the genesis vesting schedules that has not vested yet,
+  computed from the schedules and the block time alone. It is not clamped
+  to the balance each account actually holds, but it never exceeds `total`,
+  so `total = spendable + locked` always holds.
   """
   locked: String!
 
