@@ -15,6 +15,7 @@ const (
 	storageDepositEventType = "StorageDepositEvent"
 	storageUnlockEventType  = "StorageUnlockEvent"
 	transferEventType       = "TransferEvent"
+	testAmount              = "1000ugnot"
 )
 
 func strPtr(s string) *string { return &s }
@@ -22,6 +23,11 @@ func strPtr(s string) *string { return &s }
 func intPtr(n int) *int { return &n }
 
 func boolPtr(b bool) *bool { return &b }
+
+// vmParam wraps a VM message input the way a client sends it.
+func vmParam(input *model.TransactionVMMessageInput) *model.TransactionMessageInput {
+	return &model.TransactionMessageInput{VMParam: input}
+}
 
 func TestFilteredEventBy(t *testing.T) {
 	t.Parallel()
@@ -200,10 +206,6 @@ func TestFilteredTransactionMessageBy_PackageApproval(t *testing.T) {
 		Value:   model.MsgRejectPackage{Sender: "g1creator", PkgPath: testPkgPath},
 	}
 
-	vmParam := func(input *model.TransactionVMMessageInput) *model.TransactionMessageInput {
-		return &model.TransactionMessageInput{VMParam: input}
-	}
-
 	cases := []struct {
 		message *model.TransactionMessage
 		input   *model.TransactionMessageInput
@@ -278,4 +280,81 @@ func TestEventInputFieldsAreDispatched(t *testing.T) {
 
 	require.Equal(t, 4, reflect.TypeOf(model.EventInput{}).NumField(),
 		"EventInput gained a field: extend eventInputNamesType and filteredEventBy, then update this count")
+}
+
+// An amount range on a VM message selects the messages whose amount falls in
+// the range, the way the bank send filter does.
+func TestFilteredTransactionMessageBy_AmountRanges(t *testing.T) {
+	t.Parallel()
+
+	inRange := &model.AmountInput{From: intPtr(1000), To: intPtr(1000), Denomination: strPtr(testDenom)}
+	outOfRange := &model.AmountInput{From: intPtr(2000), Denomination: strPtr(testDenom)}
+
+	exec := &model.TransactionMessage{
+		Route:   model.MessageRouteVM.String(),
+		TypeURL: model.MessageTypeExec.String(),
+		Value:   model.MsgCall{Caller: "g1caller", Send: testAmount},
+	}
+	addPackage := &model.TransactionMessage{
+		Route:   model.MessageRouteVM.String(),
+		TypeURL: model.MessageTypeAddPackage.String(),
+		Value:   model.MsgAddPackage{Creator: "g1creator", Deposit: testAmount},
+	}
+	run := &model.TransactionMessage{
+		Route:   model.MessageRouteVM.String(),
+		TypeURL: model.MessageTypeRun.String(),
+		Value:   model.MsgRun{Caller: "g1caller", Send: testAmount},
+	}
+
+	cases := []struct {
+		message *model.TransactionMessage
+		input   *model.TransactionMessageInput
+		name    string
+		want    bool
+	}{
+		{
+			exec,
+			vmParam(&model.TransactionVMMessageInput{Exec: &model.MsgCallInput{Send: inRange}}),
+			"exec send in range",
+			true,
+		},
+		{
+			exec,
+			vmParam(&model.TransactionVMMessageInput{Exec: &model.MsgCallInput{Send: outOfRange}}),
+			"exec send out of range",
+			false,
+		},
+		{
+			addPackage,
+			vmParam(&model.TransactionVMMessageInput{AddPackage: &model.MsgAddPackageInput{Deposit: inRange}}),
+			"add_package deposit in range",
+			true,
+		},
+		{
+			addPackage,
+			vmParam(&model.TransactionVMMessageInput{AddPackage: &model.MsgAddPackageInput{Deposit: outOfRange}}),
+			"add_package deposit out of range",
+			false,
+		},
+		{
+			run,
+			vmParam(&model.TransactionVMMessageInput{Run: &model.MsgRunInput{Send: inRange}}),
+			"run send in range",
+			true,
+		},
+		{
+			run,
+			vmParam(&model.TransactionVMMessageInput{Run: &model.MsgRunInput{Send: outOfRange}}),
+			"run send out of range",
+			false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, filteredTransactionMessageBy(tc.message, tc.input))
+		})
+	}
 }

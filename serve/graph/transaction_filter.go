@@ -436,7 +436,7 @@ func filteredMessageOfMsgCallBy(
 		return false
 	}
 
-	if params.Exec.Send != nil && filteredAmountBy(messageValue.Send, params.Exec.Send) {
+	if params.Exec.Send != nil && !filteredAmountBy(messageValue.Send, params.Exec.Send) {
 		return false
 	}
 
@@ -477,7 +477,7 @@ func filteredMessageOfMsgAddPackageBy(
 		return false
 	}
 
-	if params.AddPackage.Deposit != nil && filteredAmountBy(messageValue.Deposit, params.AddPackage.Deposit) {
+	if params.AddPackage.Deposit != nil && !filteredAmountBy(messageValue.Deposit, params.AddPackage.Deposit) {
 		return false
 	}
 
@@ -509,7 +509,7 @@ func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.
 		return false
 	}
 
-	if params.Run.Send != nil && filteredAmountBy(messageValue.Send, params.Run.Send) {
+	if params.Run.Send != nil && !filteredAmountBy(messageValue.Send, params.Run.Send) {
 		return false
 	}
 
