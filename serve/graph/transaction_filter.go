@@ -69,26 +69,128 @@ func filteredTransactionByEvents(tx *model.Transaction, eventInputs []*model.Eve
 	return false
 }
 
-// `filteredEventBy` checks the conditions of a event.
+// `filteredEventBy` checks whether an event satisfies the input set for its
+// own type. An input with no event type set matches any event.
 func filteredEventBy(event model.Event, eventInput *model.EventInput) bool {
 	if event == nil {
 		return false
 	}
 
-	gnoEvent, ok := event.(*model.GnoEvent)
-	if !ok {
+	if !eventInputNamesType(eventInput) {
+		return true
+	}
+
+	switch typed := event.(type) {
+	case *model.GnoEvent:
+		return eventInput.GnoEvent != nil && filteredGnoEventBy(typed, eventInput.GnoEvent)
+	case *model.TransferEvent:
+		return eventInput.TransferEvent != nil && filteredTransferEventBy(typed, eventInput.TransferEvent)
+	case *model.StorageDepositEvent:
+		return eventInput.StorageDepositEvent != nil &&
+			filteredStorageDepositEventBy(typed, eventInput.StorageDepositEvent)
+	case *model.StorageUnlockEvent:
+		return eventInput.StorageUnlockEvent != nil &&
+			filteredStorageUnlockEventBy(typed, eventInput.StorageUnlockEvent)
+	default:
+		return false
+	}
+}
+
+// `eventInputNamesType` reports whether the input asks for an event type at all.
+func eventInputNamesType(input *model.EventInput) bool {
+	return input.GnoEvent != nil ||
+		input.StorageDepositEvent != nil ||
+		input.StorageUnlockEvent != nil ||
+		input.TransferEvent != nil
+}
+
+// `filteredTransferEventBy` checks the conditions of a TransferEvent.
+func filteredTransferEventBy(event *model.TransferEvent, input *model.TransferEventInput) bool {
+	if input.Type != nil && deref(input.Type) != event.Type {
 		return false
 	}
 
-	if eventInput.GnoEvent.Type != nil && deref(eventInput.GnoEvent.Type) != gnoEvent.Type {
+	if input.From != nil && deref(input.From) != event.From {
 		return false
 	}
 
-	if eventInput.GnoEvent.PkgPath != nil && deref(eventInput.GnoEvent.PkgPath) != gnoEvent.PkgPath {
+	if input.To != nil && deref(input.To) != event.To {
 		return false
 	}
 
-	if eventInput.GnoEvent.Attrs != nil && !filteredGnoEventAttributesBy(gnoEvent.Attrs, eventInput.GnoEvent.Attrs) {
+	return filteredAmountBy(event.Coins, input.Coins)
+}
+
+// `filteredGnoEventBy` checks the conditions of a GnoEvent.
+func filteredGnoEventBy(event *model.GnoEvent, input *model.GnoEventInput) bool {
+	if input.Type != nil && deref(input.Type) != event.Type {
+		return false
+	}
+
+	if input.PkgPath != nil && deref(input.PkgPath) != event.PkgPath {
+		return false
+	}
+
+	if input.Attrs != nil && !filteredGnoEventAttributesBy(event.Attrs, input.Attrs) {
+		return false
+	}
+
+	return true
+}
+
+// `filteredStorageDepositEventBy` checks the conditions of a StorageDepositEvent.
+func filteredStorageDepositEventBy(event *model.StorageDepositEvent, input *model.StorageDepositEventInput) bool {
+	if input.Type != nil && deref(input.Type) != event.Type {
+		return false
+	}
+
+	if input.BytesDelta != nil && deref(input.BytesDelta) != event.BytesDelta {
+		return false
+	}
+
+	if input.PkgPath != nil && deref(input.PkgPath) != event.PkgPath {
+		return false
+	}
+
+	return filteredCoinBy(event.FeeDelta, input.FeeDelta)
+}
+
+// `filteredStorageUnlockEventBy` checks the conditions of a StorageUnlockEvent.
+func filteredStorageUnlockEventBy(event *model.StorageUnlockEvent, input *model.StorageUnlockEventInput) bool {
+	if input.Type != nil && deref(input.Type) != event.Type {
+		return false
+	}
+
+	if input.BytesDelta != nil && deref(input.BytesDelta) != event.BytesDelta {
+		return false
+	}
+
+	if input.PkgPath != nil && deref(input.PkgPath) != event.PkgPath {
+		return false
+	}
+
+	if input.RefundWithheld != nil && deref(input.RefundWithheld) != event.RefundWithheld {
+		return false
+	}
+
+	return filteredCoinBy(event.FeeRefund, input.FeeRefund)
+}
+
+// `filteredCoinBy` checks a coin against the amount and denom set on the input.
+func filteredCoinBy(coin *model.Coin, input *model.CoinInput) bool {
+	if input == nil {
+		return true
+	}
+
+	if coin == nil {
+		return false
+	}
+
+	if input.Amount != nil && deref(input.Amount) != coin.Amount {
+		return false
+	}
+
+	if input.Denom != nil && deref(input.Denom) != coin.Denom {
 		return false
 	}
 
@@ -268,6 +370,14 @@ func filteredTransactionMessageBy(
 		if !filteredMessageOfMsgRunBy(tm.VMMsgRun(), messageInput.VMParam) {
 			return false
 		}
+	case model.MessageTypeEnablePackage.String():
+		if !filteredMessageOfMsgEnablePackageBy(tm.VMMsgEnablePackage(), messageInput.VMParam) {
+			return false
+		}
+	case model.MessageTypeRejectPackage.String():
+		if !filteredMessageOfMsgRejectPackageBy(tm.VMMsgRejectPackage(), messageInput.VMParam) {
+			return false
+		}
 	default:
 		return false
 	}
@@ -411,6 +521,64 @@ func filteredMessageOfMsgRunBy(messageValue model.MsgRun, vmMessageInput *model.
 		if deref(params.Run.Package.Path) != messageValue.Package.Path {
 			return false
 		}
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgEnablePackageBy` checks the conditions of a message of type MsgEnablePackage
+func filteredMessageOfMsgEnablePackageBy(
+	messageValue model.MsgEnablePackage,
+	vmMessageInput *model.TransactionVMMessageInput,
+) bool {
+	params := vmMessageInput
+	if params == nil {
+		return true
+	}
+
+	if params.EnablePackage == nil {
+		return false
+	}
+
+	if params.EnablePackage.Approver != nil && deref(params.EnablePackage.Approver) != messageValue.Approver {
+		return false
+	}
+
+	if params.EnablePackage.PkgPath != nil && deref(params.EnablePackage.PkgPath) != messageValue.PkgPath {
+		return false
+	}
+
+	if params.EnablePackage.PkgHash != nil && deref(params.EnablePackage.PkgHash) != messageValue.PkgHash {
+		return false
+	}
+
+	if params.EnablePackage.PkgHeight != nil && deref(params.EnablePackage.PkgHeight) != messageValue.PkgHeight {
+		return false
+	}
+
+	return true
+}
+
+// `filteredMessageOfMsgRejectPackageBy` checks the conditions of a message of type MsgRejectPackage
+func filteredMessageOfMsgRejectPackageBy(
+	messageValue model.MsgRejectPackage,
+	vmMessageInput *model.TransactionVMMessageInput,
+) bool {
+	params := vmMessageInput
+	if params == nil {
+		return true
+	}
+
+	if params.RejectPackage == nil {
+		return false
+	}
+
+	if params.RejectPackage.Sender != nil && deref(params.RejectPackage.Sender) != messageValue.Sender {
+		return false
+	}
+
+	if params.RejectPackage.PkgPath != nil && deref(params.RejectPackage.PkgPath) != messageValue.PkgPath {
+		return false
 	}
 
 	return true
