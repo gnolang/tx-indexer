@@ -74,7 +74,7 @@ enum MessageRoute {
 
 """
 `MessageType` is message type of the transaction.
-`MessageType` has the values `send`, `exec`, `add_package`, and `run`.
+`MessageType` has the values `send`, `exec`, `add_package`, `run`, `enable_package`, and `reject_package`.
 """
 enum MessageType {
   """
@@ -100,12 +100,24 @@ enum MessageType {
   This is a transactional message that executes an arbitrary Gno-coded TX message.
   """
   run
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgEnablePackage`.
+  This is a transactional message that enables a package parked awaiting approval.
+  """
+  enable_package
+
+  """
+  The route value for this message type is `vm`, and the value for transactional messages is `MsgRejectPackage`.
+  This is a transactional message that rejects a package parked awaiting approval.
+  """
+  reject_package
 }
 
 type TransactionMessage {
   """
   The type of transaction message.
-  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`.
+  The value of `typeUrl` can be `send`, `exec`, `add_package`, `run`, `enable_package`, `reject_package`.
   """
   typeUrl: String! @filterable
 
@@ -117,12 +129,20 @@ type TransactionMessage {
 
   """
   MessageValue is the content of the transaction.
-  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `UnexpectedMessage`.
+  `value` can be of type `BankMsgSend`, `MsgCall`, `MsgAddPackage`, `MsgRun`, `MsgEnablePackage`,
+  `MsgRejectPackage`, `UnexpectedMessage`.
   """
   value: MessageValue! @filterable
 }
 
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue =
+  | BankMsgSend
+  | MsgCall
+  | MsgAddPackage
+  | MsgRun
+  | MsgEnablePackage
+  | MsgRejectPackage
+  | UnexpectedMessage
 
 """
 `BankMsgSend` is a message with a message router of `bank` and a message type of `send`.
@@ -252,6 +272,50 @@ type MsgRun {
 }
 
 """
+`MsgEnablePackage` is a message with a message router of `vm` and a message type of `enable_package`.
+`MsgEnablePackage` enables a package parked awaiting approval, so it can be imported and called.
+"""
+type MsgEnablePackage {
+  """
+  the bech32 address of the approver.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  approver: String! @filterable
+
+  """
+  the gno package path being enabled.
+  """
+  pkg_path: String! @filterable
+
+  """
+  the content hash of the package source being approved.
+  """
+  pkg_hash: String! @filterable
+
+  """
+  the block height of the package submission being approved; `0` when the approval is not pinned to one.
+  """
+  pkg_height: Int! @filterable
+}
+
+"""
+`MsgRejectPackage` is a message with a message router of `vm` and a message type of `reject_package`.
+`MsgRejectPackage` removes a package parked awaiting approval.
+"""
+type MsgRejectPackage {
+  """
+  the bech32 address of the sender, an approver or the package creator.
+  ex) `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`
+  """
+  sender: String! @filterable
+
+  """
+  the gno package path being rejected.
+  """
+  pkg_path: String! @filterable
+}
+
+"""
 `UnexpectedMessage` is an Undefined Message, which is a message that decoding failed.
 """
 type UnexpectedMessage {
@@ -354,7 +418,7 @@ type TransactionResponse {
   events: [Event] @filterable
 }
 
-union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
+union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | TransferEvent | UnknownEvent
 
 """
 `GnoEvent` is the event information exported by the Gno VM.
@@ -421,7 +485,7 @@ type StorageDepositEvent {
 
 """
 `StorageUnlockEvent` is emitted when a storage deposit fee is unlocked.
-It has `type`, `bytes_delta`, `fee_refund`, and `pkg_path`.
+It has `type`, `bytes_delta`, `fee_refund`, `pkg_path`, and `refund_withheld`.
 """
 type StorageUnlockEvent {
   """
@@ -443,6 +507,38 @@ type StorageUnlockEvent {
   `pkg_path` is the path to the package that emitted the event.
   """
   pkg_path: String! @filterable
+
+  """
+  `refund_withheld` is true when the refund was kept back because of a token lock.
+  """
+  refund_withheld: Boolean! @filterable
+}
+
+"""
+`TransferEvent` is emitted by the bank module when coins move between accounts.
+It has `type`, `from`, `to`, and `coins`.
+"""
+type TransferEvent {
+  """
+  `type` is the type of transaction event emitted.
+  """
+  type: String! @filterable
+
+  """
+  `from` is the bech32 address the coins left.
+  """
+  from: String! @filterable
+
+  """
+  `to` is the bech32 address the coins reached.
+  """
+  to: String! @filterable
+
+  """
+  `coins` is the amount transferred ("<amount><denomination>", comma-separated when several).
+  ex) `1000000ugnot`
+  """
+  coins: String! @filterable
 }
 
 """
