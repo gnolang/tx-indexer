@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
@@ -99,23 +102,24 @@ var (
 	plain   = crypto.AddressFromPreimage([]byte("plain"))
 )
 
-func coin(denom string, amount int64) std.Coin {
-	return std.NewCoin(denom, amount)
+// coin is amount of the test denom.
+func coin(amount int64) std.Coin {
+	return std.NewCoin(testDenom, amount)
 }
 
 // continuousSchedule vests 1000 of the test denom linearly from t=100 to t=200.
 func continuousSchedule() *std.VestingSchedule {
 	return &std.VestingSchedule{
-		OriginalVesting: std.NewCoins(coin(testDenom, 1000)),
+		OriginalVesting: std.NewCoins(coin(1000)),
 		StartTime:       100,
 		EndTime:         200,
 	}
 }
 
-// delayedSchedule vests denom fully at t=200 (cliff).
-func delayedSchedule(denom string, amount int64) *std.VestingSchedule {
+// delayedSchedule vests amount of the test denom fully at t=200 (cliff).
+func delayedSchedule(amount int64) *std.VestingSchedule {
 	return &std.VestingSchedule{
-		OriginalVesting: std.NewCoins(coin(denom, amount)),
+		OriginalVesting: std.NewCoins(coin(amount)),
 		StartTime:       0,
 		EndTime:         200,
 		Type:            std.VestingDelayed,
@@ -126,7 +130,7 @@ func delayedSchedule(denom string, amount int64) *std.VestingSchedule {
 func vestingBalance(addr crypto.Address, schedule *std.VestingSchedule, amount int64) gnoland.Balance {
 	return gnoland.Balance{
 		Address: addr,
-		Amount:  std.NewCoins(coin(testDenom, amount)),
+		Amount:  std.NewCoins(coin(amount)),
 		Vesting: schedule,
 	}
 }
@@ -135,7 +139,7 @@ func vestingBalance(addr crypto.Address, schedule *std.VestingSchedule, amount i
 func plainBalance(addr crypto.Address, amount int64) gnoland.Balance {
 	return gnoland.Balance{
 		Address: addr,
-		Amount:  std.NewCoins(coin(testDenom, amount)),
+		Amount:  std.NewCoins(coin(amount)),
 	}
 }
 
@@ -148,15 +152,15 @@ func statusAt(height, unix int64) *core_types.ResultStatus {
 	}
 }
 
-// chainFixture answers one batch at one height, from plain maps.
+// chainFixture answers one batch at one height, from a plain map.
 // errBatch fails the whole batch when set; errSupplyResponse makes every
 // bank/supply result carry an ABCI error (a chain without the route);
-// panicBatch makes the batch call panic.
+// panicBatch makes the batch call panic. Only bank/supply is answered: the
+// refresh must never ask for a per-account balance.
 type chainFixture struct {
-	supply   map[string]int64
-	balances map[crypto.Address]std.Coins
-	rec      *batchRecorder
-	status   *core_types.ResultStatus
+	supply map[string]int64
+	rec    *batchRecorder
+	status *core_types.ResultStatus
 
 	errBatch          error
 	errSupplyResponse error
@@ -167,10 +171,9 @@ type chainFixture struct {
 
 func newChainFixture() *chainFixture {
 	return &chainFixture{
-		supply:   map[string]int64{},
-		balances: map[crypto.Address]std.Coins{},
-		rec:      &batchRecorder{},
-		status:   statusAt(42, 150),
+		supply: map[string]int64{},
+		rec:    &batchRecorder{},
+		status: statusAt(42, 150),
 	}
 }
 
@@ -208,15 +211,6 @@ func (f *chainFixture) client() *mockClient {
 					}
 
 					results[i] = abciData(amino.MustMarshalJSON(f.supply[path[len("bank/supply/"):]]))
-				case hasPrefix(path, "bank/balances/"):
-					addr, err := crypto.AddressFromBech32(path[len("bank/balances/"):])
-					if err != nil {
-						results[i] = abciError(fmt.Errorf("bad address in fixture path %q", path))
-
-						continue
-					}
-
-					results[i] = abciData(amino.MustMarshalJSON(f.balances[addr]))
 				default:
 					results[i] = abciError(fmt.Errorf("unknown query path %q", path))
 				}
@@ -260,7 +254,7 @@ func newHandler(t *testing.T, f *chainFixture, balances ...gnoland.Balance) *Han
 
 	// Start loads the schedules before serving; these tests drive refresh
 	// directly, so they do the same.
-	require.NoError(t, h.loadVestings())
+	require.NoError(t, h.loadWindows())
 
 	return h
 }
@@ -268,42 +262,185 @@ func newHandler(t *testing.T, f *chainFixture, balances ...gnoland.Balance) *Han
 // ---------------------------------------------------------------
 // The vesting fold, pure
 
-func TestNewVestingsFoldsDuplicateRows(t *testing.T) {
+func TestFoldVestingWindowsFoldsDuplicateRows(t *testing.T) {
 	t.Parallel()
 
 	// The chain applies genesis rows last-row-wins (applyBalance): two
 	// vesting rows for one address keep only the last, and a plain row
 	// clears a vesting one entirely.
-	vestings, err := NewVestings([]gnoland.Balance{
+	windows, err := FoldVestingWindows([]gnoland.Balance{
 		vestingBalance(vesterA, continuousSchedule(), 1000),
 		// Same address again, different schedule: only this one counts.
-		vestingBalance(vesterA, delayedSchedule(testDenom, 1000), 1000),
+		vestingBalance(vesterA, delayedSchedule(1000), 1000),
 		// A vesting row then a plain row: the account is not vesting.
 		vestingBalance(vesterB, continuousSchedule(), 1000),
 		plainBalance(vesterB, 1000),
 	})
 	require.NoError(t, err)
 
-	require.Len(t, vestings, 1, "only one folded entry must remain")
+	require.Len(t, windows, 1, "only one folded entry must remain")
 
 	// vesterA keeps the delayed schedule: at t=150 everything is locked.
-	require.Equal(t, vesterA, vestings[0].address)
-	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
+	require.Equal(t, std.VestingDelayed, windows[0].Type)
+	require.Equal(t, int64(1000), windows[0].LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
 }
 
-func TestNewVestingsRejectsUnbuildableSchedule(t *testing.T) {
+func TestFoldVestingWindowsSumsSchedulesSharingAWindow(t *testing.T) {
 	t.Parallel()
 
-	// A schedule naming more than the row's balance cannot become a chain
-	// account, so NewVestings refuses it instead of silently skipping it.
-	_, err := NewVestings([]gnoland.Balance{
+	// Rows vesting over the same window vest identically, so they fold into
+	// one schedule holding the summed amount, whatever the number of
+	// accounts behind it. A different curve over the same bounds stays its
+	// own schedule.
+	windows, err := FoldVestingWindows([]gnoland.Balance{
+		vestingBalance(vesterA, continuousSchedule(), 1000),
+		vestingBalance(vesterB, &std.VestingSchedule{
+			OriginalVesting: std.NewCoins(coin(500)),
+			StartTime:       100,
+			EndTime:         200,
+		}, 500),
+		vestingBalance(vesterC, delayedSchedule(2000), 2000),
+	})
+	require.NoError(t, err)
+	require.Len(t, windows, 2, "one continuous window and one cliff")
+
+	byType := make(map[std.VestingScheduleType]std.VestingSchedule, len(windows))
+	for _, window := range windows {
+		byType[window.Type] = window
+	}
+
+	require.Equal(t, int64(1500), byType[std.VestingContinuous].OriginalVesting.AmountOf(testDenom))
+	require.Equal(t, int64(2000), byType[std.VestingDelayed].OriginalVesting.AmountOf(testDenom))
+
+	// Halfway through the window, half of the summed amount is still locked.
+	require.Equal(t, int64(750), byType[std.VestingContinuous].LockedCoins(time.Unix(150, 0)).AmountOf(testDenom))
+}
+
+func TestFoldVestingWindowsRejectsUnderfundedSchedule(t *testing.T) {
+	t.Parallel()
+
+	// A schedule naming more than the row's balance is a row the chain
+	// rejects at InitChain, so FoldVestingWindows refuses it instead of silently
+	// skipping it.
+	_, err := FoldVestingWindows([]gnoland.Balance{
 		{
 			Address: vesterA,
-			Amount:  std.NewCoins(coin(testDenom, 100)),
+			Amount:  std.NewCoins(coin(100)),
 			Vesting: continuousSchedule(), // names 1000
 		},
 	})
 	require.ErrorContains(t, err, "invalid vesting balance")
+}
+
+func TestFoldVestingWindowsRejectsMalformedSchedule(t *testing.T) {
+	t.Parallel()
+
+	// A continuous schedule ending before it starts is a row the chain
+	// rejects at InitChain, so the fold refuses it rather than locking an
+	// amount no account vests.
+	_, err := FoldVestingWindows([]gnoland.Balance{
+		vestingBalance(vesterA, &std.VestingSchedule{
+			OriginalVesting: std.NewCoins(coin(1000)),
+			StartTime:       200,
+			EndTime:         100,
+		}, 1000),
+	})
+	require.ErrorContains(t, err, "invalid vesting balance")
+}
+
+func TestFoldVestingWindowsRejectsOverflowingWindow(t *testing.T) {
+	t.Parallel()
+
+	// Each row is valid on its own; together they exceed what an int64
+	// holds. The fold must report that, not panic the process at startup.
+	huge := int64(1) << 62
+
+	rows := make([]gnoland.Balance, 0, 3)
+	for _, addr := range []crypto.Address{vesterA, vesterB, vesterC} {
+		rows = append(rows, vestingBalance(addr, &std.VestingSchedule{
+			OriginalVesting: std.NewCoins(coin(huge)),
+			StartTime:       100,
+			EndTime:         200,
+		}, huge))
+	}
+
+	_, err := FoldVestingWindows(rows)
+	require.ErrorContains(t, err, "overflow")
+}
+
+// A cliff vests nothing until its end whatever its start, so delayed rows
+// differing only in start time are one window.
+func TestFoldVestingWindowsIgnoresCliffStartTime(t *testing.T) {
+	t.Parallel()
+
+	later := delayedSchedule(1000)
+	later.StartTime = 50
+
+	windows, err := FoldVestingWindows([]gnoland.Balance{
+		vestingBalance(vesterA, delayedSchedule(1000), 1000),
+		vestingBalance(vesterB, later, 1000),
+	})
+	require.NoError(t, err)
+	require.Len(t, windows, 1)
+	require.Equal(t, int64(2000), windows[0].OriginalVesting.AmountOf(testDenom))
+}
+
+// The summed window vests at least what the accounts vest one by one, and at
+// most one unit per denom more per account: the chain rounds each account's
+// vested amount down, and the sum rounds down once.
+func TestFoldVestingWindowsRoundsDownOncePerWindow(t *testing.T) {
+	t.Parallel()
+
+	amounts := []int64{1, 3, 7}
+	at := time.Unix(137, 0) // 37% through the window: nothing divides evenly
+
+	rows := make([]gnoland.Balance, 0, len(amounts))
+
+	var perAccount int64
+
+	for i, amount := range amounts {
+		schedule := &std.VestingSchedule{
+			OriginalVesting: std.NewCoins(coin(amount)),
+			StartTime:       100,
+			EndTime:         200,
+		}
+		addr := crypto.AddressFromPreimage(fmt.Appendf(nil, "rounding-%d", i))
+
+		rows = append(rows, vestingBalance(addr, schedule, amount))
+		perAccount += schedule.LockedCoins(at).AmountOf(testDenom)
+	}
+
+	windows, err := FoldVestingWindows(rows)
+	require.NoError(t, err)
+	require.Len(t, windows, 1)
+
+	summed := windows[0].LockedCoins(at).AmountOf(testDenom)
+	require.LessOrEqual(t, summed, perAccount, "the summed window must not lock more than the accounts do")
+	require.Greater(t, summed, perAccount-int64(len(amounts)), "the shortfall stays below one unit per account")
+}
+
+// Windows come out in a fixed order whatever the map iteration order, so
+// snapshots and logs are reproducible: by end time, then start time, then
+// curve.
+func TestFoldVestingWindowsOrdersWindows(t *testing.T) {
+	t.Parallel()
+
+	windows, err := FoldVestingWindows([]gnoland.Balance{
+		vestingBalance(vesterA, delayedSchedule(1000), 1000), // cliff at 200
+		vestingBalance(vesterB, continuousSchedule(), 1000),  // 100 to 200
+		vestingBalance(vesterC, &std.VestingSchedule{ // 0 to 150
+			OriginalVesting: std.NewCoins(coin(1000)),
+			StartTime:       0,
+			EndTime:         150,
+		}, 1000),
+	})
+	require.NoError(t, err)
+	require.Len(t, windows, 3)
+
+	require.Equal(t, int64(150), windows[0].EndTime)
+	require.Equal(t, std.VestingDelayed, windows[1].Type,
+		"a cliff has no start, so it sorts before a window starting later")
+	require.Equal(t, std.VestingContinuous, windows[2].Type)
 }
 
 // ---------------------------------------------------------------
@@ -312,7 +449,7 @@ func TestNewVestingsRejectsUnbuildableSchedule(t *testing.T) {
 func TestUnvestedAmount(t *testing.T) {
 	t.Parallel()
 
-	vestings, err := NewVestings([]gnoland.Balance{vestingBalance(vesterA, continuousSchedule(), 1000)})
+	windows, err := FoldVestingWindows([]gnoland.Balance{vestingBalance(vesterA, continuousSchedule(), 1000)})
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -329,7 +466,7 @@ func TestUnvestedAmount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			unvested := vestings[0].account.LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
+			unvested := windows[0].LockedCoins(time.Unix(tc.at, 0)).AmountOf(testDenom)
 			require.Equal(t, tc.want, unvested)
 		})
 	}
@@ -338,14 +475,14 @@ func TestUnvestedAmount(t *testing.T) {
 func TestDelayedScheduleUnvested(t *testing.T) {
 	t.Parallel()
 
-	vestings, err := NewVestings([]gnoland.Balance{
-		vestingBalance(vesterA, delayedSchedule(testDenom, 1000), 1000),
+	windows, err := FoldVestingWindows([]gnoland.Balance{
+		vestingBalance(vesterA, delayedSchedule(1000), 1000),
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, int64(1000), vestings[0].account.LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(1000), windows[0].LockedCoins(time.Unix(199, 0)).AmountOf(testDenom),
 		"a cliff vests nothing before the end time")
-	require.Equal(t, int64(0), vestings[0].account.LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
+	require.Equal(t, int64(0), windows[0].LockedCoins(time.Unix(200, 0)).AmountOf(testDenom),
 		"a cliff vests everything at the end time")
 }
 
@@ -357,40 +494,36 @@ func TestRefreshBuildsConsistentSnapshot(t *testing.T) {
 
 	fixture := newChainFixture()
 	fixture.supply[testDenom] = 10_000
-	fixture.balances = map[crypto.Address]std.Coins{
-		vesterA: std.NewCoins(coin(testDenom, 1000)), // continuous, untouched
-		vesterB: std.NewCoins(coin(testDenom, 300)),  // continuous, spent into the locked portion
-		vesterC: std.NewCoins(coin(testDenom, 2000)), // delayed
-		plain:   std.NewCoins(coin(testDenom, 4700)), // not vesting
-	}
 
 	h := newHandler(t, fixture,
 		vestingBalance(vesterA, continuousSchedule(), 1000),
 		vestingBalance(vesterB, continuousSchedule(), 1000),
-		vestingBalance(vesterC, delayedSchedule(testDenom, 2000), 2000),
+		vestingBalance(vesterC, delayedSchedule(2000), 2000),
 		plainBalance(plain, 4700),
 	)
 	h.refresh(context.Background())
 
-	// Every read the refresh made happened at one height, in one batch.
-	require.Equal(t, 1, fixture.rec.count(), "totals and balances must share one batch")
+	// Every read the refresh made happened at one height, in one batch,
+	// and only the supply counter was read: never a per-account balance.
+	require.Equal(t, 1, fixture.rec.count(), "totals must come from one batch")
 	batch := fixture.rec.batches[0]
 	require.Equal(t, int64(42), batch.height, "the batch must run at the status height")
-	require.Len(t, batch.paths, 4, "one supply path plus three vesting balances")
+	require.Equal(t, []string{"bank/supply/" + testDenom}, batch.paths, "only the supply path, never a balance")
 
 	supply, err := h.GetSupply(context.Background(), testDenom)
 	require.NoError(t, err)
 
 	// vesterA: 1000 continuous at t=150 -> 500 locked.
-	// vesterB: schedule says 500 unvested but only 300 held -> clamped to 300.
+	// vesterB: 1000 continuous at t=150 -> 500 locked, from the schedule
+	//          alone: the live balance is never read, so nothing clamps it.
 	// vesterC: delayed, end t=200, now t=150 -> all 2000 locked.
 	// plain: no schedule, contributes nothing.
 	require.Equal(t, &methods.Supply{
 		Denom:     testDenom,
 		Height:    42,
 		Total:     10_000,
-		Spendable: 10_000 - (500 + 300 + 2000),
-		Locked:    500 + 300 + 2000,
+		Spendable: 10_000 - (500 + 500 + 2000),
+		Locked:    500 + 500 + 2000,
 	}, supply)
 }
 
@@ -400,7 +533,6 @@ func TestGetSupplyFullyVested(t *testing.T) {
 	fixture := newChainFixture()
 	fixture.status = statusAt(50, 300) // past the end time
 	fixture.supply[testDenom] = 1000
-	fixture.balances[vesterA] = std.NewCoins(coin(testDenom, 1000))
 
 	h := newHandler(t, fixture, vestingBalance(vesterA, continuousSchedule(), 1000))
 	h.refresh(context.Background())
@@ -409,6 +541,56 @@ func TestGetSupplyFullyVested(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), supply.Locked)
 	require.Equal(t, int64(1000), supply.Spendable)
+}
+
+// The supply counter is the ceiling for locked: schedules can name more than
+// the counter holds once vesting accounts spent coins through fees or
+// deposits, and the response must keep total = spendable + locked. The
+// disagreement is a data problem, so it is logged when it appears and when it
+// clears, not on every refresh in between.
+func TestRefreshClampsLockedToTotal(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	fixture.supply[testDenom] = 100 // the schedule below still locks 1000 at t=150
+
+	core, logs := observer.New(zapcore.InfoLevel)
+
+	h := NewHandler(
+		fixture.client(),
+		&mockStorage{balances: []gnoland.Balance{
+			vestingBalance(vesterA, delayedSchedule(1000), 1000),
+		}},
+		WithDenoms([]string{testDenom}),
+		WithLogger(zap.New(core)),
+	)
+	require.NoError(t, h.loadWindows())
+
+	h.refresh(context.Background())
+	h.refresh(context.Background())
+
+	supply, err := h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+	require.Equal(t, int64(100), supply.Total)
+	require.Equal(t, int64(100), supply.Locked, "locked must not exceed the supply counter")
+	require.Equal(t, int64(0), supply.Spendable)
+
+	const clampedMsg = "locked exceeds the supply counter, clamping"
+
+	require.Len(t, logs.FilterMessage(clampedMsg).All(), 1, "the disagreement is logged once, when it appears")
+
+	fixture.mu.Lock()
+	fixture.supply[testDenom] = 5000
+	fixture.mu.Unlock()
+
+	h.refresh(context.Background())
+
+	supply, err = h.GetSupply(context.Background(), testDenom)
+	require.NoError(t, err)
+	require.Equal(t, int64(1000), supply.Locked)
+	require.Len(t, logs.FilterMessage(clampedMsg).All(), 1)
+	require.Len(t, logs.FilterMessage("locked is within the supply counter again").All(), 1,
+		"the recovery is logged once")
 }
 
 func TestGetSupplyBeforeFirstRefresh(t *testing.T) {
@@ -457,6 +639,21 @@ func TestRefreshFailsOnUnsupportedSupplyRoute(t *testing.T) {
 
 	_, err := h.GetSupply(context.Background(), testDenom)
 	require.ErrorIs(t, err, ErrNotReady, "no snapshot must be stored from a failed refresh")
+}
+
+// A negative supply counter is a malformed answer, not a supply. The refresh
+// must fail rather than publish a negative locked figure.
+func TestRefreshFailsOnNegativeSupply(t *testing.T) {
+	t.Parallel()
+
+	fixture := newChainFixture()
+	fixture.supply[testDenom] = -1
+
+	h := newHandler(t, fixture)
+	h.refresh(context.Background())
+
+	_, err := h.GetSupply(context.Background(), testDenom)
+	require.ErrorIs(t, err, ErrNotReady, "no snapshot must be stored from a negative counter")
 }
 
 // A panic inside the background refresh must not take the process down, and
@@ -513,7 +710,7 @@ func TestRefreshHonorsShutdownContext(t *testing.T) {
 	}
 
 	h := NewHandler(client, &mockStorage{}, WithDenoms([]string{testDenom}))
-	require.NoError(t, h.loadVestings())
+	require.NoError(t, h.loadWindows())
 	h.refresh(context.Background())
 
 	before, err := h.GetSupply(context.Background(), testDenom)
@@ -559,7 +756,7 @@ func TestStartRefreshesImmediately(t *testing.T) {
 // The bootstrap commits the balances before any service starts, so a storage
 // that cannot serve them is corrupt. Start fails rather than serving a supply
 // with no vesting schedules, which would report everything as circulating.
-func TestStartFailsOnUnreadableVestings(t *testing.T) {
+func TestStartFailsOnUnreadableGenesisBalances(t *testing.T) {
 	t.Parallel()
 
 	fixture := newChainFixture()
