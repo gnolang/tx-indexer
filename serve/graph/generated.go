@@ -86,6 +86,11 @@ type ComplexityRoot struct {
 		Value func(childComplexity int) int
 	}
 
+	IndexedString struct {
+		Index func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
 	MemFile struct {
 		Body func(childComplexity int) int
 		Name func(childComplexity int) int
@@ -107,6 +112,7 @@ type ComplexityRoot struct {
 
 	MsgCall struct {
 		Args       func(childComplexity int) int
+		ArgsAt     func(childComplexity int) int
 		Caller     func(childComplexity int) int
 		Func       func(childComplexity int) int
 		MaxDeposit func(childComplexity int) int
@@ -442,6 +448,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GnoEventAttribute.Value(childComplexity), true
 
+	case "IndexedString.index":
+		if e.ComplexityRoot.IndexedString.Index == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IndexedString.Index(childComplexity), true
+	case "IndexedString.value":
+		if e.ComplexityRoot.IndexedString.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IndexedString.Value(childComplexity), true
+
 	case "MemFile.body":
 		if e.ComplexityRoot.MemFile.Body == nil {
 			break
@@ -511,6 +530,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MsgCall.Args(childComplexity), true
+	case "MsgCall.args_at":
+		if e.ComplexityRoot.MsgCall.ArgsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCall.ArgsAt(childComplexity), true
 	case "MsgCall.caller":
 		if e.ComplexityRoot.MsgCall.Caller == nil {
 			break
@@ -992,6 +1017,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterEvent,
 		ec.unmarshalInputFilterGnoEvent,
 		ec.unmarshalInputFilterGnoEventAttribute,
+		ec.unmarshalInputFilterIndexedString,
 		ec.unmarshalInputFilterInt,
 		ec.unmarshalInputFilterMemFile,
 		ec.unmarshalInputFilterMemPackage,
@@ -1025,6 +1051,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputNestedFilterEvent,
 		ec.unmarshalInputNestedFilterGnoEvent,
 		ec.unmarshalInputNestedFilterGnoEventAttribute,
+		ec.unmarshalInputNestedFilterIndexedString,
 		ec.unmarshalInputNestedFilterMemFile,
 		ec.unmarshalInputNestedFilterMemPackage,
 		ec.unmarshalInputNestedFilterMessageValue,
@@ -1654,6 +1681,31 @@ input FilterGnoEventAttribute {
 	value: FilterString
 }
 """
+filter for IndexedString objects
+"""
+input FilterIndexedString {
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterIndexedString]
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterIndexedString]
+	"""
+	logical operator for IndexedString that will reverse conditions.
+	"""
+	_not: FilterIndexedString
+	"""
+	filter for index field.
+	"""
+	index: FilterInt
+	"""
+	filter for value field.
+	"""
+	value: FilterString
+}
+"""
 Filter type for number fields. All added filters here are processed as AND operators.
 """
 input FilterInt {
@@ -1842,6 +1894,10 @@ input FilterMsgCall {
 	filter for args field.
 	"""
 	args: FilterString
+	"""
+	filter for args_at field.
+	"""
+	args_at: NestedFilterIndexedString
 	"""
 	filter for max_deposit field.
 	"""
@@ -2308,6 +2364,20 @@ input GnoEventInput {
 	attrs: [EventAttributeInput!]
 }
 """
+` + "`" + `IndexedString` + "`" + ` is a string together with its zero-based position in a list of strings.
+Use it to make a ` + "`" + `[String!]` + "`" + ` field filterable by position.
+"""
+type IndexedString {
+	"""
+	the zero-based position of the string in the list.
+	"""
+	index: Int! @filterable
+	"""
+	the string value.
+	"""
+	value: String! @filterable
+}
+"""
 ` + "`" + `MemFile` + "`" + ` is the metadata information tied to a single gno package / realm file
 """
 type MemFile {
@@ -2486,9 +2556,21 @@ type MsgCall {
 	"""
 	func: String! @filterable
 	"""
-	` + "`" + `args` + "`" + ` are the arguments passed to the executed function.
+	` + "`" + `args` + "`" + ` are the arguments passed to the executed function, as strings.
+	A filter on ` + "`" + `args` + "`" + ` matches if any argument matches, whatever its position.
+	To match an argument at a specific index, use ` + "`" + `args_at` + "`" + `.
 	"""
 	args: [String!] @filterable
+	"""
+	Each ` + "`" + `args_at` + "`" + ` is an argument passed to the executed function, paired with its zero-based index.
+	The value is matched like any other string with ` + "`" + `eq` + "`" + `, ` + "`" + `like` + "`" + `, etc.
+	Combine several arguments with ` + "`" + `_and` + "`" + ` .
+	This example matches where the first argument is 1000 and the second argument starts with ` + "`" + `g1` + "`" + `.
+	` + "`" + `_and: [` + "`" + `
+	` + "`" + `   { args_at: { index: { eq: 0 }, value: { eq: "1000" } } }` + "`" + `
+	` + "`" + `   { args_at: { index: { eq: 1 }, value: { like: "^g1" } } } ]` + "`" + ` .
+	"""
+	args_at: [IndexedString!] @filterable
 	"""
 	the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
 	ex) ` + "`" + `1000000ugnot` + "`" + `
@@ -2820,6 +2902,31 @@ input NestedFilterGnoEventAttribute {
 	value: FilterString
 }
 """
+filter for IndexedString objects
+"""
+input NestedFilterIndexedString {
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterIndexedString]
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterIndexedString]
+	"""
+	logical operator for IndexedString that will reverse conditions.
+	"""
+	_not: NestedFilterIndexedString
+	"""
+	filter for index field.
+	"""
+	index: FilterInt
+	"""
+	filter for value field.
+	"""
+	value: FilterString
+}
+"""
 filter for MemFile objects
 """
 input NestedFilterMemFile {
@@ -2987,6 +3094,10 @@ input NestedFilterMsgCall {
 	filter for args field.
 	"""
 	args: FilterString
+	"""
+	filter for args_at field.
+	"""
+	args_at: NestedFilterIndexedString
 	"""
 	filter for max_deposit field.
 	"""
@@ -5332,6 +5443,90 @@ func (ec *executionContext) fieldContext_GnoEventAttribute_value(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _IndexedString_index(ctx context.Context, field graphql.CollectedField, obj *model.IndexedString) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_IndexedString_index,
+		func(ctx context.Context) (any, error) {
+			return obj.Index, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal int
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_IndexedString_index(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IndexedString",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IndexedString_value(ctx context.Context, field graphql.CollectedField, obj *model.IndexedString) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_IndexedString_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_IndexedString_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IndexedString",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MemFile_name(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5971,6 +6166,54 @@ func (ec *executionContext) fieldContext_MsgCall_args(_ context.Context, field g
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgCall_args_at(ctx context.Context, field graphql.CollectedField, obj *model.MsgCall) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCall_args_at,
+		func(ctx context.Context) (any, error) {
+			return obj.ArgsAt, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal []*model.IndexedString
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedStringᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCall_args_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCall",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "index":
+				return ec.fieldContext_IndexedString_index(ctx, field)
+			case "value":
+				return ec.fieldContext_IndexedString_value(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type IndexedString", field.Name)
 		},
 	}
 	return fc, nil
@@ -11219,6 +11462,64 @@ func (ec *executionContext) unmarshalInputFilterGnoEventAttribute(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputFilterIndexedString(ctx context.Context, obj any) (model.FilterIndexedString, error) {
+	var it model.FilterIndexedString
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "index":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("index"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Index = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFilterInt(ctx context.Context, obj any) (model.FilterInt, error) {
 	var it model.FilterInt
 	if obj == nil {
@@ -11569,7 +11870,7 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "args_at", "max_deposit"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11632,6 +11933,13 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 				return it, err
 			}
 			it.Args = data
+		case "args_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("args_at"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ArgsAt = data
 		case "max_deposit":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_deposit"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -13280,6 +13588,64 @@ func (ec *executionContext) unmarshalInputNestedFilterGnoEventAttribute(ctx cont
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputNestedFilterIndexedString(ctx context.Context, obj any) (model.NestedFilterIndexedString, error) {
+	var it model.NestedFilterIndexedString
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "index":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("index"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Index = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputNestedFilterMemFile(ctx context.Context, obj any) (model.NestedFilterMemFile, error) {
 	var it model.NestedFilterMemFile
 	if obj == nil {
@@ -13579,7 +13945,7 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "args_at", "max_deposit"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -13642,6 +14008,13 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 				return it, err
 			}
 			it.Args = data
+		case "args_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("args_at"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ArgsAt = data
 		case "max_deposit":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_deposit"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -15249,6 +15622,50 @@ func (ec *executionContext) _GnoEventAttribute(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var indexedStringImplementors = []string{"IndexedString"}
+
+func (ec *executionContext) _IndexedString(ctx context.Context, sel ast.SelectionSet, obj *model.IndexedString) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, indexedStringImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IndexedString")
+		case "index":
+			out.Values[i] = ec._IndexedString_index(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._IndexedString_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var memFileImplementors = []string{"MemFile"}
 
 func (ec *executionContext) _MemFile(ctx context.Context, sel ast.SelectionSet, obj *model.MemFile) graphql.Marshaler {
@@ -15431,6 +15848,8 @@ func (ec *executionContext) _MsgCall(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "args":
 			out.Values[i] = ec._MsgCall_args(ctx, field, obj)
+		case "args_at":
+			out.Values[i] = ec._MsgCall_args_at(ctx, field, obj)
 		case "max_deposit":
 			out.Values[i] = ec._MsgCall_max_deposit(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16776,6 +17195,16 @@ func (ec *executionContext) marshalNGnoEventAttribute2ᚖgithubᚗcomᚋgnolang�
 	return ec._GnoEventAttribute(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedString(ctx context.Context, sel ast.SelectionSet, v *model.IndexedString) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IndexedString(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -17430,6 +17859,32 @@ func (ec *executionContext) unmarshalOFilterGnoEventAttribute2ᚖgithubᚗcomᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx context.Context, v any) ([]*model.FilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterIndexedString, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx context.Context, v any) (*model.FilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterIndexedString(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx context.Context, v any) (*model.FilterInt, error) {
 	if v == nil {
 		return nil, nil
@@ -17934,6 +18389,25 @@ func (ec *executionContext) unmarshalOGnoEventInput2ᚖgithubᚗcomᚋgnolangᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalOIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedStringᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.IndexedString) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedString(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
 	if v == nil {
 		return nil, nil
@@ -18230,6 +18704,32 @@ func (ec *executionContext) unmarshalONestedFilterGnoEventAttribute2ᚖgithubᚗ
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputNestedFilterGnoEventAttribute(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx context.Context, v any) ([]*model.NestedFilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterIndexedString, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx context.Context, v any) (*model.NestedFilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterIndexedString(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
