@@ -751,7 +751,7 @@ type MsgCall struct {
 	Args []string `json:"args,omitempty"`
 	// Each `args_at` is an argument passed to the executed function, paired with its zero-based index.
 	// The value is matched like any other string with `eq`, `like`, etc.
-	// Combine several arguments with `_and` .
+	// Combine several arguments with `_and` at the `MsgCall` level, not inside `args_at`, where `_and`, `_or` and `_not` test one argument at a time.
 	// This example matches where the first argument is 1000 and the second argument starts with `g1`.
 	// `_and: [`
 	// `   { args_at: { index: { eq: 0 }, value: { eq: "1000" } } }`
