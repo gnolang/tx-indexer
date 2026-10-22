@@ -43,6 +43,14 @@ func handleChannel[T any](
 		sub := m.Subscribe([]events.Type{types.NewBlockEvent})
 		defer m.CancelSubscription(sub.ID)
 
+		// gqlgen's resolver recovery does not cover this goroutine, so an unrecovered
+		// panic here would exit the process instead of ending this subscription.
+		defer func() {
+			if r := recover(); r != nil {
+				graphql.AddError(ctx, graphql.GetOperationContext(ctx).Recover(ctx, r))
+			}
+		}()
+
 		for {
 			select {
 			case <-ctx.Done():
