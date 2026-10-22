@@ -276,6 +276,20 @@ type FilterGnoEventAttribute struct {
 	Value *FilterString `json:"value,omitempty"`
 }
 
+// filter for IndexedString objects
+type FilterIndexedString struct {
+	// logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	And []*FilterIndexedString `json:"_and,omitempty"`
+	// logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*FilterIndexedString `json:"_or,omitempty"`
+	// logical operator for IndexedString that will reverse conditions.
+	Not *FilterIndexedString `json:"_not,omitempty"`
+	// filter for index field.
+	Index *FilterInt `json:"index,omitempty"`
+	// filter for value field.
+	Value *FilterString `json:"value,omitempty"`
+}
+
 // Filter type for number fields. All added filters here are processed as AND operators.
 type FilterInt struct {
 	// Filter a number field checking if it exists or not.
@@ -378,6 +392,8 @@ type FilterMsgCall struct {
 	Func *FilterString `json:"func,omitempty"`
 	// filter for args field.
 	Args *FilterString `json:"args,omitempty"`
+	// filter for args_at field.
+	ArgsAt *NestedFilterIndexedString `json:"args_at,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
@@ -637,6 +653,15 @@ type GnoEventInput struct {
 	Attrs []*EventAttributeInput `json:"attrs,omitempty"`
 }
 
+// `IndexedString` is a string together with its zero-based position in a list of strings.
+// Use it to make a `[String!]` field filterable by position.
+type IndexedString struct {
+	// the zero-based position of the string in the list.
+	Index int `json:"index"`
+	// the string value.
+	Value string `json:"value"`
+}
+
 // `MemFile` is the metadata information tied to a single gno package / realm file
 type MemFile struct {
 	// the name of the source file.
@@ -720,8 +745,18 @@ type MsgCall struct {
 	PkgPath string `json:"pkg_path"`
 	// the function name being invoked.
 	Func string `json:"func"`
-	// `args` are the arguments passed to the executed function.
+	// `args` are the arguments passed to the executed function, as strings.
+	// A filter on `args` matches if any argument matches, whatever its position.
+	// To match an argument at a specific index, use `args_at`.
 	Args []string `json:"args,omitempty"`
+	// Each `args_at` is an argument passed to the executed function, paired with its zero-based index.
+	// The value is matched like any other string with `eq`, `like`, etc.
+	// Combine several arguments with `_and` at the `MsgCall` level, not inside `args_at`, where `_and`, `_or` and `_not` test one argument at a time.
+	// This example matches where the first argument is 1000 and the second argument starts with `g1`.
+	// `_and: [`
+	// `   { args_at: { index: { eq: 0 }, value: { eq: "1000" } } }`
+	// `   { args_at: { index: { eq: 1 }, value: { like: "^g1" } } } ]` .
+	ArgsAt []*IndexedString `json:"args_at,omitempty"`
 	// the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
 	MaxDeposit string `json:"max_deposit"`
@@ -926,6 +961,20 @@ type NestedFilterGnoEventAttribute struct {
 	Value *FilterString `json:"value,omitempty"`
 }
 
+// filter for IndexedString objects
+type NestedFilterIndexedString struct {
+	// logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	And []*NestedFilterIndexedString `json:"_and,omitempty"`
+	// logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	Or []*NestedFilterIndexedString `json:"_or,omitempty"`
+	// logical operator for IndexedString that will reverse conditions.
+	Not *NestedFilterIndexedString `json:"_not,omitempty"`
+	// filter for index field.
+	Index *FilterInt `json:"index,omitempty"`
+	// filter for value field.
+	Value *FilterString `json:"value,omitempty"`
+}
+
 // filter for MemFile objects
 type NestedFilterMemFile struct {
 	// logical operator for MemFile that will combine two or more conditions, returning true if all of them are true.
@@ -1016,6 +1065,8 @@ type NestedFilterMsgCall struct {
 	Func *FilterString `json:"func,omitempty"`
 	// filter for args field.
 	Args *FilterString `json:"args,omitempty"`
+	// filter for args_at field.
+	ArgsAt *NestedFilterIndexedString `json:"args_at,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
 }
