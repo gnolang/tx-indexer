@@ -364,7 +364,25 @@ func makeVMMsgCall(value std.Msg) MsgCall {
 		PkgPath:    decodedMessage.PkgPath,
 		Func:       decodedMessage.Func,
 		Args:       decodedMessage.Args,
+		ArgsAt:     makeIndexedStrings(decodedMessage.Args),
 	}
+}
+
+// makeIndexedStrings pairs each string with its position, so filters can match by position
+func makeIndexedStrings(values []string) []*IndexedString {
+	if values == nil {
+		return nil
+	}
+
+	indexed := make([]*IndexedString, len(values))
+	for i, value := range values {
+		indexed[i] = &IndexedString{
+			Index: i,
+			Value: value,
+		}
+	}
+
+	return indexed
 }
 
 func makeVMAddPackage(value std.Msg) MsgAddPackage {
