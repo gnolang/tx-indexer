@@ -623,6 +623,21 @@ func (f *NestedFilterMsgCall) Eval(obj *MsgCall) bool {
 		return false
 	}
 
+	// Handle ArgsAt slice
+	if f.ArgsAt != nil {
+		elemMatchArgsAt := false
+		for _, elem := range obj.ArgsAt {
+			if f.ArgsAt.Eval(elem) {
+				elemMatchArgsAt = true
+			}
+		}
+
+		if !elemMatchArgsAt {
+			return false
+		}
+
+	}
+
 	// Handle Args slice
 	if f.Args != nil {
 		elemMatchArgs := false
@@ -935,6 +950,52 @@ func (f *NestedFilterMemFile) Eval(obj *MemFile) bool {
 	// Handle Body field
 	toEvalBody := obj.Body
 	if f.Body != nil && !f.Body.Eval(&toEvalBody) {
+		return false
+	}
+
+	return true
+}
+
+func (f *NestedFilterIndexedString) Eval(obj *IndexedString) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Value field
+	toEvalValue := obj.Value
+	if f.Value != nil && !f.Value.Eval(&toEvalValue) {
+		return false
+	}
+
+	// Handle Index field
+	toEvalIndex := toIntPtr(obj.Index)
+	if f.Index != nil && !f.Index.Eval(toEvalIndex) {
 		return false
 	}
 
@@ -2139,6 +2200,21 @@ func (f *FilterMsgCall) Eval(obj *MsgCall) bool {
 		return false
 	}
 
+	// Handle ArgsAt slice
+	if f.ArgsAt != nil {
+		elemMatchArgsAt := false
+		for _, elem := range obj.ArgsAt {
+			if f.ArgsAt.Eval(elem) {
+				elemMatchArgsAt = true
+			}
+		}
+
+		if !elemMatchArgsAt {
+			return false
+		}
+
+	}
+
 	// Handle Args slice
 	if f.Args != nil {
 		elemMatchArgs := false
@@ -2451,6 +2527,52 @@ func (f *FilterMemFile) Eval(obj *MemFile) bool {
 	// Handle Body field
 	toEvalBody := obj.Body
 	if f.Body != nil && !f.Body.Eval(&toEvalBody) {
+		return false
+	}
+
+	return true
+}
+
+func (f *FilterIndexedString) Eval(obj *IndexedString) bool {
+	// Evaluate logical operators first
+	if len(f.And) > 0 {
+		for _, subFilter := range f.And {
+			if !subFilter.Eval(obj) {
+				return false
+			}
+		}
+	}
+
+	if len(f.Or) > 0 {
+		orResult := false
+		for _, subFilter := range f.Or {
+			if subFilter.Eval(obj) {
+				orResult = true
+				break
+			}
+		}
+		if !orResult {
+			return false
+		}
+	}
+
+	if f.Not != nil {
+		if f.Not.Eval(obj) {
+			return false
+		}
+	}
+
+	// Evaluate individual field filters
+
+	// Handle Value field
+	toEvalValue := obj.Value
+	if f.Value != nil && !f.Value.Eval(&toEvalValue) {
+		return false
+	}
+
+	// Handle Index field
+	toEvalIndex := toIntPtr(obj.Index)
+	if f.Index != nil && !f.Index.Eval(toEvalIndex) {
 		return false
 	}
 

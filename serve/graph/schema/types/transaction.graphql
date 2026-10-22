@@ -196,15 +196,44 @@ type MsgCall {
   func: String! @filterable
 
   """
-  `args` are the arguments passed to the executed function.
+  `args` are the arguments passed to the executed function, as strings.
+  A filter on `args` matches if any argument matches, whatever its position.
+  To match an argument at a specific index, use `args_at`.
   """
   args: [String!] @filterable
+
+  """
+  Each `args_at` is an argument passed to the executed function, paired with its zero-based index.
+  The value is matched like any other string with `eq`, `like`, etc.
+  Combine several arguments with `_and` at the `MsgCall` level, not inside `args_at`, where `_and`, `_or` and `_not` test one argument at a time.
+  This example matches where the first argument is 1000 and the second argument starts with `g1`.
+  `_and: [`
+  `   { args_at: { index: { eq: 0 }, value: { eq: "1000" } } }`
+  `   { args_at: { index: { eq: 1 }, value: { like: "^g1" } } } ]` .
+  """
+  args_at: [IndexedString!] @filterable
 
   """
   the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
   ex) `1000000ugnot`
   """
   max_deposit: String! @filterable
+}
+
+"""
+`IndexedString` is a string together with its zero-based position in a list of strings.
+Use it to make a `[String!]` field filterable by position.
+"""
+type IndexedString {
+  """
+  the zero-based position of the string in the list.
+  """
+  index: Int! @filterable
+
+  """
+  the string value.
+  """
+  value: String! @filterable
 }
 
 """
