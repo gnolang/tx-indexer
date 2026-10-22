@@ -43,8 +43,7 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			return truncateTransactions(ctx, out, false), nil
 		}
 
 		if !it.Next() {
@@ -90,7 +89,7 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			truncateBlocks(ctx, out)
 			return out, nil
 		}
 
@@ -175,7 +174,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			truncateBlocks(ctx, out)
 			return out, nil
 		}
 
@@ -245,9 +244,11 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 		dtoi++
 	}
 
+	descending := order != nil && order.HeightAndIndex == model.OrderDesc
+
 	var err error
 	var it storage.Iterator[*bfttypes.TxResult]
-	if order != nil && order.HeightAndIndex == model.OrderDesc {
+	if descending {
 		it, err = r.
 			store.
 			TxReverseIterator(
@@ -276,8 +277,7 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			return truncateTransactions(ctx, out, descending), nil
 		}
 
 		if !it.Next() {

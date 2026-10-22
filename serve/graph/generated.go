@@ -3437,15 +3437,34 @@ type Query {
 	"""
 	getSupply(denom: String!): Supply!
 	"""
-	Fetches Blocks matching the specified where criteria. 
-	Incomplete results due to errors return both the partial Blocks and 
+	Fetches Blocks matching the specified where criteria.
+	Incomplete results due to errors return both the partial Blocks and
 	the associated errors.
+	
+	At most 10000 Blocks are returned. A result cut short at that limit
+	carries an error whose extensions hold "code": "MAX_ELEMENTS_REACHED"
+	and "lastCompleteBlockHeight", the height the caller received in full.
+	Resume from it with a height greater than that value when ordering
+	ascending, or less than it when ordering descending. Read the
+	extensions rather than the message text.
 	"""
 	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 	"""
-	Retrieves a list of Transactions that match the given 
+	Retrieves a list of Transactions that match the given
 	where criteria. If the result is incomplete due to errors, both partial
 	results and errors are returned.
+	
+	At most 10000 Transactions are returned. A result cut short at that
+	limit ends on a block boundary, because a filter cannot express a
+	resume point inside a block: its index window applies to every block
+	in the range rather than to the boundary block alone. The error's
+	extensions hold "code": "MAX_ELEMENTS_REACHED" and
+	"lastCompleteBlockHeight", the height the caller received in full;
+	resume with block_height greater than it when ordering ascending, or
+	less than it when ordering descending. Where one block alone holds
+	more Transactions than the limit no boundary exists, so the partial
+	block is returned with "code": "BLOCK_EXCEEDS_MAX_ELEMENTS" and
+	"blockHeight". Read the extensions rather than the message text.
 	"""
 	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
@@ -3573,17 +3592,17 @@ type Subscription {
 	"""
 	blocks(filter: BlockFilter!): Block! @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
-	Subscribes to real-time updates of Transactions that 
+	Subscribes to real-time updates of Transactions that
 	match the provided filter criteria. This subscription starts immediately
 	and only includes Transactions added to the blockchain after the subscription
 	is active.
 	
-	This is useful for applications needing to track Transactions in real-time, 
-	such as wallets tracking incoming transactions or analytics platforms 
+	This is useful for applications needing to track Transactions in real-time,
+	such as wallets tracking incoming transactions or analytics platforms
 	monitoring blockchain activity.
 	
 	Returns:
-	- Transaction: Each received update is a Transaction object that matches 
+	- Transaction: Each received update is a Transaction object that matches
 	the where criteria.
 	"""
 	getTransactions(where: FilterTransaction!): Transaction!
