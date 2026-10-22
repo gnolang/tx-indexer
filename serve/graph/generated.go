@@ -86,6 +86,11 @@ type ComplexityRoot struct {
 		Value func(childComplexity int) int
 	}
 
+	IndexedString struct {
+		Index func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
 	MemFile struct {
 		Body func(childComplexity int) int
 		Name func(childComplexity int) int
@@ -107,11 +112,24 @@ type ComplexityRoot struct {
 
 	MsgCall struct {
 		Args       func(childComplexity int) int
+		ArgsAt     func(childComplexity int) int
 		Caller     func(childComplexity int) int
 		Func       func(childComplexity int) int
 		MaxDeposit func(childComplexity int) int
 		PkgPath    func(childComplexity int) int
 		Send       func(childComplexity int) int
+	}
+
+	MsgEnablePackage struct {
+		Approver  func(childComplexity int) int
+		PkgHash   func(childComplexity int) int
+		PkgHeight func(childComplexity int) int
+		PkgPath   func(childComplexity int) int
+	}
+
+	MsgRejectPackage struct {
+		PkgPath func(childComplexity int) int
+		Sender  func(childComplexity int) int
 	}
 
 	MsgRun struct {
@@ -124,6 +142,7 @@ type ComplexityRoot struct {
 	Query struct {
 		Blocks            func(childComplexity int, filter model.BlockFilter) int
 		GetBlocks         func(childComplexity int, where model.FilterBlock, order *model.BlockOrder) int
+		GetSupply         func(childComplexity int, denom string) int
 		GetTransactions   func(childComplexity int, where model.FilterTransaction, order *model.TransactionOrder) int
 		LatestBlockHeight func(childComplexity int) int
 		Transactions      func(childComplexity int, filter model.TransactionFilter) int
@@ -137,10 +156,11 @@ type ComplexityRoot struct {
 	}
 
 	StorageUnlockEvent struct {
-		BytesDelta func(childComplexity int) int
-		FeeRefund  func(childComplexity int) int
-		PkgPath    func(childComplexity int) int
-		Type       func(childComplexity int) int
+		BytesDelta     func(childComplexity int) int
+		FeeRefund      func(childComplexity int) int
+		PkgPath        func(childComplexity int) int
+		RefundWithheld func(childComplexity int) int
+		Type           func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -148,6 +168,14 @@ type ComplexityRoot struct {
 		GetBlocks       func(childComplexity int, where model.FilterBlock) int
 		GetTransactions func(childComplexity int, where model.FilterTransaction) int
 		Transactions    func(childComplexity int, filter model.TransactionFilter) int
+	}
+
+	Supply struct {
+		Denom     func(childComplexity int) int
+		Height    func(childComplexity int) int
+		Locked    func(childComplexity int) int
+		Spendable func(childComplexity int) int
+		Total     func(childComplexity int) int
 	}
 
 	Transaction struct {
@@ -178,6 +206,13 @@ type ComplexityRoot struct {
 		Log    func(childComplexity int) int
 	}
 
+	TransferEvent struct {
+		Coins func(childComplexity int) int
+		From  func(childComplexity int) int
+		To    func(childComplexity int) int
+		Type  func(childComplexity int) int
+	}
+
 	TxFee struct {
 		GasFee    func(childComplexity int) int
 		GasWanted func(childComplexity int) int
@@ -196,6 +231,7 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error)
 	Blocks(ctx context.Context, filter model.BlockFilter) ([]*model.Block, error)
 	LatestBlockHeight(ctx context.Context) (int, error)
+	GetSupply(ctx context.Context, denom string) (*model.Supply, error)
 	GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error)
 	GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error)
 }
@@ -412,6 +448,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GnoEventAttribute.Value(childComplexity), true
 
+	case "IndexedString.index":
+		if e.ComplexityRoot.IndexedString.Index == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IndexedString.Index(childComplexity), true
+	case "IndexedString.value":
+		if e.ComplexityRoot.IndexedString.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IndexedString.Value(childComplexity), true
+
 	case "MemFile.body":
 		if e.ComplexityRoot.MemFile.Body == nil {
 			break
@@ -481,6 +530,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MsgCall.Args(childComplexity), true
+	case "MsgCall.args_at":
+		if e.ComplexityRoot.MsgCall.ArgsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgCall.ArgsAt(childComplexity), true
 	case "MsgCall.caller":
 		if e.ComplexityRoot.MsgCall.Caller == nil {
 			break
@@ -511,6 +566,44 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MsgCall.Send(childComplexity), true
+
+	case "MsgEnablePackage.approver":
+		if e.ComplexityRoot.MsgEnablePackage.Approver == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgEnablePackage.Approver(childComplexity), true
+	case "MsgEnablePackage.pkg_hash":
+		if e.ComplexityRoot.MsgEnablePackage.PkgHash == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgEnablePackage.PkgHash(childComplexity), true
+	case "MsgEnablePackage.pkg_height":
+		if e.ComplexityRoot.MsgEnablePackage.PkgHeight == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgEnablePackage.PkgHeight(childComplexity), true
+	case "MsgEnablePackage.pkg_path":
+		if e.ComplexityRoot.MsgEnablePackage.PkgPath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgEnablePackage.PkgPath(childComplexity), true
+
+	case "MsgRejectPackage.pkg_path":
+		if e.ComplexityRoot.MsgRejectPackage.PkgPath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRejectPackage.PkgPath(childComplexity), true
+	case "MsgRejectPackage.sender":
+		if e.ComplexityRoot.MsgRejectPackage.Sender == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRejectPackage.Sender(childComplexity), true
 
 	case "MsgRun.caller":
 		if e.ComplexityRoot.MsgRun.Caller == nil {
@@ -559,6 +652,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.GetBlocks(childComplexity, args["where"].(model.FilterBlock), args["order"].(*model.BlockOrder)), true
+	case "Query.getSupply":
+		if e.ComplexityRoot.Query.GetSupply == nil {
+			break
+		}
+
+		args, err := ec.field_Query_getSupply_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.GetSupply(childComplexity, args["denom"].(string)), true
 	case "Query.getTransactions":
 		if e.ComplexityRoot.Query.GetTransactions == nil {
 			break
@@ -632,6 +736,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StorageUnlockEvent.PkgPath(childComplexity), true
+	case "StorageUnlockEvent.refund_withheld":
+		if e.ComplexityRoot.StorageUnlockEvent.RefundWithheld == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StorageUnlockEvent.RefundWithheld(childComplexity), true
 	case "StorageUnlockEvent.type":
 		if e.ComplexityRoot.StorageUnlockEvent.Type == nil {
 			break
@@ -683,6 +793,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subscription.Transactions(childComplexity, args["filter"].(model.TransactionFilter)), true
+
+	case "Supply.denom":
+		if e.ComplexityRoot.Supply.Denom == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Denom(childComplexity), true
+	case "Supply.height":
+		if e.ComplexityRoot.Supply.Height == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Height(childComplexity), true
+	case "Supply.locked":
+		if e.ComplexityRoot.Supply.Locked == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Locked(childComplexity), true
+	case "Supply.spendable":
+		if e.ComplexityRoot.Supply.Spendable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Spendable(childComplexity), true
+	case "Supply.total":
+		if e.ComplexityRoot.Supply.Total == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supply.Total(childComplexity), true
 
 	case "Transaction.block_height":
 		if e.ComplexityRoot.Transaction.BlockHeight == nil {
@@ -801,6 +942,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.TransactionResponse.Log(childComplexity), true
 
+	case "TransferEvent.coins":
+		if e.ComplexityRoot.TransferEvent.Coins == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransferEvent.Coins(childComplexity), true
+	case "TransferEvent.from":
+		if e.ComplexityRoot.TransferEvent.From == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransferEvent.From(childComplexity), true
+	case "TransferEvent.to":
+		if e.ComplexityRoot.TransferEvent.To == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransferEvent.To(childComplexity), true
+	case "TransferEvent.type":
+		if e.ComplexityRoot.TransferEvent.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransferEvent.Type(childComplexity), true
+
 	case "TxFee.gas_fee":
 		if e.ComplexityRoot.TxFee.GasFee == nil {
 			break
@@ -851,12 +1017,15 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterEvent,
 		ec.unmarshalInputFilterGnoEvent,
 		ec.unmarshalInputFilterGnoEventAttribute,
+		ec.unmarshalInputFilterIndexedString,
 		ec.unmarshalInputFilterInt,
 		ec.unmarshalInputFilterMemFile,
 		ec.unmarshalInputFilterMemPackage,
 		ec.unmarshalInputFilterMessageValue,
 		ec.unmarshalInputFilterMsgAddPackage,
 		ec.unmarshalInputFilterMsgCall,
+		ec.unmarshalInputFilterMsgEnablePackage,
+		ec.unmarshalInputFilterMsgRejectPackage,
 		ec.unmarshalInputFilterMsgRun,
 		ec.unmarshalInputFilterStorageDepositEvent,
 		ec.unmarshalInputFilterStorageUnlockEvent,
@@ -865,6 +1034,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputFilterTransaction,
 		ec.unmarshalInputFilterTransactionMessage,
 		ec.unmarshalInputFilterTransactionResponse,
+		ec.unmarshalInputFilterTransferEvent,
 		ec.unmarshalInputFilterTxFee,
 		ec.unmarshalInputFilterUnknownEvent,
 		ec.unmarshalInputGnoEventInput,
@@ -872,6 +1042,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputMemPackageInput,
 		ec.unmarshalInputMsgAddPackageInput,
 		ec.unmarshalInputMsgCallInput,
+		ec.unmarshalInputMsgEnablePackageInput,
+		ec.unmarshalInputMsgRejectPackageInput,
 		ec.unmarshalInputMsgRunInput,
 		ec.unmarshalInputNestedFilterBankMsgSend,
 		ec.unmarshalInputNestedFilterBlockTransaction,
@@ -879,16 +1051,20 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputNestedFilterEvent,
 		ec.unmarshalInputNestedFilterGnoEvent,
 		ec.unmarshalInputNestedFilterGnoEventAttribute,
+		ec.unmarshalInputNestedFilterIndexedString,
 		ec.unmarshalInputNestedFilterMemFile,
 		ec.unmarshalInputNestedFilterMemPackage,
 		ec.unmarshalInputNestedFilterMessageValue,
 		ec.unmarshalInputNestedFilterMsgAddPackage,
 		ec.unmarshalInputNestedFilterMsgCall,
+		ec.unmarshalInputNestedFilterMsgEnablePackage,
+		ec.unmarshalInputNestedFilterMsgRejectPackage,
 		ec.unmarshalInputNestedFilterMsgRun,
 		ec.unmarshalInputNestedFilterStorageDepositEvent,
 		ec.unmarshalInputNestedFilterStorageUnlockEvent,
 		ec.unmarshalInputNestedFilterTransactionMessage,
 		ec.unmarshalInputNestedFilterTransactionResponse,
+		ec.unmarshalInputNestedFilterTransferEvent,
 		ec.unmarshalInputNestedFilterTxFee,
 		ec.unmarshalInputNestedFilterUnknownEvent,
 		ec.unmarshalInputStorageDepositEventInput,
@@ -898,6 +1074,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputTransactionMessageInput,
 		ec.unmarshalInputTransactionOrder,
 		ec.unmarshalInputTransactionVmMessageInput,
+		ec.unmarshalInputTransferEventInput,
 	)
 	first := true
 
@@ -1194,7 +1371,7 @@ input CoinInput {
 	"""
 	denom: String
 }
-union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | UnknownEvent
+union Event = GnoEvent | StorageDepositEvent | StorageUnlockEvent | TransferEvent | UnknownEvent
 """
 Transaction event's attribute to filter transaction.
 "EventAttributeInput" can be configured as a filter with a event attribute's ` + "`" + `key` + "`" + ` and ` + "`" + `value` + "`" + `.
@@ -1226,6 +1403,10 @@ input EventInput {
 	` + "`" + `storage_unlock_event` + "`" + ` input for events of type of StorageUnlockEvent.
 	"""
 	storage_unlock_event: StorageUnlockEventInput
+	"""
+	` + "`" + `transfer_event` + "`" + ` input for events of type of TransferEvent.
+	"""
+	transfer_event: TransferEventInput
 }
 """
 filter for BankMsgSend objects
@@ -1437,6 +1618,10 @@ input FilterEvent {
 	"""
 	StorageUnlockEvent: NestedFilterStorageUnlockEvent
 	"""
+	filter for TransferEvent union type.
+	"""
+	TransferEvent: NestedFilterTransferEvent
+	"""
 	filter for UnknownEvent union type.
 	"""
 	UnknownEvent: NestedFilterUnknownEvent
@@ -1490,6 +1675,31 @@ input FilterGnoEventAttribute {
 	filter for key field.
 	"""
 	key: FilterString
+	"""
+	filter for value field.
+	"""
+	value: FilterString
+}
+"""
+filter for IndexedString objects
+"""
+input FilterIndexedString {
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterIndexedString]
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterIndexedString]
+	"""
+	logical operator for IndexedString that will reverse conditions.
+	"""
+	_not: FilterIndexedString
+	"""
+	filter for index field.
+	"""
+	index: FilterInt
 	"""
 	filter for value field.
 	"""
@@ -1602,6 +1812,14 @@ input FilterMessageValue {
 	filter for MsgRun union type.
 	"""
 	MsgRun: NestedFilterMsgRun
+	"""
+	filter for MsgEnablePackage union type.
+	"""
+	MsgEnablePackage: NestedFilterMsgEnablePackage
+	"""
+	filter for MsgRejectPackage union type.
+	"""
+	MsgRejectPackage: NestedFilterMsgRejectPackage
 }
 """
 filter for MsgAddPackage objects
@@ -1677,9 +1895,71 @@ input FilterMsgCall {
 	"""
 	args: FilterString
 	"""
+	filter for args_at field.
+	"""
+	args_at: NestedFilterIndexedString
+	"""
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+}
+"""
+filter for MsgEnablePackage objects
+"""
+input FilterMsgEnablePackage {
+	"""
+	logical operator for MsgEnablePackage that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterMsgEnablePackage]
+	"""
+	logical operator for MsgEnablePackage that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterMsgEnablePackage]
+	"""
+	logical operator for MsgEnablePackage that will reverse conditions.
+	"""
+	_not: FilterMsgEnablePackage
+	"""
+	filter for approver field.
+	"""
+	approver: FilterString
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+	"""
+	filter for pkg_hash field.
+	"""
+	pkg_hash: FilterString
+	"""
+	filter for pkg_height field.
+	"""
+	pkg_height: FilterInt
+}
+"""
+filter for MsgRejectPackage objects
+"""
+input FilterMsgRejectPackage {
+	"""
+	logical operator for MsgRejectPackage that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterMsgRejectPackage]
+	"""
+	logical operator for MsgRejectPackage that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterMsgRejectPackage]
+	"""
+	logical operator for MsgRejectPackage that will reverse conditions.
+	"""
+	_not: FilterMsgRejectPackage
+	"""
+	filter for sender field.
+	"""
+	sender: FilterString
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
 }
 """
 filter for MsgRun objects
@@ -1779,6 +2059,10 @@ input FilterStorageUnlockEvent {
 	filter for pkg_path field.
 	"""
 	pkg_path: FilterString
+	"""
+	filter for refund_withheld field.
+	"""
+	refund_withheld: FilterBoolean
 }
 """
 Filter type for string fields. It contains a variety of filter types for string types. All added filters here are processed as AND operators.
@@ -1942,6 +2226,39 @@ input FilterTransactionResponse {
 	events: NestedFilterEvent
 }
 """
+filter for TransferEvent objects
+"""
+input FilterTransferEvent {
+	"""
+	logical operator for TransferEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [FilterTransferEvent]
+	"""
+	logical operator for TransferEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [FilterTransferEvent]
+	"""
+	logical operator for TransferEvent that will reverse conditions.
+	"""
+	_not: FilterTransferEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for from field.
+	"""
+	from: FilterString
+	"""
+	filter for to field.
+	"""
+	to: FilterString
+	"""
+	filter for coins field.
+	"""
+	coins: FilterString
+}
+"""
 filter for TxFee objects
 """
 input FilterTxFee {
@@ -2047,6 +2364,20 @@ input GnoEventInput {
 	attrs: [EventAttributeInput!]
 }
 """
+` + "`" + `IndexedString` + "`" + ` is a string together with its zero-based position in a list of strings.
+Use it to make a ` + "`" + `[String!]` + "`" + ` field filterable by position.
+"""
+type IndexedString {
+	"""
+	the zero-based position of the string in the list.
+	"""
+	index: Int! @filterable
+	"""
+	the string value.
+	"""
+	value: String! @filterable
+}
+"""
 ` + "`" + `MemFile` + "`" + ` is the metadata information tied to a single gno package / realm file
 """
 type MemFile {
@@ -2116,7 +2447,7 @@ enum MessageRoute {
 }
 """
 ` + "`" + `MessageType` + "`" + ` is message type of the transaction.
-` + "`" + `MessageType` + "`" + ` has the values ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, and ` + "`" + `run` + "`" + `.
+` + "`" + `MessageType` + "`" + ` has the values ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, ` + "`" + `run` + "`" + `, ` + "`" + `enable_package` + "`" + `, and ` + "`" + `reject_package` + "`" + `.
 """
 enum MessageType {
 	"""
@@ -2139,8 +2470,18 @@ enum MessageType {
 	This is a transactional message that executes an arbitrary Gno-coded TX message.
 	"""
 	run
+	"""
+	The route value for this message type is ` + "`" + `vm` + "`" + `, and the value for transactional messages is ` + "`" + `MsgEnablePackage` + "`" + `.
+	This is a transactional message that enables a package parked awaiting approval.
+	"""
+	enable_package
+	"""
+	The route value for this message type is ` + "`" + `vm` + "`" + `, and the value for transactional messages is ` + "`" + `MsgRejectPackage` + "`" + `.
+	This is a transactional message that rejects a package parked awaiting approval.
+	"""
+	reject_package
 }
-union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | UnexpectedMessage
+union MessageValue = BankMsgSend | MsgCall | MsgAddPackage | MsgRun | MsgEnablePackage | MsgRejectPackage | UnexpectedMessage
 """
 ` + "`" + `MsgAddPackage` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `add_package` + "`" + `.
 ` + "`" + `MsgAddPackage` + "`" + ` is the package deployment tx message.
@@ -2215,9 +2556,21 @@ type MsgCall {
 	"""
 	func: String! @filterable
 	"""
-	` + "`" + `args` + "`" + ` are the arguments passed to the executed function.
+	` + "`" + `args` + "`" + ` are the arguments passed to the executed function, as strings.
+	A filter on ` + "`" + `args` + "`" + ` matches if any argument matches, whatever its position.
+	To match an argument at a specific index, use ` + "`" + `args_at` + "`" + `.
 	"""
 	args: [String!] @filterable
+	"""
+	Each ` + "`" + `args_at` + "`" + ` is an argument passed to the executed function, paired with its zero-based index.
+	The value is matched like any other string with ` + "`" + `eq` + "`" + `, ` + "`" + `like` + "`" + `, etc.
+	Combine several arguments with ` + "`" + `_and` + "`" + ` at the ` + "`" + `MsgCall` + "`" + ` level, not inside ` + "`" + `args_at` + "`" + `, where ` + "`" + `_and` + "`" + `, ` + "`" + `_or` + "`" + ` and ` + "`" + `_not` + "`" + ` test one argument at a time.
+	This example matches where the first argument is 1000 and the second argument starts with ` + "`" + `g1` + "`" + `.
+	` + "`" + `_and: [` + "`" + `
+	` + "`" + `   { args_at: { index: { eq: 0 }, value: { eq: "1000" } } }` + "`" + `
+	` + "`" + `   { args_at: { index: { eq: 1 }, value: { like: "^g1" } } } ]` + "`" + ` .
+	"""
+	args_at: [IndexedString!] @filterable
 	"""
 	the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
 	ex) ` + "`" + `1000000ugnot` + "`" + `
@@ -2254,6 +2607,80 @@ input MsgCallInput {
 	ex) ` + "`" + `["", "", "1"]` + "`" + ` <- Empty strings skip the condition.
 	"""
 	args: [String!]
+}
+"""
+` + "`" + `MsgEnablePackage` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `enable_package` + "`" + `.
+` + "`" + `MsgEnablePackage` + "`" + ` enables a package parked awaiting approval, so it can be imported and called.
+"""
+type MsgEnablePackage {
+	"""
+	the bech32 address of the approver.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	approver: String! @filterable
+	"""
+	the gno package path being enabled.
+	"""
+	pkg_path: String! @filterable
+	"""
+	the content hash of the package source being approved.
+	"""
+	pkg_hash: String! @filterable
+	"""
+	the block height of the package submission being approved; ` + "`" + `0` + "`" + ` when the approval is not pinned to one.
+	"""
+	pkg_height: Int! @filterable
+}
+"""
+` + "`" + `MsgEnablePackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `enable_package` + "`" + `.
+"""
+input MsgEnablePackageInput {
+	"""
+	the bech32 address of the approver.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	approver: String
+	"""
+	the gno package path being enabled.
+	"""
+	pkg_path: String
+	"""
+	the content hash of the package source being approved.
+	"""
+	pkg_hash: String
+	"""
+	the block height of the package submission being approved.
+	"""
+	pkg_height: Int
+}
+"""
+` + "`" + `MsgRejectPackage` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `reject_package` + "`" + `.
+` + "`" + `MsgRejectPackage` + "`" + ` removes a package parked awaiting approval.
+"""
+type MsgRejectPackage {
+	"""
+	the bech32 address of the sender, an approver or the package creator.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	sender: String! @filterable
+	"""
+	the gno package path being rejected.
+	"""
+	pkg_path: String! @filterable
+}
+"""
+` + "`" + `MsgRejectPackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `reject_package` + "`" + `.
+"""
+input MsgRejectPackageInput {
+	"""
+	the bech32 address of the sender, an approver or the package creator.
+	ex) ` + "`" + `g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5` + "`" + `
+	"""
+	sender: String
+	"""
+	the gno package path being rejected.
+	"""
+	pkg_path: String
 }
 """
 ` + "`" + `MsgRun` + "`" + ` is a message with a message router of ` + "`" + `vm` + "`" + ` and a message type of ` + "`" + `run` + "`" + `.
@@ -2412,6 +2839,10 @@ input NestedFilterEvent {
 	"""
 	StorageUnlockEvent: NestedFilterStorageUnlockEvent
 	"""
+	filter for TransferEvent union type.
+	"""
+	TransferEvent: NestedFilterTransferEvent
+	"""
 	filter for UnknownEvent union type.
 	"""
 	UnknownEvent: NestedFilterUnknownEvent
@@ -2465,6 +2896,31 @@ input NestedFilterGnoEventAttribute {
 	filter for key field.
 	"""
 	key: FilterString
+	"""
+	filter for value field.
+	"""
+	value: FilterString
+}
+"""
+filter for IndexedString objects
+"""
+input NestedFilterIndexedString {
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterIndexedString]
+	"""
+	logical operator for IndexedString that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterIndexedString]
+	"""
+	logical operator for IndexedString that will reverse conditions.
+	"""
+	_not: NestedFilterIndexedString
+	"""
+	filter for index field.
+	"""
+	index: FilterInt
 	"""
 	filter for value field.
 	"""
@@ -2556,6 +3012,14 @@ input NestedFilterMessageValue {
 	filter for MsgRun union type.
 	"""
 	MsgRun: NestedFilterMsgRun
+	"""
+	filter for MsgEnablePackage union type.
+	"""
+	MsgEnablePackage: NestedFilterMsgEnablePackage
+	"""
+	filter for MsgRejectPackage union type.
+	"""
+	MsgRejectPackage: NestedFilterMsgRejectPackage
 }
 """
 filter for MsgAddPackage objects
@@ -2631,9 +3095,71 @@ input NestedFilterMsgCall {
 	"""
 	args: FilterString
 	"""
+	filter for args_at field.
+	"""
+	args_at: NestedFilterIndexedString
+	"""
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+}
+"""
+filter for MsgEnablePackage objects
+"""
+input NestedFilterMsgEnablePackage {
+	"""
+	logical operator for MsgEnablePackage that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterMsgEnablePackage]
+	"""
+	logical operator for MsgEnablePackage that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterMsgEnablePackage]
+	"""
+	logical operator for MsgEnablePackage that will reverse conditions.
+	"""
+	_not: NestedFilterMsgEnablePackage
+	"""
+	filter for approver field.
+	"""
+	approver: FilterString
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
+	"""
+	filter for pkg_hash field.
+	"""
+	pkg_hash: FilterString
+	"""
+	filter for pkg_height field.
+	"""
+	pkg_height: FilterInt
+}
+"""
+filter for MsgRejectPackage objects
+"""
+input NestedFilterMsgRejectPackage {
+	"""
+	logical operator for MsgRejectPackage that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterMsgRejectPackage]
+	"""
+	logical operator for MsgRejectPackage that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterMsgRejectPackage]
+	"""
+	logical operator for MsgRejectPackage that will reverse conditions.
+	"""
+	_not: NestedFilterMsgRejectPackage
+	"""
+	filter for sender field.
+	"""
+	sender: FilterString
+	"""
+	filter for pkg_path field.
+	"""
+	pkg_path: FilterString
 }
 """
 filter for MsgRun objects
@@ -2733,6 +3259,10 @@ input NestedFilterStorageUnlockEvent {
 	filter for pkg_path field.
 	"""
 	pkg_path: FilterString
+	"""
+	filter for refund_withheld field.
+	"""
+	refund_withheld: FilterBoolean
 }
 """
 filter for TransactionMessage objects
@@ -2799,6 +3329,39 @@ input NestedFilterTransactionResponse {
 	filter for events field.
 	"""
 	events: NestedFilterEvent
+}
+"""
+filter for TransferEvent objects
+"""
+input NestedFilterTransferEvent {
+	"""
+	logical operator for TransferEvent that will combine two or more conditions, returning true if all of them are true.
+	"""
+	_and: [NestedFilterTransferEvent]
+	"""
+	logical operator for TransferEvent that will combine two or more conditions, returning true if at least one of them is true.
+	"""
+	_or: [NestedFilterTransferEvent]
+	"""
+	logical operator for TransferEvent that will reverse conditions.
+	"""
+	_not: NestedFilterTransferEvent
+	"""
+	filter for type field.
+	"""
+	type: FilterString
+	"""
+	filter for from field.
+	"""
+	from: FilterString
+	"""
+	filter for to field.
+	"""
+	to: FilterString
+	"""
+	filter for coins field.
+	"""
+	coins: FilterString
 }
 """
 filter for TxFee objects
@@ -2870,15 +3433,38 @@ type Query {
 	"""
 	latestBlockHeight: Int!
 	"""
-	Fetches Blocks matching the specified where criteria. 
-	Incomplete results due to errors return both the partial Blocks and 
+	Returns the supply of a single denomination at the latest chain height, split into total, spendable and locked.
+	"""
+	getSupply(denom: String!): Supply!
+	"""
+	Fetches Blocks matching the specified where criteria.
+	Incomplete results due to errors return both the partial Blocks and
 	the associated errors.
+	
+	At most 10000 Blocks are returned. A result cut short at that limit
+	carries an error whose extensions hold "code": "MAX_ELEMENTS_REACHED"
+	and "lastCompleteBlockHeight", the height the caller received in full.
+	Resume from it with a height greater than that value when ordering
+	ascending, or less than it when ordering descending. Read the
+	extensions rather than the message text.
 	"""
 	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 	"""
-	Retrieves a list of Transactions that match the given 
+	Retrieves a list of Transactions that match the given
 	where criteria. If the result is incomplete due to errors, both partial
 	results and errors are returned.
+	
+	At most 10000 Transactions are returned. A result cut short at that
+	limit ends on a block boundary, because a filter cannot express a
+	resume point inside a block: its index window applies to every block
+	in the range rather than to the boundary block alone. The error's
+	extensions hold "code": "MAX_ELEMENTS_REACHED" and
+	"lastCompleteBlockHeight", the height the caller received in full;
+	resume with block_height greater than it when ordering ascending, or
+	less than it when ordering descending. Where one block alone holds
+	more Transactions than the limit no boundary exists, so the partial
+	block is returned with "code": "BLOCK_EXCEEDS_MAX_ELEMENTS" and
+	"blockHeight". Read the extensions rather than the message text.
 	"""
 	getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
@@ -2928,7 +3514,7 @@ input StorageDepositEventInput {
 }
 """
 ` + "`" + `StorageUnlockEvent` + "`" + ` is emitted when a storage deposit fee is unlocked.
-It has ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, and ` + "`" + `pkg_path` + "`" + `.
+It has ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, ` + "`" + `pkg_path` + "`" + `, and ` + "`" + `refund_withheld` + "`" + `.
 """
 type StorageUnlockEvent {
 	"""
@@ -2947,10 +3533,14 @@ type StorageUnlockEvent {
 	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
 	"""
 	pkg_path: String! @filterable
+	"""
+	` + "`" + `refund_withheld` + "`" + ` is true when the refund was kept back because of a token lock.
+	"""
+	refund_withheld: Boolean! @filterable
 }
 """
 Transaction's event of type of StorageUnlockEvent to filter transactions.
-"StorageUnlockEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + ` and ` + "`" + `pkg_path` + "`" + `.
+"StorageUnlockEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + `, ` + "`" + `bytes_delta` + "`" + `, ` + "`" + `fee_refund` + "`" + `, ` + "`" + `pkg_path` + "`" + ` and ` + "`" + `refund_withheld` + "`" + `.
 """
 input StorageUnlockEventInput {
 	"""
@@ -2969,6 +3559,10 @@ input StorageUnlockEventInput {
 	` + "`" + `pkg_path` + "`" + ` is the path to the package that emitted the event.
 	"""
 	pkg_path: String
+	"""
+	` + "`" + `refund_withheld` + "`" + ` is true when the refund was kept back because of a token lock.
+	"""
+	refund_withheld: Boolean
 }
 """
 Subscriptions provide a way for clients to receive real-time updates about Transactions and Blocks based on specified filter criteria.
@@ -2998,17 +3592,17 @@ type Subscription {
 	"""
 	blocks(filter: BlockFilter!): Block! @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
-	Subscribes to real-time updates of Transactions that 
+	Subscribes to real-time updates of Transactions that
 	match the provided filter criteria. This subscription starts immediately
 	and only includes Transactions added to the blockchain after the subscription
 	is active.
 	
-	This is useful for applications needing to track Transactions in real-time, 
-	such as wallets tracking incoming transactions or analytics platforms 
+	This is useful for applications needing to track Transactions in real-time,
+	such as wallets tracking incoming transactions or analytics platforms
 	monitoring blockchain activity.
 	
 	Returns:
-	- Transaction: Each received update is a Transaction object that matches 
+	- Transaction: Each received update is a Transaction object that matches
 	the where criteria.
 	"""
 	getTransactions(where: FilterTransaction!): Transaction!
@@ -3027,6 +3621,36 @@ type Subscription {
 	allowing subscribers to process or analyze new Blocks in real time.
 	"""
 	getBlocks(where: FilterBlock!): Block!
+}
+"""
+The supply of a single denomination at a chain height, split by spendability.
+"""
+type Supply {
+	"""
+	The denomination these figures describe, e.g. "ugnot".
+	"""
+	denom: String!
+	"""
+	The chain height the figures were computed at.
+	"""
+	height: Int!
+	"""
+	The total amount of the denomination in existence, from the chain's
+	per-denom supply counter.
+	"""
+	total: String!
+	"""
+	The portion of the genesis vesting schedules that has not vested yet,
+	computed from the schedules and the block time alone. It is not clamped
+	to the balance each account actually holds, but it never exceeds ` + "`" + `total` + "`" + `,
+	so ` + "`" + `total = spendable + locked` + "`" + ` always holds.
+	"""
+	locked: String!
+	"""
+	The difference between total and locked. Data aggregators call this the
+	circulating supply.
+	"""
+	spendable: String!
 }
 """
 Field representing a point on time. It is following the RFC3339Nano format ("2006-01-02T15:04:05.999999999Z07:00")
@@ -3164,7 +3788,7 @@ input TransactionFilter {
 type TransactionMessage {
 	"""
 	The type of transaction message.
-	The value of ` + "`" + `typeUrl` + "`" + ` can be ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, ` + "`" + `run` + "`" + `.
+	The value of ` + "`" + `typeUrl` + "`" + ` can be ` + "`" + `send` + "`" + `, ` + "`" + `exec` + "`" + `, ` + "`" + `add_package` + "`" + `, ` + "`" + `run` + "`" + `, ` + "`" + `enable_package` + "`" + `, ` + "`" + `reject_package` + "`" + `.
 	"""
 	typeUrl: String! @filterable
 	"""
@@ -3174,7 +3798,8 @@ type TransactionMessage {
 	route: String! @filterable
 	"""
 	MessageValue is the content of the transaction.
-	` + "`" + `value` + "`" + ` can be of type ` + "`" + `BankMsgSend` + "`" + `, ` + "`" + `MsgCall` + "`" + `, ` + "`" + `MsgAddPackage` + "`" + `, ` + "`" + `MsgRun` + "`" + `, ` + "`" + `UnexpectedMessage` + "`" + `.
+	` + "`" + `value` + "`" + ` can be of type ` + "`" + `BankMsgSend` + "`" + `, ` + "`" + `MsgCall` + "`" + `, ` + "`" + `MsgAddPackage` + "`" + `, ` + "`" + `MsgRun` + "`" + `, ` + "`" + `MsgEnablePackage` + "`" + `,
+	` + "`" + `MsgRejectPackage` + "`" + `, ` + "`" + `UnexpectedMessage` + "`" + `.
 	"""
 	value: MessageValue! @filterable
 }
@@ -3247,6 +3872,59 @@ input TransactionVmMessageInput {
 	` + "`" + `MsgRunInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `run` + "`" + `.
 	"""
 	run: MsgRunInput
+	"""
+	` + "`" + `MsgEnablePackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `enable_package` + "`" + `.
+	"""
+	enable_package: MsgEnablePackageInput
+	"""
+	` + "`" + `MsgRejectPackageInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `reject_package` + "`" + `.
+	"""
+	reject_package: MsgRejectPackageInput
+}
+"""
+` + "`" + `TransferEvent` + "`" + ` is emitted by the bank module when coins move between accounts.
+It has ` + "`" + `type` + "`" + `, ` + "`" + `from` + "`" + `, ` + "`" + `to` + "`" + `, and ` + "`" + `coins` + "`" + `.
+"""
+type TransferEvent {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String! @filterable
+	"""
+	` + "`" + `from` + "`" + ` is the bech32 address the coins left.
+	"""
+	from: String! @filterable
+	"""
+	` + "`" + `to` + "`" + ` is the bech32 address the coins reached.
+	"""
+	to: String! @filterable
+	"""
+	` + "`" + `coins` + "`" + ` is the amount transferred ("<amount><denomination>", comma-separated when several).
+	ex) ` + "`" + `1000000ugnot` + "`" + `
+	"""
+	coins: String! @filterable
+}
+"""
+Transaction's event of type of TransferEvent to filter transactions.
+"TransferEventInput" can be configured as a filter with a transaction event's ` + "`" + `type` + "`" + `, ` + "`" + `from` + "`" + `, ` + "`" + `to` + "`" + ` and ` + "`" + `coins` + "`" + `.
+"""
+input TransferEventInput {
+	"""
+	` + "`" + `type` + "`" + ` is the type of transaction event emitted.
+	"""
+	type: String
+	"""
+	` + "`" + `from` + "`" + ` is the bech32 address the coins left.
+	"""
+	from: String
+	"""
+	` + "`" + `to` + "`" + ` is the bech32 address the coins reached.
+	"""
+	to: String
+	"""
+	` + "`" + `coins` + "`" + ` filters the transferred amount by range and denomination.
+	"""
+	coins: AmountInput
 }
 """
 The ` + "`" + `TxFee` + "`" + ` has information about the fee used in the transaction and the maximum gas fee specified by the user.
@@ -3331,6 +4009,17 @@ func (ec *executionContext) field_Query_getBlocks_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["order"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_getSupply_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "denom", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["denom"] = arg0
 	return args, nil
 }
 
@@ -4773,6 +5462,90 @@ func (ec *executionContext) fieldContext_GnoEventAttribute_value(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _IndexedString_index(ctx context.Context, field graphql.CollectedField, obj *model.IndexedString) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_IndexedString_index,
+		func(ctx context.Context) (any, error) {
+			return obj.Index, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal int
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_IndexedString_index(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IndexedString",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IndexedString_value(ctx context.Context, field graphql.CollectedField, obj *model.IndexedString) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_IndexedString_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_IndexedString_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IndexedString",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MemFile_name(ctx context.Context, field graphql.CollectedField, obj *model.MemFile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5417,6 +6190,54 @@ func (ec *executionContext) fieldContext_MsgCall_args(_ context.Context, field g
 	return fc, nil
 }
 
+func (ec *executionContext) _MsgCall_args_at(ctx context.Context, field graphql.CollectedField, obj *model.MsgCall) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgCall_args_at,
+		func(ctx context.Context) (any, error) {
+			return obj.ArgsAt, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal []*model.IndexedString
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedStringᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgCall_args_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgCall",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "index":
+				return ec.fieldContext_IndexedString_index(ctx, field)
+			case "value":
+				return ec.fieldContext_IndexedString_value(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type IndexedString", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MsgCall_max_deposit(ctx context.Context, field graphql.CollectedField, obj *model.MsgCall) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5449,6 +6270,258 @@ func (ec *executionContext) _MsgCall_max_deposit(ctx context.Context, field grap
 func (ec *executionContext) fieldContext_MsgCall_max_deposit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MsgCall",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgEnablePackage_approver(ctx context.Context, field graphql.CollectedField, obj *model.MsgEnablePackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgEnablePackage_approver,
+		func(ctx context.Context) (any, error) {
+			return obj.Approver, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgEnablePackage_approver(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgEnablePackage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgEnablePackage_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.MsgEnablePackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgEnablePackage_pkg_path,
+		func(ctx context.Context) (any, error) {
+			return obj.PkgPath, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgEnablePackage_pkg_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgEnablePackage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgEnablePackage_pkg_hash(ctx context.Context, field graphql.CollectedField, obj *model.MsgEnablePackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgEnablePackage_pkg_hash,
+		func(ctx context.Context) (any, error) {
+			return obj.PkgHash, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgEnablePackage_pkg_hash(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgEnablePackage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgEnablePackage_pkg_height(ctx context.Context, field graphql.CollectedField, obj *model.MsgEnablePackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgEnablePackage_pkg_height,
+		func(ctx context.Context) (any, error) {
+			return obj.PkgHeight, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal int
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgEnablePackage_pkg_height(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgEnablePackage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRejectPackage_sender(ctx context.Context, field graphql.CollectedField, obj *model.MsgRejectPackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRejectPackage_sender,
+		func(ctx context.Context) (any, error) {
+			return obj.Sender, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRejectPackage_sender(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRejectPackage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRejectPackage_pkg_path(ctx context.Context, field graphql.CollectedField, obj *model.MsgRejectPackage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRejectPackage_pkg_path,
+		func(ctx context.Context) (any, error) {
+			return obj.PkgPath, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRejectPackage_pkg_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRejectPackage",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -5802,6 +6875,59 @@ func (ec *executionContext) fieldContext_Query_latestBlockHeight(_ context.Conte
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_getSupply(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_getSupply,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().GetSupply(ctx, fc.Args["denom"].(string))
+		},
+		nil,
+		ec.marshalNSupply2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_getSupply(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "denom":
+				return ec.fieldContext_Supply_denom(ctx, field)
+			case "height":
+				return ec.fieldContext_Supply_height(ctx, field)
+			case "total":
+				return ec.fieldContext_Supply_total(ctx, field)
+			case "locked":
+				return ec.fieldContext_Supply_locked(ctx, field)
+			case "spendable":
+				return ec.fieldContext_Supply_spendable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Supply", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_getSupply_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -6404,6 +7530,48 @@ func (ec *executionContext) fieldContext_StorageUnlockEvent_pkg_path(_ context.C
 	return fc, nil
 }
 
+func (ec *executionContext) _StorageUnlockEvent_refund_withheld(ctx context.Context, field graphql.CollectedField, obj *model.StorageUnlockEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_StorageUnlockEvent_refund_withheld,
+		func(ctx context.Context) (any, error) {
+			return obj.RefundWithheld, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal bool
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_StorageUnlockEvent_refund_withheld(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StorageUnlockEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Subscription_transactions(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
@@ -6684,6 +7852,151 @@ func (ec *executionContext) fieldContext_Subscription_getBlocks(ctx context.Cont
 	if fc.Args, err = ec.field_Subscription_getBlocks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_denom(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_denom,
+		func(ctx context.Context) (any, error) {
+			return obj.Denom(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_denom(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_height(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_height,
+		func(ctx context.Context) (any, error) {
+			return obj.Height(), nil
+		},
+		nil,
+		ec.marshalNInt2int64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_height(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_total(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_total,
+		func(ctx context.Context) (any, error) {
+			return obj.Total(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_locked(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_locked,
+		func(ctx context.Context) (any, error) {
+			return obj.Locked(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_locked(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Supply_spendable(ctx context.Context, field graphql.CollectedField, obj *model.Supply) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Supply_spendable,
+		func(ctx context.Context) (any, error) {
+			return obj.Spendable(), nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Supply_spendable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Supply",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
 	}
 	return fc, nil
 }
@@ -7504,6 +8817,174 @@ func (ec *executionContext) fieldContext_TransactionResponse_events(_ context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Event does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransferEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.TransferEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransferEvent_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransferEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransferEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransferEvent_from(ctx context.Context, field graphql.CollectedField, obj *model.TransferEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransferEvent_from,
+		func(ctx context.Context) (any, error) {
+			return obj.From, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransferEvent_from(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransferEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransferEvent_to(ctx context.Context, field graphql.CollectedField, obj *model.TransferEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransferEvent_to,
+		func(ctx context.Context) (any, error) {
+			return obj.To, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransferEvent_to(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransferEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransferEvent_coins(ctx context.Context, field graphql.CollectedField, obj *model.TransferEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransferEvent_coins,
+		func(ctx context.Context) (any, error) {
+			return obj.Coins, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransferEvent_coins(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransferEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -9370,7 +10851,7 @@ func (ec *executionContext) unmarshalInputEventInput(ctx context.Context, obj an
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"gno_event", "storage_deposit_event", "storage_unlock_event"}
+	fieldsInOrder := [...]string{"gno_event", "storage_deposit_event", "storage_unlock_event", "transfer_event"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -9398,6 +10879,13 @@ func (ec *executionContext) unmarshalInputEventInput(ctx context.Context, obj an
 				return it, err
 			}
 			it.StorageUnlockEvent = data
+		case "transfer_event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transfer_event"))
+			data, err := ec.unmarshalOTransferEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransferEventInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransferEvent = data
 		}
 	}
 	return it, nil
@@ -9802,7 +11290,7 @@ func (ec *executionContext) unmarshalInputFilterEvent(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "UnknownEvent"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "TransferEvent", "UnknownEvent"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -9851,6 +11339,13 @@ func (ec *executionContext) unmarshalInputFilterEvent(ctx context.Context, obj a
 				return it, err
 			}
 			it.StorageUnlockEvent = data
+		case "TransferEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("TransferEvent"))
+			data, err := ec.unmarshalONestedFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransferEvent = data
 		case "UnknownEvent":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("UnknownEvent"))
 			data, err := ec.unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterUnknownEvent(ctx, v)
@@ -9974,6 +11469,64 @@ func (ec *executionContext) unmarshalInputFilterGnoEventAttribute(ctx context.Co
 				return it, err
 			}
 			it.Key = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterIndexedString(ctx context.Context, obj any) (model.FilterIndexedString, error) {
+	var it model.FilterIndexedString
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "index":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("index"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Index = data
 		case "value":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -10171,7 +11724,7 @@ func (ec *executionContext) unmarshalInputFilterMessageValue(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun", "MsgEnablePackage", "MsgRejectPackage"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10227,6 +11780,20 @@ func (ec *executionContext) unmarshalInputFilterMessageValue(ctx context.Context
 				return it, err
 			}
 			it.MsgRun = data
+		case "MsgEnablePackage":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgEnablePackage"))
+			data, err := ec.unmarshalONestedFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgEnablePackage = data
+		case "MsgRejectPackage":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRejectPackage"))
+			data, err := ec.unmarshalONestedFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRejectPackage = data
 		}
 	}
 	return it, nil
@@ -10322,7 +11889,7 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "args_at", "max_deposit"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10385,6 +11952,13 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 				return it, err
 			}
 			it.Args = data
+		case "args_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("args_at"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ArgsAt = data
 		case "max_deposit":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_deposit"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -10392,6 +11966,136 @@ func (ec *executionContext) unmarshalInputFilterMsgCall(ctx context.Context, obj
 				return it, err
 			}
 			it.MaxDeposit = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterMsgEnablePackage(ctx context.Context, obj any) (model.FilterMsgEnablePackage, error) {
+	var it model.FilterMsgEnablePackage
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "approver", "pkg_path", "pkg_hash", "pkg_height"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "approver":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("approver"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Approver = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		case "pkg_hash":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_hash"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHash = data
+		case "pkg_height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_height"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHeight = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFilterMsgRejectPackage(ctx context.Context, obj any) (model.FilterMsgRejectPackage, error) {
+	var it model.FilterMsgRejectPackage
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "sender", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "sender":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sender"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sender = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
 		}
 	}
 	return it, nil
@@ -10552,7 +12256,7 @@ func (ec *executionContext) unmarshalInputFilterStorageUnlockEvent(ctx context.C
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path", "refund_withheld"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10608,6 +12312,13 @@ func (ec *executionContext) unmarshalInputFilterStorageUnlockEvent(ctx context.C
 				return it, err
 			}
 			it.PkgPath = data
+		case "refund_withheld":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("refund_withheld"))
+			data, err := ec.unmarshalOFilterBoolean2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterBoolean(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RefundWithheld = data
 		}
 	}
 	return it, nil
@@ -10966,6 +12677,78 @@ func (ec *executionContext) unmarshalInputFilterTransactionResponse(ctx context.
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputFilterTransferEvent(ctx context.Context, obj any) (model.FilterTransferEvent, error) {
+	var it model.FilterTransferEvent
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "from", "to", "coins"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalOFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalOFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalOFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		case "to":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("to"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.To = data
+		case "coins":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("coins"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Coins = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFilterTxFee(ctx context.Context, obj any) (model.FilterTxFee, error) {
 	var it model.FilterTxFee
 	if obj == nil {
@@ -11302,6 +13085,94 @@ func (ec *executionContext) unmarshalInputMsgCallInput(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputMsgEnablePackageInput(ctx context.Context, obj any) (model.MsgEnablePackageInput, error) {
+	var it model.MsgEnablePackageInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"approver", "pkg_path", "pkg_hash", "pkg_height"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "approver":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("approver"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Approver = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		case "pkg_hash":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_hash"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHash = data
+		case "pkg_height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_height"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHeight = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputMsgRejectPackageInput(ctx context.Context, obj any) (model.MsgRejectPackageInput, error) {
+	var it model.MsgRejectPackageInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"sender", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "sender":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sender"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sender = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMsgRunInput(ctx context.Context, obj any) (model.MsgRunInput, error) {
 	var it model.MsgRunInput
 	if obj == nil {
@@ -11545,7 +13416,7 @@ func (ec *executionContext) unmarshalInputNestedFilterEvent(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "UnknownEvent"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "GnoEvent", "StorageDepositEvent", "StorageUnlockEvent", "TransferEvent", "UnknownEvent"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11594,6 +13465,13 @@ func (ec *executionContext) unmarshalInputNestedFilterEvent(ctx context.Context,
 				return it, err
 			}
 			it.StorageUnlockEvent = data
+		case "TransferEvent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("TransferEvent"))
+			data, err := ec.unmarshalONestedFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransferEvent = data
 		case "UnknownEvent":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("UnknownEvent"))
 			data, err := ec.unmarshalONestedFilterUnknownEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterUnknownEvent(ctx, v)
@@ -11717,6 +13595,64 @@ func (ec *executionContext) unmarshalInputNestedFilterGnoEventAttribute(ctx cont
 				return it, err
 			}
 			it.Key = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterIndexedString(ctx context.Context, obj any) (model.NestedFilterIndexedString, error) {
+	var it model.NestedFilterIndexedString
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "index", "value"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "index":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("index"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Index = data
 		case "value":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -11863,7 +13799,7 @@ func (ec *executionContext) unmarshalInputNestedFilterMessageValue(ctx context.C
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "BankMsgSend", "MsgCall", "MsgAddPackage", "MsgRun", "MsgEnablePackage", "MsgRejectPackage"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11919,6 +13855,20 @@ func (ec *executionContext) unmarshalInputNestedFilterMessageValue(ctx context.C
 				return it, err
 			}
 			it.MsgRun = data
+		case "MsgEnablePackage":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgEnablePackage"))
+			data, err := ec.unmarshalONestedFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgEnablePackage = data
+		case "MsgRejectPackage":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("MsgRejectPackage"))
+			data, err := ec.unmarshalONestedFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MsgRejectPackage = data
 		}
 	}
 	return it, nil
@@ -12014,7 +13964,7 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "pkg_path", "func", "args", "args_at", "max_deposit"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12077,6 +14027,13 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 				return it, err
 			}
 			it.Args = data
+		case "args_at":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("args_at"))
+			data, err := ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ArgsAt = data
 		case "max_deposit":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_deposit"))
 			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
@@ -12084,6 +14041,136 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgCall(ctx context.Contex
 				return it, err
 			}
 			it.MaxDeposit = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterMsgEnablePackage(ctx context.Context, obj any) (model.NestedFilterMsgEnablePackage, error) {
+	var it model.NestedFilterMsgEnablePackage
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "approver", "pkg_path", "pkg_hash", "pkg_height"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "approver":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("approver"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Approver = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
+		case "pkg_hash":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_hash"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHash = data
+		case "pkg_height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_height"))
+			data, err := ec.unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgHeight = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterMsgRejectPackage(ctx context.Context, obj any) (model.NestedFilterMsgRejectPackage, error) {
+	var it model.NestedFilterMsgRejectPackage
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "sender", "pkg_path"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "sender":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sender"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sender = data
+		case "pkg_path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pkg_path"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PkgPath = data
 		}
 	}
 	return it, nil
@@ -12244,7 +14331,7 @@ func (ec *executionContext) unmarshalInputNestedFilterStorageUnlockEvent(ctx con
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "bytes_delta", "fee_refund", "pkg_path", "refund_withheld"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12300,6 +14387,13 @@ func (ec *executionContext) unmarshalInputNestedFilterStorageUnlockEvent(ctx con
 				return it, err
 			}
 			it.PkgPath = data
+		case "refund_withheld":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("refund_withheld"))
+			data, err := ec.unmarshalOFilterBoolean2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterBoolean(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RefundWithheld = data
 		}
 	}
 	return it, nil
@@ -12444,6 +14538,78 @@ func (ec *executionContext) unmarshalInputNestedFilterTransactionResponse(ctx co
 				return it, err
 			}
 			it.Events = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNestedFilterTransferEvent(ctx context.Context, obj any) (model.NestedFilterTransferEvent, error) {
+	var it model.NestedFilterTransferEvent
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "type", "from", "to", "coins"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "_and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_and"))
+			data, err := ec.unmarshalONestedFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "_or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_or"))
+			data, err := ec.unmarshalONestedFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "_not":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("_not"))
+			data, err := ec.unmarshalONestedFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Not = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		case "to":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("to"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.To = data
+		case "coins":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("coins"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Coins = data
 		}
 	}
 	return it, nil
@@ -12620,7 +14786,7 @@ func (ec *executionContext) unmarshalInputStorageUnlockEventInput(ctx context.Co
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "bytes_delta", "fee_refund", "pkg_path"}
+	fieldsInOrder := [...]string{"type", "bytes_delta", "fee_refund", "pkg_path", "refund_withheld"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12655,6 +14821,13 @@ func (ec *executionContext) unmarshalInputStorageUnlockEventInput(ctx context.Co
 				return it, err
 			}
 			it.PkgPath = data
+		case "refund_withheld":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("refund_withheld"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RefundWithheld = data
 		}
 	}
 	return it, nil
@@ -12896,7 +15069,7 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"exec", "add_package", "run"}
+	fieldsInOrder := [...]string{"exec", "add_package", "run", "enable_package", "reject_package"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12924,6 +15097,71 @@ func (ec *executionContext) unmarshalInputTransactionVmMessageInput(ctx context.
 				return it, err
 			}
 			it.Run = data
+		case "enable_package":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("enable_package"))
+			data, err := ec.unmarshalOMsgEnablePackageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgEnablePackageInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EnablePackage = data
+		case "reject_package":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("reject_package"))
+			data, err := ec.unmarshalOMsgRejectPackageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRejectPackageInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RejectPackage = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputTransferEventInput(ctx context.Context, obj any) (model.TransferEventInput, error) {
+	var it model.TransferEventInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "from", "to", "coins"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		case "to":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("to"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.To = data
+		case "coins":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("coins"))
+			data, err := ec.unmarshalOAmountInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐAmountInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Coins = data
 		}
 	}
 	return it, nil
@@ -12944,6 +15182,13 @@ func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, ob
 			return graphql.Null
 		}
 		return ec._UnknownEvent(ctx, sel, obj)
+	case model.TransferEvent:
+		return ec._TransferEvent(ctx, sel, &obj)
+	case *model.TransferEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._TransferEvent(ctx, sel, obj)
 	case model.StorageUnlockEvent:
 		return ec._StorageUnlockEvent(ctx, sel, &obj)
 	case *model.StorageUnlockEvent:
@@ -12992,6 +15237,20 @@ func (ec *executionContext) _MessageValue(ctx context.Context, sel ast.Selection
 			return graphql.Null
 		}
 		return ec._MsgRun(ctx, sel, obj)
+	case model.MsgRejectPackage:
+		return ec._MsgRejectPackage(ctx, sel, &obj)
+	case *model.MsgRejectPackage:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgRejectPackage(ctx, sel, obj)
+	case model.MsgEnablePackage:
+		return ec._MsgEnablePackage(ctx, sel, &obj)
+	case *model.MsgEnablePackage:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MsgEnablePackage(ctx, sel, obj)
 	case model.MsgCall:
 		return ec._MsgCall(ctx, sel, &obj)
 	case *model.MsgCall:
@@ -13382,6 +15641,50 @@ func (ec *executionContext) _GnoEventAttribute(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var indexedStringImplementors = []string{"IndexedString"}
+
+func (ec *executionContext) _IndexedString(ctx context.Context, sel ast.SelectionSet, obj *model.IndexedString) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, indexedStringImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IndexedString")
+		case "index":
+			out.Values[i] = ec._IndexedString_index(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._IndexedString_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var memFileImplementors = []string{"MemFile"}
 
 func (ec *executionContext) _MemFile(ctx context.Context, sel ast.SelectionSet, obj *model.MemFile) graphql.Marshaler {
@@ -13564,8 +15867,108 @@ func (ec *executionContext) _MsgCall(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "args":
 			out.Values[i] = ec._MsgCall_args(ctx, field, obj)
+		case "args_at":
+			out.Values[i] = ec._MsgCall_args_at(ctx, field, obj)
 		case "max_deposit":
 			out.Values[i] = ec._MsgCall_max_deposit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var msgEnablePackageImplementors = []string{"MsgEnablePackage", "MessageValue"}
+
+func (ec *executionContext) _MsgEnablePackage(ctx context.Context, sel ast.SelectionSet, obj *model.MsgEnablePackage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgEnablePackageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgEnablePackage")
+		case "approver":
+			out.Values[i] = ec._MsgEnablePackage_approver(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_path":
+			out.Values[i] = ec._MsgEnablePackage_pkg_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_hash":
+			out.Values[i] = ec._MsgEnablePackage_pkg_hash(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_height":
+			out.Values[i] = ec._MsgEnablePackage_pkg_height(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var msgRejectPackageImplementors = []string{"MsgRejectPackage", "MessageValue"}
+
+func (ec *executionContext) _MsgRejectPackage(ctx context.Context, sel ast.SelectionSet, obj *model.MsgRejectPackage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, msgRejectPackageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MsgRejectPackage")
+		case "sender":
+			out.Values[i] = ec._MsgRejectPackage_sender(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pkg_path":
+			out.Values[i] = ec._MsgRejectPackage_pkg_path(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -13713,6 +16116,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_latestBlockHeight(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "getSupply":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_getSupply(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -13879,6 +16304,11 @@ func (ec *executionContext) _StorageUnlockEvent(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "refund_withheld":
+			out.Values[i] = ec._StorageUnlockEvent_refund_withheld(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -13926,6 +16356,65 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
+}
+
+var supplyImplementors = []string{"Supply"}
+
+func (ec *executionContext) _Supply(ctx context.Context, sel ast.SelectionSet, obj *model.Supply) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, supplyImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Supply")
+		case "denom":
+			out.Values[i] = ec._Supply_denom(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "height":
+			out.Values[i] = ec._Supply_height(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "total":
+			out.Values[i] = ec._Supply_total(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "locked":
+			out.Values[i] = ec._Supply_locked(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "spendable":
+			out.Values[i] = ec._Supply_spendable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
 }
 
 var transactionImplementors = []string{"Transaction"}
@@ -14096,6 +16585,60 @@ func (ec *executionContext) _TransactionResponse(ctx context.Context, sel ast.Se
 			}
 		case "events":
 			out.Values[i] = ec._TransactionResponse_events(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transferEventImplementors = []string{"TransferEvent", "Event"}
+
+func (ec *executionContext) _TransferEvent(ctx context.Context, sel ast.SelectionSet, obj *model.TransferEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transferEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransferEvent")
+		case "type":
+			out.Values[i] = ec._TransferEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "from":
+			out.Values[i] = ec._TransferEvent_from(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "to":
+			out.Values[i] = ec._TransferEvent_to(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "coins":
+			out.Values[i] = ec._TransferEvent_coins(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -14671,6 +17214,16 @@ func (ec *executionContext) marshalNGnoEventAttribute2ᚖgithubᚗcomᚋgnolang�
 	return ec._GnoEventAttribute(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedString(ctx context.Context, sel ast.SelectionSet, v *model.IndexedString) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IndexedString(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -14757,6 +17310,20 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNSupply2githubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply(ctx context.Context, sel ast.SelectionSet, v model.Supply) graphql.Marshaler {
+	return ec._Supply(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSupply2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐSupply(ctx context.Context, sel ast.SelectionSet, v *model.Supply) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Supply(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
@@ -15311,6 +17878,32 @@ func (ec *executionContext) unmarshalOFilterGnoEventAttribute2ᚖgithubᚗcomᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx context.Context, v any) ([]*model.FilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterIndexedString, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterIndexedString(ctx context.Context, v any) (*model.FilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterIndexedString(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOFilterInt2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterInt(ctx context.Context, v any) (*model.FilterInt, error) {
 	if v == nil {
 		return nil, nil
@@ -15446,6 +18039,58 @@ func (ec *executionContext) unmarshalOFilterMsgCall2ᚖgithubᚗcomᚋgnolangᚋ
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputFilterMsgCall(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx context.Context, v any) ([]*model.FilterMsgEnablePackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterMsgEnablePackage, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgEnablePackage(ctx context.Context, v any) (*model.FilterMsgEnablePackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterMsgEnablePackage(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx context.Context, v any) ([]*model.FilterMsgRejectPackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterMsgRejectPackage, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterMsgRejectPackage(ctx context.Context, v any) (*model.FilterMsgRejectPackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterMsgRejectPackage(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -15621,6 +18266,32 @@ func (ec *executionContext) unmarshalOFilterTransactionResponse2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx context.Context, v any) ([]*model.FilterTransferEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.FilterTransferEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalOFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTransferEvent(ctx context.Context, v any) (*model.FilterTransferEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFilterTransferEvent(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOFilterTxFee2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterTxFee(ctx context.Context, v any) ([]*model.FilterTxFee, error) {
 	if v == nil {
 		return nil, nil
@@ -15735,6 +18406,25 @@ func (ec *executionContext) unmarshalOGnoEventInput2ᚖgithubᚗcomᚋgnolangᚋ
 	}
 	res, err := ec.unmarshalInputGnoEventInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedStringᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.IndexedString) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐIndexedString(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
@@ -15853,6 +18543,22 @@ func (ec *executionContext) unmarshalOMsgCallInput2ᚖgithubᚗcomᚋgnolangᚋt
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputMsgCallInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOMsgEnablePackageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgEnablePackageInput(ctx context.Context, v any) (*model.MsgEnablePackageInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgEnablePackageInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOMsgRejectPackageInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐMsgRejectPackageInput(ctx context.Context, v any) (*model.MsgRejectPackageInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputMsgRejectPackageInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -16020,6 +18726,32 @@ func (ec *executionContext) unmarshalONestedFilterGnoEventAttribute2ᚖgithubᚗ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalONestedFilterIndexedString2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx context.Context, v any) ([]*model.NestedFilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterIndexedString, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterIndexedString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterIndexedString(ctx context.Context, v any) (*model.NestedFilterIndexedString, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterIndexedString(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalONestedFilterMemFile2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMemFile(ctx context.Context, v any) ([]*model.NestedFilterMemFile, error) {
 	if v == nil {
 		return nil, nil
@@ -16150,6 +18882,58 @@ func (ec *executionContext) unmarshalONestedFilterMsgCall2ᚖgithubᚗcomᚋgnol
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalONestedFilterMsgEnablePackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx context.Context, v any) ([]*model.NestedFilterMsgEnablePackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterMsgEnablePackage, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgEnablePackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgEnablePackage(ctx context.Context, v any) (*model.NestedFilterMsgEnablePackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterMsgEnablePackage(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRejectPackage2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx context.Context, v any) ([]*model.NestedFilterMsgRejectPackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterMsgRejectPackage, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterMsgRejectPackage2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRejectPackage(ctx context.Context, v any) (*model.NestedFilterMsgRejectPackage, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterMsgRejectPackage(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalONestedFilterMsgRun2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterMsgRun(ctx context.Context, v any) ([]*model.NestedFilterMsgRun, error) {
 	if v == nil {
 		return nil, nil
@@ -16277,6 +19061,32 @@ func (ec *executionContext) unmarshalONestedFilterTransactionResponse2ᚖgithub�
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputNestedFilterTransactionResponse(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONestedFilterTransferEvent2ᚕᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx context.Context, v any) ([]*model.NestedFilterTransferEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.NestedFilterTransferEvent, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalONestedFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalONestedFilterTransferEvent2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐNestedFilterTransferEvent(ctx context.Context, v any) (*model.NestedFilterTransferEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNestedFilterTransferEvent(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -16485,6 +19295,14 @@ func (ec *executionContext) unmarshalOTransactionVmMessageInput2ᚖgithubᚗcom�
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputTransactionVmMessageInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOTransferEventInput2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐTransferEventInput(ctx context.Context, v any) (*model.TransferEventInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTransferEventInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 

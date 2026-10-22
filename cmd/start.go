@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,16 +19,24 @@ import (
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
+	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
+	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
 	"github.com/gnolang/tx-indexer/storage"
+
+	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
 const (
 	defaultRemote           = "http://127.0.0.1:26657"
 	defaultDBPath           = "indexer-db"
 	defaultCORSAllowOrigins = "*"
+	// defaultSupplyDenoms is the denomination list the supply endpoint
+	// tracks and refreshes in the background. The gas denom is what
+	// aggregators ask for.
+	defaultSupplyDenoms = "ugnot"
 )
 
 // corsAllowedOriginsHelp is built up over multiple lines so each stays under
@@ -41,6 +50,7 @@ type startCfg struct {
 	dbPath               string
 	logLevel             string
 	corsAllowedOrigins   string
+	supplyDenoms         string
 	maxSlots             int
 	maxChunkSize         int64
 	rateLimit            int
@@ -130,6 +140,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		defaultCORSAllowOrigins,
 		corsAllowedOriginsHelp,
 	)
+
+	fs.StringVar(
+		&c.supplyDenoms,
+		"supply-denoms",
+		defaultSupplyDenoms,
+		"comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply",
+	)
 }
 
 // exec executes the indexer start command
@@ -182,9 +199,27 @@ func (c *startCfg) exec(ctx context.Context) error {
 		fetch.WithMaxChunkSize(c.maxChunkSize),
 	)
 
+	// The supply handler serves both the JSON-RPC and GraphQL surfaces from
+	// one shared snapshot. It only ever queries the tracked denoms, on its
+	// own schedule, so request input never reaches the chain.
+	denoms, err := parseSupplyDenoms(c.supplyDenoms)
+	if err != nil {
+		return err
+	}
+
+	supplyHandler := supply.NewHandler(
+		tm2Client,
+		db,
+		supply.WithLogger(
+			logger.Named("supply"),
+		),
+		supply.WithDenoms(denoms),
+	)
+
 	// Create the JSON-RPC service
 	j := setupJSONRPC(
 		db,
+		supplyHandler,
 		em,
 		logger,
 	)
@@ -216,7 +251,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, mux, c.disableIntrospection)
+	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection)
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
@@ -225,11 +260,48 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// Create a new waiter
 	w := newWaiter(ctx)
 
-	// Add the fetcher service
-	w.add(f.FetchChainData)
+	// genesisReady is closed once the chain genesis is in the storage. Two
+	// services read it from there and so wait on it: the fetcher indexes from
+	// height 0, and the supply handler folds the genesis balances into vesting
+	// schedules.
+	genesisReady := make(chan struct{})
+
+	// Add the genesis bootstrap. It runs beside the HTTP server rather than
+	// ahead of it, because it retries until the node answers: a restart during
+	// a node outage keeps serving what the storage already holds instead of
+	// leaving every port shut until the node is back. A no-op once the storage
+	// carries this chain's genesis.
+	w.add(func(ctx context.Context) error {
+		if err := genesis.Bootstrap(
+			ctx,
+			db,
+			tm2Client,
+			genesis.WithLogger(
+				logger.Named("genesis"),
+			),
+		); err != nil {
+			if errors.Is(err, context.Canceled) {
+				// Shut down while still retrying, like the other services
+				// returning on a cancelled context
+				return nil
+			}
+
+			return fmt.Errorf("unable to bootstrap genesis, %w", err)
+		}
+
+		close(genesisReady)
+
+		return nil
+	})
 
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
+
+	// Add the fetcher service
+	w.add(afterGenesis(genesisReady, f.FetchChainData))
+
+	// Add the supply snapshot refresher
+	w.add(afterGenesis(genesisReady, supplyHandler.Start))
 
 	// Wait for the services to stop
 	return errors.Join(
@@ -238,9 +310,53 @@ func (c *startCfg) exec(ctx context.Context) error {
 	)
 }
 
+// afterGenesis holds a service back until the genesis bootstrap has stored the
+// chain genesis, for the services that read it from the storage. A shutdown
+// before the bootstrap succeeds never starts the service at all.
+func afterGenesis(ready <-chan struct{}, fn waitFunc) waitFunc {
+	return func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ready:
+			return fn(ctx)
+		}
+	}
+}
+
+// parseSupplyDenoms splits the comma-separated flag value, validates each
+// denomination, and refuses an empty list. A typo or an empty value should
+// fail at startup instead of leaving getSupply to answer nothing but
+// errors.
+func parseSupplyDenoms(raw string) ([]string, error) {
+	var denoms []string
+
+	for _, denom := range strings.Split(raw, ",") {
+		denom = strings.TrimSpace(denom)
+		if denom == "" {
+			continue
+		}
+
+		if err := std.ValidateDenom(denom); err != nil {
+			return nil, fmt.Errorf("invalid supply denom %q: %w", denom, err)
+		}
+
+		if !slices.Contains(denoms, denom) {
+			denoms = append(denoms, denom)
+		}
+	}
+
+	if len(denoms) == 0 {
+		return nil, errors.New("no supply denoms configured: --supply-denoms must list at least one denomination")
+	}
+
+	return denoms, nil
+}
+
 // setupJSONRPC sets up the JSONRPC instance
 func setupJSONRPC(
 	db *storage.Pebble,
+	supplyHandler *supply.Handler,
 	em *events.Manager,
 	logger *zap.Logger,
 ) *serve.JSONRPC {
@@ -262,6 +378,9 @@ func setupJSONRPC(
 
 	// Sub handlers
 	j.RegisterSubEndpoints(db)
+
+	// Supply handlers
+	j.RegisterSupplyEndpoints(supplyHandler)
 
 	return j
 }

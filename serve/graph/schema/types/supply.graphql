@@ -1,0 +1,34 @@
+"""
+The supply of a single denomination at a chain height, split by spendability.
+"""
+type Supply {
+  """
+  The denomination these figures describe, e.g. "ugnot".
+  """
+  denom: String!
+
+  """
+  The chain height the figures were computed at.
+  """
+  height: Int!
+
+  """
+  The total amount of the denomination in existence, from the chain's
+  per-denom supply counter.
+  """
+  total: String!
+
+  """
+  The portion of the genesis vesting schedules that has not vested yet,
+  computed from the schedules and the block time alone. It is not clamped
+  to the balance each account actually holds, but it never exceeds `total`,
+  so `total = spendable + locked` always holds.
+  """
+  locked: String!
+
+  """
+  The difference between total and locked. Data aggregators call this the
+  circulating supply.
+  """
+  spendable: String!
+}

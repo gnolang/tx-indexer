@@ -1,15 +1,19 @@
 package mock
 
 import (
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
 	"github.com/gnolang/tx-indexer/storage"
+	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
 var _ storage.Storage = &Storage{}
 
 type Storage struct {
 	GetLatestSavedHeightFn func() (uint64, error)
+	GetGenesisChainIDFn    func() (string, error)
+	GetGenesisBalancesFn   func() ([]gnoland.Balance, error)
 	GetWriteBatchFn        func() storage.Batch
 	GetBlockFn             func(uint64) (*types.Block, error)
 	GetTxFn                func(uint64, uint32) (*types.TxResult, error)
@@ -22,6 +26,26 @@ func (m *Storage) GetLatestHeight() (uint64, error) {
 	}
 
 	return 0, nil
+}
+
+// GetGenesisChainID fetches the bootstrapped chain ID. It defaults to
+// ErrNotFound — "the genesis has not been bootstrapped yet" — so a test that
+// does not care exercises the fetch-and-store path rather than skipping it.
+func (m *Storage) GetGenesisChainID() (string, error) {
+	if m.GetGenesisChainIDFn != nil {
+		return m.GetGenesisChainIDFn()
+	}
+
+	return "", storageErrors.ErrNotFound
+}
+
+// GetGenesisBalances fetches the stored genesis balance rows
+func (m *Storage) GetGenesisBalances() ([]gnoland.Balance, error) {
+	if m.GetGenesisBalancesFn != nil {
+		return m.GetGenesisBalancesFn()
+	}
+
+	return nil, storageErrors.ErrNotFound
 }
 
 // GetBlock fetches the block by its number
@@ -94,15 +118,35 @@ func (m *Storage) Close() error {
 }
 
 type WriteBatch struct {
-	SetLatestHeightFn func(uint64) error
-	SetBlockFn        func(*types.Block) error
-	SetTxFn           func(*types.TxResult) error
+	SetLatestHeightFn    func(uint64) error
+	SetGenesisBalancesFn func([]gnoland.Balance) error
+	SetGenesisChainIDFn  func(string) error
+	SetBlockFn           func(*types.Block) error
+	SetTxFn              func(*types.TxResult) error
 }
 
 // SetLatestHeight saves the latest block height to the storage
 func (mb *WriteBatch) SetLatestHeight(h uint64) error {
 	if mb.SetLatestHeightFn != nil {
 		return mb.SetLatestHeightFn(h)
+	}
+
+	return nil
+}
+
+// SetGenesisBalances saves the genesis balance rows to the permanent storage
+func (mb *WriteBatch) SetGenesisBalances(balances []gnoland.Balance) error {
+	if mb.SetGenesisBalancesFn != nil {
+		return mb.SetGenesisBalancesFn(balances)
+	}
+
+	return nil
+}
+
+// SetGenesisChainID saves the genesis chain ID to the permanent storage
+func (mb *WriteBatch) SetGenesisChainID(chainID string) error {
+	if mb.SetGenesisChainIDFn != nil {
+		return mb.SetGenesisChainIDFn(chainID)
 	}
 
 	return nil

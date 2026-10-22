@@ -14,6 +14,7 @@ type (
 	getBlockDelegate             func(uint64) (*core_types.ResultBlock, error)
 	getBlockResultsDelegate      func(uint64) (*core_types.ResultBlockResults, error)
 	getGenesisDelegate           func() (*core_types.ResultGenesis, error)
+	getStatusDelegate            func() (*core_types.ResultStatus, error)
 
 	createBatchDelegate func() clientTypes.Batch
 )
@@ -23,6 +24,7 @@ type mockClient struct {
 	getBlockFn             getBlockDelegate
 	getBlockResultsFn      getBlockResultsDelegate
 	getGenesisFn           getGenesisDelegate
+	getStatusFn            getStatusDelegate
 
 	createBatchFn createBatchDelegate
 }
@@ -49,6 +51,18 @@ func (m *mockClient) GetGenesis(ctx context.Context) (*core_types.ResultGenesis,
 	}
 
 	return nil, nil
+}
+
+// GetStatus reports the empty chain ID by default, matching the empty ChainID
+// the genesis fixtures carry, so the bootstrap's chain check passes for tests
+// that are not about it. Non-nil on purpose: the bootstrap reads NodeInfo off
+// the result.
+func (m *mockClient) GetStatus(ctx context.Context) (*core_types.ResultStatus, error) {
+	if m.getStatusFn != nil {
+		return m.getStatusFn()
+	}
+
+	return &core_types.ResultStatus{}, nil
 }
 
 func (m *mockClient) GetBlockResults(ctx context.Context, blockNum uint64) (*core_types.ResultBlockResults, error) {

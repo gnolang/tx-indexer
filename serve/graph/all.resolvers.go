@@ -43,8 +43,7 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			return truncateTransactions(ctx, out, false), nil
 		}
 
 		if !it.Next() {
@@ -90,7 +89,7 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			truncateBlocks(ctx, out)
 			return out, nil
 		}
 
@@ -124,6 +123,16 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 func (r *queryResolver) LatestBlockHeight(ctx context.Context) (int, error) {
 	h, err := r.store.GetLatestHeight()
 	return int(h), err
+}
+
+// GetSupply is the resolver for the getSupply field.
+func (r *queryResolver) GetSupply(ctx context.Context, denom string) (*model.Supply, error) {
+	supply, err := r.supply.GetSupply(ctx, denom)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.NewSupply(supply), nil
 }
 
 // GetBlocks is the resolver for the getBlocks field.
@@ -165,7 +174,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
+			truncateBlocks(ctx, out)
 			return out, nil
 		}
 
@@ -235,9 +244,11 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 		dtoi++
 	}
 
+	descending := order != nil && order.HeightAndIndex == model.OrderDesc
+
 	var err error
 	var it storage.Iterator[*bfttypes.TxResult]
-	if order != nil && order.HeightAndIndex == model.OrderDesc {
+	if descending {
 		it, err = r.
 			store.
 			TxReverseIterator(
@@ -266,8 +277,7 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	i := 0
 	for {
 		if i == maxElementsPerQuery {
-			graphql.AddErrorf(ctx, "max elements per query reached (%d)", maxElementsPerQuery)
-			return out, nil
+			return truncateTransactions(ctx, out, descending), nil
 		}
 
 		if !it.Next() {

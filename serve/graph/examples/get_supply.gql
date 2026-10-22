@@ -1,0 +1,11 @@
+# Get the supply of a denomination, split into total, spendable (circulating)
+# and locked.
+{
+  getSupply(denom: "ugnot") {
+    denom
+    height
+    total
+    spendable
+    locked
+  }
+}

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/crypto"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +52,74 @@ func TestStorage_LatestHeight(t *testing.T) {
 		assert.NoError(t, err)
 		assert.EqualValues(t, i, latest)
 	}
+}
+
+func TestStorage_GenesisChainID(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, s.Close())
+	}()
+
+	// The chain ID is written last, so its absence is what tells the bootstrap
+	// there is work to do.
+	chainID, err := s.GetGenesisChainID()
+	require.ErrorIs(t, err, storageErrors.ErrNotFound)
+	require.Empty(t, chainID)
+
+	b := s.WriteBatch()
+	require.NoError(t, b.SetGenesisChainID("test-chain"))
+	require.NoError(t, b.Commit())
+
+	chainID, err = s.GetGenesisChainID()
+	require.NoError(t, err)
+	require.Equal(t, "test-chain", chainID)
+}
+
+func TestStorage_GenesisBalances(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, s.Close())
+	}()
+
+	balances, err := s.GetGenesisBalances()
+	require.ErrorIs(t, err, storageErrors.ErrNotFound)
+	require.Nil(t, balances)
+
+	addr := crypto.MustAddressFromString("g1u7y667z64x2h7vc6fmpcprgey4ck233jaww9zq")
+
+	saved := []gnoland.Balance{
+		// A plain row and a vesting row: Vesting is a pointer field, so this
+		// also pins down that amino round-trips the schedule.
+		{
+			Address: addr,
+			Amount:  std.MustParseCoins("1000ugnot"),
+		},
+		{
+			Address: addr,
+			Amount:  std.MustParseCoins("2000ugnot"),
+			Vesting: &std.VestingSchedule{
+				OriginalVesting: std.MustParseCoins("2000ugnot"),
+				StartTime:       100,
+				EndTime:         200,
+			},
+		},
+	}
+
+	b := s.WriteBatch()
+	require.NoError(t, b.SetGenesisBalances(saved))
+	require.NoError(t, b.Commit())
+
+	balances, err = s.GetGenesisBalances()
+	require.NoError(t, err)
+	require.Equal(t, saved, balances)
 }
 
 func TestStorage_Block(t *testing.T) {

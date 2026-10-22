@@ -84,6 +84,9 @@ models:
   Block:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Block
+  Supply:
+    model:
+      - github.com/gnolang/tx-indexer/serve/graph/model.Supply
   Transaction:
     model:
       - github.com/gnolang/tx-indexer/serve/graph/model.Transaction

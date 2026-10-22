@@ -248,6 +248,18 @@ func NewTransactionMessage(message std.Msg) *TransactionMessage {
 				TypeURL: MessageTypeRun.String(),
 				Value:   makeVMMsgRun(message),
 			}
+		case MessageTypeEnablePackage.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeEnablePackage.String(),
+				Value:   makeVMMsgEnablePackage(message),
+			}
+		case MessageTypeRejectPackage.String():
+			contentMessage = &TransactionMessage{
+				Route:   MessageRouteVM.String(),
+				TypeURL: MessageTypeRejectPackage.String(),
+				Value:   makeVMMsgRejectPackage(message),
+			}
 		}
 	}
 
@@ -278,7 +290,29 @@ func (tm *TransactionMessage) VMMsgRun() MsgRun {
 	return tm.Value.(MsgRun)
 }
 
+func (tm *TransactionMessage) VMMsgEnablePackage() MsgEnablePackage {
+	return tm.Value.(MsgEnablePackage)
+}
+
+func (tm *TransactionMessage) VMMsgRejectPackage() MsgRejectPackage {
+	return tm.Value.(MsgRejectPackage)
+}
+
 func makeEvent(abciEvent abci.Event) (Event, error) {
+	// A transfer maps field by field, with no JSON round trip: it is the
+	// most frequent event on the chain, and the other kinds need the JSON
+	// form only because their model types are rebuilt from it.
+	if transfer, ok := abciEvent.(bank.TransferEvent); ok {
+		return &TransferEvent{
+			Type: "TransferEvent",
+			From: transfer.From,
+			To:   transfer.To,
+			// One string in the shape of the message amounts, so the same
+			// amount filter serves transfers and sends.
+			Coins: transfer.Coins.String(),
+		}, nil
+	}
+
 	data, err := json.Marshal(abciEvent)
 	if err != nil {
 		return nil, err
@@ -346,7 +380,25 @@ func makeVMMsgCall(value std.Msg) MsgCall {
 		PkgPath:    decodedMessage.PkgPath,
 		Func:       decodedMessage.Func,
 		Args:       decodedMessage.Args,
+		ArgsAt:     makeIndexedStrings(decodedMessage.Args),
 	}
+}
+
+// makeIndexedStrings pairs each string with its position, so filters can match by position
+func makeIndexedStrings(values []string) []*IndexedString {
+	if values == nil {
+		return nil
+	}
+
+	indexed := make([]*IndexedString, len(values))
+	for i, value := range values {
+		indexed[i] = &IndexedString{
+			Index: i,
+			Value: value,
+		}
+	}
+
+	return indexed
 }
 
 func makeVMAddPackage(value std.Msg) MsgAddPackage {
@@ -399,6 +451,32 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 			Path:  decodedMessage.Package.Path,
 			Files: memFiles,
 		},
+	}
+}
+
+func makeVMMsgEnablePackage(value std.Msg) MsgEnablePackage {
+	decodedMessage, err := cast[vm.MsgEnablePackage](value)
+	if err != nil {
+		return MsgEnablePackage{}
+	}
+
+	return MsgEnablePackage{
+		Approver:  decodedMessage.Approver.String(),
+		PkgPath:   decodedMessage.PkgPath,
+		PkgHash:   decodedMessage.PkgHash,
+		PkgHeight: int(decodedMessage.PkgHeight),
+	}
+}
+
+func makeVMMsgRejectPackage(value std.Msg) MsgRejectPackage {
+	decodedMessage, err := cast[vm.MsgRejectPackage](value)
+	if err != nil {
+		return MsgRejectPackage{}
+	}
+
+	return MsgRejectPackage{
+		Sender:  decodedMessage.Sender.String(),
+		PkgPath: decodedMessage.PkgPath,
 	}
 }
 

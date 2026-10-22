@@ -73,3 +73,49 @@ func (c *Client) GetBlockResults(ctx context.Context, blockNum uint64) (*core_ty
 
 	return results, nil
 }
+
+// GetStatus returns the current chain status, including the latest
+// block height and block time.
+func (c *Client) GetStatus(ctx context.Context) (*core_types.ResultStatus, error) {
+	status, err := c.client.Status(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get chain status, %w", err)
+	}
+
+	return status, nil
+}
+
+// ABCIQueryBatchAtHeight runs every path as an ABCI query at exactly the
+// given height, in one batched round trip. Results are returned in path
+// order, so a set of reads can be taken from one consistent chain state.
+func (c *Client) ABCIQueryBatchAtHeight(
+	ctx context.Context,
+	height int64,
+	paths []string,
+) ([]*core_types.ResultABCIQuery, error) {
+	batch := c.client.NewBatch()
+
+	for _, path := range paths {
+		if err := batch.ABCIQueryWithOptions(path, nil, rpcClient.ABCIQueryOptions{Height: height}); err != nil {
+			return nil, fmt.Errorf("unable to queue ABCI query %q, %w", path, err)
+		}
+	}
+
+	results, err := batch.Send(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to send ABCI query batch, %w", err)
+	}
+
+	queries := make([]*core_types.ResultABCIQuery, len(results))
+
+	for i, result := range results {
+		query, ok := result.(*core_types.ResultABCIQuery)
+		if !ok {
+			return nil, fmt.Errorf("unexpected batch result type %T at index %d", result, i)
+		}
+
+		queries[i] = query
+	}
+
+	return queries, nil
+}

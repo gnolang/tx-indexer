@@ -8,9 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gnolang/gno/gno.land/pkg/gnoland"
-	"github.com/gnolang/gno/tm2/pkg/amino"
-	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
@@ -23,8 +20,6 @@ const (
 	DefaultMaxSlots     = 100
 	DefaultMaxChunkSize = 100
 )
-
-var errInvalidGenesisState = errors.New("invalid genesis state")
 
 // Fetcher is an instance of the block indexer
 // fetcher
@@ -80,71 +75,10 @@ func New(
 	return f
 }
 
-func (f *Fetcher) fetchGenesisData(ctx context.Context) error {
-	_, err := f.storage.GetLatestHeight()
-	// Possible cases:
-	// - err is ErrNotFound: the storage is empty, we execute the rest of the routine and fetch+write genesis data
-	// - err is nil: the storage has a latest height, this means at least the genesis data has been written,
-	//   or some blocks past it, we do nothing and return nil
-	// - err is something else: there has been a storage error, we do nothing and return this error
-	if !errors.Is(err, storageErrors.ErrNotFound) {
-		return err
-	}
-
-	f.logger.Info("Fetching genesis")
-
-	block, err := getGenesisBlock(ctx, f.client)
-	if err != nil {
-		return fmt.Errorf("failed to fetch genesis block: %w", err)
-	}
-
-	results, err := f.client.GetBlockResults(ctx, 0)
-	if err != nil {
-		return fmt.Errorf("failed to fetch genesis results: %w", err)
-	}
-
-	if results.Results == nil {
-		return errors.New("nil results")
-	}
-
-	txResults := make([]*bft_types.TxResult, len(block.Txs))
-
-	for txIndex, tx := range block.Txs {
-		result := &bft_types.TxResult{
-			Height:   0,
-			Index:    uint32(txIndex),
-			Tx:       tx,
-			Response: results.Results.DeliverTxs[txIndex],
-		}
-
-		txResults[txIndex] = result
-	}
-
-	s := &slot{
-		chunk: &chunk{
-			blocks:  []*bft_types.Block{block},
-			results: [][]*bft_types.TxResult{txResults},
-		},
-		chunkRange: chunkRange{
-			from: 0,
-			to:   0,
-		},
-	}
-
-	return f.writeSlot(s)
-}
-
 // FetchChainData starts the fetching process that indexes
-// blockchain data
+// blockchain data. The genesis block is not handled here — the genesis
+// package bootstraps it into the storage before any service starts.
 func (f *Fetcher) FetchChainData(ctx context.Context) error {
-	// Attempt to fetch the genesis data
-	if err := f.fetchGenesisData(ctx); err != nil {
-		// We treat this error as soft, to ease migration, since
-		// some versions of gno networks don't support this.
-		// In the future, we should hard fail if genesis is not fetch-able
-		f.logger.Error("unable to fetch genesis data", zap.Error(err))
-	}
-
 	collectorCh := make(chan *workerResponse, DefaultMaxSlots)
 
 	// attemptRangeFetch compares local and remote state
@@ -387,42 +321,4 @@ func (f *Fetcher) IsReady(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func getGenesisBlock(ctx context.Context, client Client) (*bft_types.Block, error) {
-	gblock, err := client.GetGenesis(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get genesis block: %w", err)
-	}
-
-	if gblock.Genesis == nil {
-		return nil, errInvalidGenesisState
-	}
-
-	genesisState, ok := gblock.Genesis.AppState.(gnoland.GnoGenesisState)
-	if !ok {
-		return nil, fmt.Errorf("unknown genesis state kind '%T'", gblock.Genesis.AppState)
-	}
-
-	txs := make([]bft_types.Tx, len(genesisState.Txs))
-	for i, tx := range genesisState.Txs {
-		txs[i], err = amino.Marshal(tx.Tx)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal genesis tx: %w", err)
-		}
-	}
-
-	block := &bft_types.Block{
-		Header: bft_types.Header{
-			NumTxs:   int64(len(txs)),
-			TotalTxs: int64(len(txs)),
-			Time:     gblock.Genesis.GenesisTime,
-			ChainID:  gblock.Genesis.ChainID,
-		},
-		Data: bft_types.Data{
-			Txs: txs,
-		},
-	}
-
-	return block, nil
 }
