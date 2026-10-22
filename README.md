@@ -59,17 +59,22 @@ make build
 3. **Run the indexer**
 
 ```bash
-./build/tx-indexer start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
+./build/tx-indexer start --remote https://rpc.gno.land:443 --db-path indexer-db
 ```
 
 or:
 
 ```bash
-go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.test7.testnets.gno.land --db-path indexer-db
+go run cmd/main.go cmd/start.go cmd/waiter.go start --remote https://rpc.gno.land:443 --db-path indexer-db
 ```
 
 The `--remote` flag specifies the JSON-RPC URL of the chain the indexer should index, and the `--db-path` specifies the
 on-disk location for the indexed data.
+
+Point `--remote` at whichever chain you want to index. `https://rpc.gno.land:443` is
+mainnet (`gnoland-1`); testnets are renamed and replaced every few weeks, so look the
+current one up in [Gno networks](https://docs.gno.land/testnets)
+rather than hardcoding a hostname.
 
 **Note**: the websocket endpoint exposed is always: `ws://<listen-address>/ws`, where `<listen-address>` is set via the `--listen-address` flag when starting the indexer (default: `0.0.0.0:8546`).
 
@@ -136,7 +141,11 @@ The playground includes built-in documentation for available queries, fields, an
 
 #### Hosted Example
 
-- [Test7 Playground](https://indexer.test7.testnets.gno.land/graphql)
+- [Mainnet Playground](https://indexer.gno.land/graphql) — `gnoland-1`
+
+Testnets each run their own indexer at `indexer.<network>.testnets.gno.land/graphql`;
+see [Gno networks](https://docs.gno.land/testnets) for whichever is
+current.
 
 ### Examples
 
