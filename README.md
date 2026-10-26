@@ -73,7 +73,7 @@ on-disk location for the indexed data.
 
 Point `--remote` at whichever chain you want to index. `https://rpc.gno.land:443` is
 mainnet (`gnoland-1`); testnets are renamed and replaced every few weeks, so look the
-current one up in [Gno networks](https://docs.gno.land/resources/gnoland-networks)
+current one up in [Gno networks](https://docs.gno.land/testnets)
 rather than hardcoding a hostname.
 
 **Note**: the websocket endpoint exposed is always: `ws://<listen-address>/ws`, where `<listen-address>` is set via the `--listen-address` flag when starting the indexer (default: `0.0.0.0:8546`).
@@ -144,7 +144,7 @@ The playground includes built-in documentation for available queries, fields, an
 - [Mainnet Playground](https://indexer.gno.land/graphql) — `gnoland-1`
 
 Testnets each run their own indexer at `indexer.<network>.testnets.gno.land/graphql`;
-see [Gno networks](https://docs.gno.land/resources/gnoland-networks) for whichever is
+see [Gno networks](https://docs.gno.land/testnets) for whichever is
 current.
 
 ### Examples
