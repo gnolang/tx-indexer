@@ -146,10 +146,10 @@ release:
   footer: |
     ### Container Images
 
-    https://ghcr.io/gnolang/tx-indexer:{{ .Tag }}
+    https://ghcr.io/gnolang/tx-indexer:{{ .Version }}
 
     For example:
     ```
-    docker pull ghcr.io/gnolang/tx-indexer:{{ .Tag }}
+    docker pull ghcr.io/gnolang/tx-indexer:{{ .Version }}
     ```
 
