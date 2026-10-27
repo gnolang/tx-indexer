@@ -236,6 +236,9 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to parse log level, %w", err)
 	}
 
+	// The development config's output paths are stderr alone, and syncLogger
+	// judges os.Stderr at the stop on that ground: an output path set here
+	// goes unsynced unless syncLogger is given it too
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level = logLevel
 
