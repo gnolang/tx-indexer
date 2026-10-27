@@ -1,60 +1,46 @@
 package graph
 
 import (
+	"context"
+	"errors"
 	"testing"
-	"time"
+	"testing/synctest"
 
-	"github.com/99designs/gqlgen/client"
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
-	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/gnolang/tx-indexer/events"
 	indexerTypes "github.com/gnolang/tx-indexer/types"
 )
 
-func TestSubscription_FilterPanicEndsOnlyItsSubscription(t *testing.T) {
+func TestHandleChannel_PanicEndsOnlyItsSubscription(t *testing.T) {
 	t.Parallel()
 
-	const height = 7
+	synctest.Test(t, func(t *testing.T) {
+		var recovered any
 
-	manager := events.NewManager()
-	c := client.New(Setup(nil, manager, nil, chi.NewMux(), true), client.Path("/graphql/query"))
+		capture := func(_ context.Context, r any) error {
+			recovered = r
 
-	// Subscriptions register with the manager asynchronously, so keep signalling until the test ends.
-	ctx := t.Context()
-
-	go func() {
-		ticker := time.NewTicker(10 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				manager.SignalEvent(&indexerTypes.NewBlock{Block: &types.Block{Header: types.Header{Height: height}}})
-			}
+			return errors.New("recovered")
 		}
-	}()
 
-	var resp struct {
-		GetBlocks struct {
-			Height int64 `json:"height"`
-		} `json:"getBlocks"`
-	}
+		ctx := graphql.WithOperationContext(t.Context(), &graphql.OperationContext{RecoverFunc: capture})
+		ctx = graphql.WithResponseContext(ctx, graphql.DefaultErrorPresenter, capture)
 
-	// A null entry in `_and` makes the generated filter call Eval on a nil receiver.
-	panicking := c.Websocket(`subscription { getBlocks(where: {_and: [null]}) { height } }`)
+		manager := events.NewManager()
 
-	t.Cleanup(func() { require.NoError(t, panicking.Close()) })
+		ch := handleChannel(ctx, manager, func(*indexerTypes.NewBlock, chan<- int) {
+			panic("filter panic")
+		})
 
-	require.ErrorContains(t, panicking.Next(&resp), `"complete"`)
+		// Wait for handleChannel to subscribe, so the event below reaches it.
+		synctest.Wait()
+		manager.SignalEvent(&indexerTypes.NewBlock{Block: &types.Block{}})
 
-	healthy := c.Websocket(`subscription { getBlocks(where: {}) { height } }`)
-
-	t.Cleanup(func() { require.NoError(t, healthy.Close()) })
-
-	require.NoError(t, healthy.Next(&resp))
-	require.EqualValues(t, height, resp.GetBlocks.Height)
+		_, open := <-ch
+		require.False(t, open)
+		require.Equal(t, "filter panic", recovered)
+	})
 }
