@@ -142,7 +142,9 @@ func (s *Pebble) GetGenesisBalances() ([]gnoland.Balance, error) {
 }
 
 // GetBlock fetches the specified block from storage, if any
-func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
+func (s *Pebble) GetBlock(ctx context.Context, blockNum uint64) (*types.Block, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	block, c, err := s.db.Get(keyBlock(blockNum))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -158,7 +160,9 @@ func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 }
 
 // GetTx fetches the specified tx result from storage, if any
-func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
+func (s *Pebble) GetTx(ctx context.Context, blockNum uint64, index uint32) (*types.TxResult, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	tx, c, err := s.db.Get(keyTx(blockNum, index))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -173,7 +177,11 @@ func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
 	return decodeTx(tx)
 }
 
-func (s *Pebble) GetTxByHash(txHash string) (*types.TxResult, error) {
+// GetTxByHash fetches the tx result the hash indexes, if any. The read of the
+// hash index and of the row it points to count as one row scanned.
+func (s *Pebble) GetTxByHash(ctx context.Context, txHash string) (*types.TxResult, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	txKey, ch, err := s.db.Get(keyHashTx(txHash))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound

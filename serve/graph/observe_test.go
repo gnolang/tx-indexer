@@ -93,26 +93,43 @@ func TestObserve_RecordsEachRootField(t *testing.T) {
 	assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", fieldRequests("windowed", "ok")))
 }
 
-// A transaction looked up by its hash is one row read and answered
+// A transaction looked up by its hash is one row read, whether the hash is
+// indexed or not: a miss reads the storage all the same. Only a transaction
+// found is a row answered.
 func TestObserve_CountsAHashLookupAsOneRow(t *testing.T) {
 	t.Parallel()
 
-	hash := base64.StdEncoding.EncodeToString(types.Tx{1, 0}.Hash())
+	indexed := base64.StdEncoding.EncodeToString(types.Tx{1, 0}.Hash())
 
-	for field, query := range map[string]string{
-		"transactions":    fmt.Sprintf(`{ transactions(filter: {hash: %q}) { block_height } }`, hash),
-		"getTransactions": fmt.Sprintf(`{ getTransactions(where: {hash: {eq: %q}}) { block_height } }`, hash),
-	} {
-		t.Run(field, func(t *testing.T) {
+	testTable := []struct {
+		field    string
+		query    string
+		name     string
+		returned float64
+	}{
+		{"transactions", `{ transactions(filter: {hash: %q}) { block_height } }`, "found", 1},
+		{"getTransactions", `{ getTransactions(where: {hash: {eq: %q}}) { block_height } }`, "found", 1},
+		{"transactions", `{ transactions(filter: {hash: %q}) { block_height } }`, "missing", 0},
+		{"getTransactions", `{ getTransactions(where: {hash: {eq: %q}}) { block_height } }`, "missing", 0},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.field+" "+testCase.name, func(t *testing.T) {
 			t.Parallel()
+
+			hash := indexed
+			if testCase.returned == 0 {
+				hash = "unknown"
+			}
 
 			m, mux := observedStore(t)
 
-			resp := postQuery(t, mux, query)
-			require.Empty(t, resp.Errors)
+			postQuery(t, mux, fmt.Sprintf(testCase.query, hash))
 
-			assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_rows_scanned_total", fieldLabels(field)), 0)
-			assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_rows_returned_total", fieldLabels(field)), 0)
+			labels := fieldLabels(testCase.field)
+
+			assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_rows_scanned_total", labels), 0)
+			assert.InDelta(t, testCase.returned, metricstest.Value(t, m, "tx_indexer_rows_returned_total", labels), 0)
 		})
 	}
 }

@@ -1,6 +1,8 @@
 package mock
 
 import (
+	"context"
+
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
@@ -49,7 +51,7 @@ func (m *Storage) GetGenesisBalances() ([]gnoland.Balance, error) {
 }
 
 // GetBlock fetches the block by its number
-func (m *Storage) GetBlock(blockNum uint64) (*types.Block, error) {
+func (m *Storage) GetBlock(_ context.Context, blockNum uint64) (*types.Block, error) {
 	if m.GetBlockFn != nil {
 		return m.GetBlockFn(blockNum)
 	}
@@ -58,7 +60,7 @@ func (m *Storage) GetBlock(blockNum uint64) (*types.Block, error) {
 }
 
 // GetTx fetches the tx using block height and transaction index
-func (m *Storage) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
+func (m *Storage) GetTx(_ context.Context, blockNum uint64, index uint32) (*types.TxResult, error) {
 	if m.GetTxFn != nil {
 		return m.GetTxFn(blockNum, index)
 	}
@@ -66,7 +68,7 @@ func (m *Storage) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) 
 	panic("not implemented")
 }
 
-func (m *Storage) GetTxByHash(txHash string) (*types.TxResult, error) {
+func (m *Storage) GetTxByHash(_ context.Context, txHash string) (*types.TxResult, error) {
 	if m.GetTxByHashFn != nil {
 		return m.GetTxByHashFn(txHash)
 	}

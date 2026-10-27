@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -147,7 +148,7 @@ func TestStorage_Block(t *testing.T) {
 	require.NoError(t, b.Commit())
 
 	for _, block := range blocks {
-		savedBlock, err := s.GetBlock(uint64(block.Height))
+		savedBlock, err := s.GetBlock(t.Context(), uint64(block.Height))
 		require.NoError(t, err)
 		assert.Equal(t, block, savedBlock)
 	}
@@ -175,7 +176,7 @@ func TestStorage_Tx(t *testing.T) {
 	require.NoError(t, wb.Commit())
 
 	for _, tx := range txs {
-		savedTx, err := s.GetTx(uint64(tx.Height), tx.Index)
+		savedTx, err := s.GetTx(t.Context(), uint64(tx.Height), tx.Index)
 		require.NoError(t, err)
 		assert.Equal(t, tx, savedTx)
 	}
@@ -626,6 +627,107 @@ func TestStorage_IteratorsTallyTheKeysTheyWalk(t *testing.T) {
 
 			assert.Equal(t, testCase.wantYielded, yielded)
 			assert.Equal(t, testCase.wantScanned, rows.Scanned())
+		})
+	}
+}
+
+// Every point read counts as one row scanned in the tally its context
+// carries, whether it finds its row or not: a miss reads the storage all the
+// same
+func TestStorage_PointReadsTallyOneRowEach(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	stored := types.Tx{1}
+
+	wb := s.WriteBatch()
+	require.NoError(t, wb.SetBlock(&types.Block{Header: types.Header{Height: 1}}))
+	require.NoError(t, wb.SetTx(&types.TxResult{Height: 1, Tx: stored}))
+	require.NoError(t, wb.Commit())
+
+	hash := base64.StdEncoding.EncodeToString(stored.Hash())
+
+	testTable := []struct {
+		read    func(ctx context.Context) error
+		wantErr error
+		name    string
+	}{
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetBlock(ctx, 1)
+
+				return err
+			},
+			nil,
+			"a block found",
+		},
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetBlock(ctx, 9)
+
+				return err
+			},
+			storageErrors.ErrNotFound,
+			"a block missing",
+		},
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetTx(ctx, 1, 0)
+
+				return err
+			},
+			nil,
+			"a transaction found",
+		},
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetTx(ctx, 9, 0)
+
+				return err
+			},
+			storageErrors.ErrNotFound,
+			"a transaction missing",
+		},
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetTxByHash(ctx, hash)
+
+				return err
+			},
+			nil,
+			"a hash found",
+		},
+		{
+			func(ctx context.Context) error {
+				_, err := s.GetTxByHash(ctx, "unknown")
+
+				return err
+			},
+			storageErrors.ErrNotFound,
+			"a hash missing",
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := &tally.Rows{}
+
+			err := testCase.read(tally.NewContext(context.Background(), rows))
+			if testCase.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, testCase.wantErr)
+			}
+
+			assert.Equal(t, int64(1), rows.Scanned())
 		})
 	}
 }

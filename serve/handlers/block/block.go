@@ -46,7 +46,7 @@ func (h *Handler) GetBlockHandler(
 	}
 
 	// Run the handler
-	response, err := h.getBlock(blockNum)
+	response, err := h.getBlock(ctx, blockNum)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -55,23 +55,20 @@ func (h *Handler) GetBlockHandler(
 		return nil, nil
 	}
 
-	// The storage read the one row asked for
-	rows := tally.FromContext(ctx)
-	rows.AddScanned(1)
-
 	encodedResponse, err := encode.PrepareValue(response)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
 
-	rows.AddReturned(1)
+	// The storage counted the row it read; the one asked for is answered
+	tally.FromContext(ctx).AddReturned(1)
 
 	return encodedResponse, nil
 }
 
 // getBlock fetches the block from storage, if any
-func (h *Handler) getBlock(blockNum uint64) (*types.Block, error) {
-	block, err := h.storage.GetBlock(blockNum)
+func (h *Handler) getBlock(ctx context.Context, blockNum uint64) (*types.Block, error) {
+	block, err := h.storage.GetBlock(ctx, blockNum)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case

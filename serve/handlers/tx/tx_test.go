@@ -13,6 +13,7 @@ import (
 
 	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
+	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -193,85 +194,63 @@ func TestGetBlock_Handler(t *testing.T) {
 	})
 }
 
-// A transaction read from the storage, by height and index or by hash, counts
-// as one row scanned and one answered in the tally of its request; a missing
-// one as none
+// A transaction lookup, by height and index or by hash, counts as one row
+// scanned in the tally of its request, whether it finds the transaction or
+// not: a miss reads the storage all the same. Only a transaction found counts
+// as a row answered.
 func TestGetTx_TalliesTheRowItReads(t *testing.T) {
 	t.Parallel()
 
-	found := &types.TxResult{Height: 1, Tx: types.Tx{1}}
+	s, err := storage.NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	stored := types.Tx{1}
+
+	wb := s.WriteBatch()
+	require.NoError(t, wb.SetTx(&types.TxResult{Height: 1, Tx: stored}))
+	require.NoError(t, wb.Commit())
+
+	byHeight := func(height string) func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+		return func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+			_, jsonErr := h.GetTxHandler(ctx, nil, []any{height, "0"})
+
+			return jsonErr
+		}
+	}
+
+	byHash := func(hash string) func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+		return func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+			_, jsonErr := h.GetTxByHashHandler(ctx, nil, []any{hash})
+
+			return jsonErr
+		}
+	}
 
 	testTable := []struct {
-		tx     *types.TxResult
-		handle func(h *Handler, ctx context.Context) *spec.BaseJSONError
-		name   string
-		want   int64
+		handle   func(h *Handler, ctx context.Context) *spec.BaseJSONError
+		name     string
+		returned int64
 	}{
-		{
-			found,
-			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
-				_, err := h.GetTxHandler(ctx, nil, []any{"1", "0"})
-
-				return err
-			},
-			"found by height and index",
-			1,
-		},
-		{
-			nil,
-			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
-				_, err := h.GetTxHandler(ctx, nil, []any{"1", "0"})
-
-				return err
-			},
-			"missing by height and index",
-			0,
-		},
-		{
-			found,
-			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
-				_, err := h.GetTxByHashHandler(ctx, nil, []any{"hash"})
-
-				return err
-			},
-			"found by hash",
-			1,
-		},
-		{
-			nil,
-			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
-				_, err := h.GetTxByHashHandler(ctx, nil, []any{"hash"})
-
-				return err
-			},
-			"missing by hash",
-			0,
-		},
+		{byHeight("1"), "found by height and index", 1},
+		{byHeight("9"), "missing by height and index", 0},
+		{byHash(base64.StdEncoding.EncodeToString(stored.Hash())), "found by hash", 1},
+		{byHash("unknown"), "missing by hash", 0},
 	}
 
 	for _, testCase := range testTable {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := func() (*types.TxResult, error) {
-				if testCase.tx == nil {
-					return nil, storageErrors.ErrNotFound
-				}
-
-				return testCase.tx, nil
-			}
-
-			h := NewHandler(&mockStorage{
-				getTxFn:     func(uint64, uint32) (*types.TxResult, error) { return read() },
-				getTxHashFn: func(string) (*types.TxResult, error) { return read() },
-			})
-
 			rows := &tally.Rows{}
 
-			require.Nil(t, testCase.handle(h, tally.NewContext(t.Context(), rows)))
+			require.Nil(t, testCase.handle(NewHandler(s), tally.NewContext(t.Context(), rows)))
 
-			assert.Equal(t, testCase.want, rows.Scanned())
-			assert.Equal(t, testCase.want, rows.Returned())
+			assert.Equal(t, int64(1), rows.Scanned())
+			assert.Equal(t, testCase.returned, rows.Returned())
 		})
 	}
 }

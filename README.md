@@ -190,6 +190,9 @@ a JSON-RPC call that is not valid JSON-RPC 2.0 or names a method that does not e
 A GraphQL list answered in part counts as `ok`, with an error beside its rows: one cut at its element cap, or one short
 of a row that failed to decode.
 
+A lookup of one block or transaction, by height, index or hash, counts as one row scanned whether it finds its row or
+not: a miss reads the database all the same.
+
 The rows scanned for each row returned tell how much reading a filter costs:
 `rate(tx_indexer_rows_scanned_total[5m]) / rate(tx_indexer_rows_returned_total[5m])`.
 
