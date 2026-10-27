@@ -1,14 +1,26 @@
 package serve
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/internal/metricstest"
 	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/metrics"
@@ -161,4 +173,106 @@ func TestJSONRPC_LeavesAnUnknownMethodUncounted(t *testing.T) {
 	for _, status := range []string{"ok", "error", "deadline"} {
 		assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", requestsOf("made-up", status)))
 	}
+}
+
+// paramMarker is an argument value a log line must never carry
+const paramMarker = "a-value-only-the-client-chose"
+
+// assertNoMarker asserts no line of logs carries paramMarker
+func assertNoMarker(t *testing.T, logs *observer.ObservedLogs) {
+	t.Helper()
+
+	for _, entry := range logs.All() {
+		assert.NotContains(t, entry.Message, paramMarker)
+
+		for key, value := range entry.ContextMap() {
+			assert.NotContains(t, fmt.Sprint(value), paramMarker, key)
+		}
+	}
+}
+
+// loggingObserver logs each call to the returned logs, trusting one proxy to
+// append the client address to X-Forwarded-For
+func loggingObserver() (*observe.Observer, *observer.ObservedLogs) {
+	core, logs := observer.New(zap.InfoLevel)
+
+	return observe.New(nil, observe.WithRequestLog(zap.New(core)), observe.WithClientIPHeader("X-Forwarded-For", 1)), logs
+}
+
+// Each call over HTTP is logged with the client address its trusted header
+// names, and never with its params
+func TestJSONRPC_LogsEachCall(t *testing.T) {
+	t.Parallel()
+
+	o, logs := loggingObserver()
+
+	j := NewJSONRPC(nil, WithObserver(o))
+	j.RegisterHandler("rows", rowsCall)
+
+	body, err := json.Marshal(spec.NewJSONRequest(1, "rows", []any{paramMarker}))
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", jsonMimeType)
+	req.Header.Set("X-Forwarded-For", "6.6.6.6, 203.0.113.9")
+
+	rec := httptest.NewRecorder()
+	j.SetupRoutes(chi.NewMux()).ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+
+	fields := entries[0].ContextMap()
+	assert.Equal(t, "rows", fields["operation"])
+	assert.Equal(t, "203.0.113.9", fields["client"])
+	assert.Equal(t, int64(5), fields["rows-scanned"])
+
+	assertNoMarker(t, logs)
+}
+
+// A call sent over the WS endpoint is logged with the client address the
+// trusted header of the connection's upgrade request names
+func TestJSONRPC_LogsEachCallOverWS(t *testing.T) {
+	t.Parallel()
+
+	o, logs := loggingObserver()
+
+	j := NewJSONRPC(events.NewManager(), WithObserver(o))
+	j.RegisterHandler("rows", rowsCall)
+
+	server := httptest.NewServer(j.SetupRoutes(chi.NewMux()))
+	defer server.Close()
+
+	conn, resp, err := websocket.DefaultDialer.Dial(
+		"ws"+strings.TrimPrefix(server.URL, "http")+"/ws",
+		http.Header{"X-Forwarded-For": {"203.0.113.9"}},
+	)
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, resp.Body.Close())
+		assert.NoError(t, conn.Close())
+	}()
+
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	require.NoError(t, conn.WriteJSON(spec.NewJSONRequest(1, "rows", []any{paramMarker})))
+
+	var response spec.BaseJSONResponse
+
+	require.NoError(t, conn.ReadJSON(&response))
+	require.Nil(t, response.Error)
+
+	var served []observer.LoggedEntry
+
+	for _, entry := range logs.All() {
+		if entry.Message == "served request" {
+			served = append(served, entry)
+		}
+	}
+
+	require.Len(t, served, 1)
+	assert.Equal(t, "203.0.113.9", served[0].ContextMap()["client"])
+
+	assertNoMarker(t, logs)
 }

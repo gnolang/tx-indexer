@@ -23,6 +23,11 @@ import (
 	p2pTypes "github.com/gnolang/gno/tm2/pkg/p2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/gnolang/tx-indexer/metrics"
+	"github.com/gnolang/tx-indexer/serve/observe"
 )
 
 // TestAfterGenesis_WaitsForBootstrap makes sure a service that reads the
@@ -494,4 +499,97 @@ func TestStartCfg_ServesTheFetchHeights(t *testing.T) {
 		assert.Equal(c, "tx_indexer_chain_height 3", sample(scrape.body, "tx_indexer_chain_height"))
 		assert.Equal(c, "tx_indexer_indexed_height 3", sample(scrape.body, "tx_indexer_indexed_height"))
 	}, 5*time.Second, 10*time.Millisecond)
+}
+
+// TestStartCfg_RequestLogFlags makes sure the request log is off unless the
+// operator turns it on, and that the client address is the address the
+// request came from unless a header is trusted.
+func TestStartCfg_RequestLogFlags(t *testing.T) {
+	t.Parallel()
+
+	unset := &startCfg{}
+	unsetFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	unset.registerFlags(unsetFlags)
+
+	require.NoError(t, unsetFlags.Parse(nil))
+	assert.False(t, unset.requestLog)
+	assert.Empty(t, unset.clientIPHeader)
+	assert.Equal(t, 1, unset.clientIPTrustedHops)
+
+	set := &startCfg{}
+	setFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	set.registerFlags(setFlags)
+
+	require.NoError(t, setFlags.Parse([]string{
+		"--request-log",
+		"--client-ip-header", "X-Forwarded-For",
+		"--client-ip-trusted-hops", "2",
+	}))
+	assert.True(t, set.requestLog)
+	assert.Equal(t, "X-Forwarded-For", set.clientIPHeader)
+	assert.Equal(t, 2, set.clientIPTrustedHops)
+}
+
+// TestStartCfg_InvalidTrustedHops makes sure fewer than one trusted proxy
+// fails at startup rather than leave the client address unread.
+func TestStartCfg_InvalidTrustedHops(t *testing.T) {
+	t.Parallel()
+
+	cfg := &startCfg{
+		clientIPTrustedHops: 0,
+		dbPath:              t.TempDir(),
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	require.ErrorContains(t, cfg.exec(ctx), "--client-ip-trusted-hops")
+}
+
+// serveCall serves one getBlock call through o, from a client behind two
+// proxies appending to X-Forwarded-For
+func serveCall(o *observe.Observer) {
+	r := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
+	r.Header.Set("X-Forwarded-For", "6.6.6.6, 203.0.113.9, 198.51.100.4")
+
+	o.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		ctx, call := o.Start(r.Context(), metrics.APIJSONRPC, "getBlock")
+		call.End(ctx, false)
+	})).ServeHTTP(httptest.NewRecorder(), r)
+}
+
+// The request log writes one line per request, under the requests logger,
+// with the client address the trusted header names
+func TestStartCfg_ObserverLogsRequests(t *testing.T) {
+	t.Parallel()
+
+	cfg := &startCfg{requestLog: true, clientIPHeader: "X-Forwarded-For", clientIPTrustedHops: 2}
+
+	core, logs := observer.New(zap.InfoLevel)
+	serveCall(cfg.newObserver(nil, zap.New(core)))
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+
+	assert.Equal(t, "requests", entries[0].LoggerName)
+	assert.Equal(t, "203.0.113.9", entries[0].ContextMap()["client"])
+}
+
+// With the request log off, the default, no request is logged, whether the
+// metrics are on or not; with the metrics off too, there is nothing to observe
+func TestStartCfg_ObserverLogsNothingByDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg := &startCfg{clientIPHeader: "X-Forwarded-For", clientIPTrustedHops: 1}
+
+	core, logs := observer.New(zap.InfoLevel)
+
+	assert.Nil(t, cfg.newObserver(nil, zap.New(core)))
+
+	o := cfg.newObserver(metrics.New(), zap.New(core))
+	require.NotNil(t, o)
+
+	serveCall(o)
+
+	assert.Empty(t, logs.All())
 }

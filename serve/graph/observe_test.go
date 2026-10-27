@@ -1,8 +1,10 @@
 package graph
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/internal/metricstest"
@@ -373,4 +377,72 @@ func TestObserve_LeavesSubscriptionsUncounted(t *testing.T) {
 	for _, status := range []string{"ok", "error", "deadline"} {
 		assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", fieldRequests("getBlocks", status)))
 	}
+}
+
+// Each root field is logged with the client address its trusted header
+// names, and never with the query's variables
+func TestObserve_LogsEachRootField(t *testing.T) {
+	t.Parallel()
+
+	const variableMarker = "a-value-only-the-client-chose"
+
+	core, logs := observer.New(zap.InfoLevel)
+	o := observe.New(nil, observe.WithRequestLog(zap.New(core)), observe.WithClientIPHeader("X-Forwarded-For", 1))
+
+	r := testResolver(t)
+	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, o)
+
+	body, err := json.Marshal(map[string]any{
+		"query":     `query($hash: String!) { getTransactions(where: {hash: {eq: $hash}}) { block_height } }`,
+		"variables": map[string]any{"hash": variableMarker},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/graphql/query", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-For", "6.6.6.6, 203.0.113.9")
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+
+	fields := entries[0].ContextMap()
+	assert.Equal(t, "graphql", fields["api"])
+	assert.Equal(t, "getTransactions", fields["operation"])
+	assert.Equal(t, "203.0.113.9", fields["client"])
+
+	assert.NotContains(t, entries[0].Message, variableMarker)
+
+	for key, value := range fields {
+		assert.NotContains(t, fmt.Sprint(value), variableMarker, key)
+	}
+}
+
+// A query sent over the WebSocket transport is logged with the client address
+// the trusted header of the connection's upgrade request names
+func TestObserve_LogsAFieldOverWebSocket(t *testing.T) {
+	t.Parallel()
+
+	core, logs := observer.New(zap.InfoLevel)
+	o := observe.New(nil, observe.WithRequestLog(zap.New(core)), observe.WithClientIPHeader("X-Forwarded-For", 1))
+
+	r := testResolver(t)
+	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, o)
+
+	var resp map[string]any
+
+	require.NoError(t, client.New(mux, client.Path("/graphql/query")).WebsocketOnce(
+		`{ getBlocks(where: {}) { height } }`,
+		&resp,
+		client.AddHeader("X-Forwarded-For", "203.0.113.9"),
+	))
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+
+	assert.Equal(t, "getBlocks", entries[0].ContextMap()["operation"])
+	assert.Equal(t, "203.0.113.9", entries[0].ContextMap()["client"])
 }

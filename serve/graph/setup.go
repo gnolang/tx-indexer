@@ -81,7 +81,9 @@ func Setup(
 	}
 
 	m.Handle("/graphql", HandlerWithDefaultTabs("Gno Indexer: GraphQL playground", "/graphql/query", es))
-	m.Handle("/graphql/query", srv)
+	// The observer reads the client address of each request, and of each
+	// WebSocket connection's upgrade request, before its fields are served
+	m.Handle("/graphql/query", observer.Middleware(srv))
 
 	return m
 }

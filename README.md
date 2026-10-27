@@ -92,6 +92,8 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
+  -client-ip-header string        the header trusted to carry the client address the request log names, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
+  -client-ip-trusted-hops 1       the number of trusted proxies appending to --client-ip-header: the client address is that many entries from the right of its list
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
@@ -103,6 +105,7 @@ FLAGS
   -metrics-listen-address string  the IP:PORT address to serve the Prometheus metrics on, at /metrics, apart from the public endpoints; off by default
   -query-deadline 0s              the maximum time a GraphQL or JSON-RPC request may run before it is answered with a deadline error, unlimited by default; subscriptions are exempt
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
+  -request-log=false              log one line per GraphQL root field or JSON-RPC call served, at info: its operation, status, duration, rows and client address, never its arguments
   -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
 
@@ -193,6 +196,25 @@ The rows scanned for each row returned tell how much reading a filter costs:
 The lag behind the chain, in blocks, is `tx_indexer_chain_height - tx_indexer_indexed_height`. The chain's height is read
 once per fetch round, and not while every fetch slot is busy catching up, so it can trail the chain; a node that stops
 answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag.
+
+### Request log
+
+`--request-log` logs one line at info per request served, the same requests the metrics count: its `api`, `operation`
+and `status`, its `duration`, its `rows-scanned` and `rows-returned`, and the `client` address. It never logs a
+request's arguments: a GraphQL query's variables or a JSON-RPC call's params. It is off by default, as it adds a line
+per call of every client and their addresses to the log.
+
+The client address is the address the request came from, which behind a proxy is the proxy's. `--client-ip-header`
+names a header the proxies in front of the indexer fill with the client's address instead:
+
+- behind Cloudflare, `CF-Connecting-IP`, which Cloudflare sets to the client's address;
+- behind load balancers, `X-Forwarded-For`. Each appends the address it was reached from, and the client can write
+  anything to the left of those entries, so `--client-ip-trusted-hops` counts the load balancers and the client address
+  is that many entries from the right, 1 by default.
+
+A header that is missing, holds fewer entries, or holds no IP address there leaves the address the request came from.
+Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
+writes the header it likes.
 
 ## GraphQL Endpoint
 

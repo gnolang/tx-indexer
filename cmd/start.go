@@ -56,6 +56,21 @@ const queryDeadlineHelp = "the maximum time a GraphQL or JSON-RPC request may ru
 const metricsListenAddressHelp = "the IP:PORT address to serve the Prometheus metrics on, at /metrics, " +
 	"apart from the public endpoints; off by default"
 
+// requestLogHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const requestLogHelp = "log one line per GraphQL root field or JSON-RPC call served, at info: its operation, " +
+	"status, duration, rows and client address, never its arguments"
+
+// clientIPHeaderHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const clientIPHeaderHelp = "the header trusted to carry the client address the request log names, " +
+	"such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from"
+
+// clientIPTrustedHopsHelp is built up over multiple lines so each stays under
+// the linter's line-length limit.
+const clientIPTrustedHopsHelp = "the number of trusted proxies appending to --client-ip-header: " +
+	"the client address is that many entries from the right of its list"
+
 type startCfg struct {
 	listenAddress        string
 	metricsListenAddress string
@@ -64,11 +79,14 @@ type startCfg struct {
 	logLevel             string
 	corsAllowedOrigins   string
 	supplyDenoms         string
+	clientIPHeader       string
 	maxSlots             int
 	maxChunkSize         int64
 	rateLimit            int
+	clientIPTrustedHops  int
 	queryDeadline        time.Duration
 	disableIntrospection bool
+	requestLog           bool
 }
 
 // newStartCmd creates the indexer start command
@@ -175,6 +193,27 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		defaultSupplyDenoms,
 		"comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply",
 	)
+
+	fs.BoolVar(
+		&c.requestLog,
+		"request-log",
+		false,
+		requestLogHelp,
+	)
+
+	fs.StringVar(
+		&c.clientIPHeader,
+		"client-ip-header",
+		"",
+		clientIPHeaderHelp,
+	)
+
+	fs.IntVar(
+		&c.clientIPTrustedHops,
+		"client-ip-trusted-hops",
+		1,
+		clientIPTrustedHopsHelp,
+	)
 }
 
 // exec executes the indexer start command
@@ -183,6 +222,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// of serving with the deadline off
 	if c.queryDeadline < 0 {
 		return fmt.Errorf("invalid --query-deadline %s: it must be 0 (off) or positive", c.queryDeadline)
+	}
+
+	// No trusted proxy would leave every entry of the header the client's own
+	if c.clientIPTrustedHops < 1 {
+		return fmt.Errorf("invalid --client-ip-trusted-hops %d: it must be 1 or more", c.clientIPTrustedHops)
 	}
 
 	// Parse the log level
@@ -222,15 +266,13 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	// The metrics are collected only when they are served
-	var (
-		m        *metrics.Metrics
-		observer *observe.Observer
-	)
+	var m *metrics.Metrics
 
 	if c.metricsListenAddress != "" {
 		m = metrics.New()
-		observer = observe.New(m)
 	}
+
+	observer := c.newObserver(m, logger)
 
 	// Create the fetcher service
 	f := fetch.New(
@@ -302,6 +344,14 @@ func (c *startCfg) exec(ctx context.Context) error {
 		logger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
 	}
 
+	if c.requestLog {
+		logger.Info(
+			"request log set",
+			zap.String("client-ip-header", c.clientIPHeader),
+			zap.Int("client-ip-trusted-hops", c.clientIPTrustedHops),
+		)
+	}
+
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline, observer)
 	mux = health.Setup(db, f, mux)
@@ -369,6 +419,27 @@ func (c *startCfg) exec(ctx context.Context) error {
 		w.wait(),
 		logger.Sync(),
 	)
+}
+
+// newObserver creates the observer of the served requests: it records them
+// into m, and logs each under logger when the request log is on. With
+// neither, it is nil, and serving a request costs nothing more.
+func (c *startCfg) newObserver(m *metrics.Metrics, logger *zap.Logger) *observe.Observer {
+	if m == nil && !c.requestLog {
+		return nil
+	}
+
+	var opts []observe.Option
+
+	if c.requestLog {
+		opts = append(
+			opts,
+			observe.WithRequestLog(logger.Named("requests")),
+			observe.WithClientIPHeader(c.clientIPHeader, c.clientIPTrustedHops),
+		)
+	}
+
+	return observe.New(m, opts...)
 }
 
 // afterGenesis holds a service back until the genesis bootstrap has stored the

@@ -105,11 +105,14 @@ func (j *JSONRPC) SetupRoutes(mux *chi.Mux) *chi.Mux {
 	// OPTIONS requests are ignored
 	mux.Options("/", func(http.ResponseWriter, *http.Request) {})
 
-	// Register the POST methodHandler for HTTP requests
-	mux.Post("/", j.handleHTTPRequest)
+	// Register the POST methodHandler for HTTP requests. The observer's
+	// middleware reads the client address before the calls are served
+	mux.Method(http.MethodPost, "/", j.observer.Middleware(http.HandlerFunc(j.handleHTTPRequest)))
 
-	// Register the WS methodHandler
-	mux.HandleFunc("/ws", j.handleWSRequest)
+	// Register the WS methodHandler. The observer's middleware reads the
+	// client address of the upgrade request, which every call the connection
+	// carries shares
+	mux.Handle("/ws", j.observer.Middleware(http.HandlerFunc(j.handleWSRequest)))
 
 	return mux
 }
