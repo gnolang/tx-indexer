@@ -8,6 +8,7 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -25,7 +26,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetTxHandler(
-	_ context.Context,
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -55,16 +56,22 @@ func (h *Handler) GetTxHandler(
 		return nil, nil
 	}
 
+	// The storage read the one row asked for
+	rows := tally.FromContext(ctx)
+	rows.AddScanned(1)
+
 	encodedResponse, err := encode.PrepareValue(response)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
 
+	rows.AddReturned(1)
+
 	return encodedResponse, nil
 }
 
 func (h *Handler) GetTxByHashHandler(
-	_ context.Context,
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -89,10 +96,16 @@ func (h *Handler) GetTxByHashHandler(
 		return nil, nil
 	}
 
+	// The storage read the one row asked for
+	rows := tally.FromContext(ctx)
+	rows.AddScanned(1)
+
 	encodedResponse, err := encode.PrepareValue(response)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
+
+	rows.AddReturned(1)
 
 	return encodedResponse, nil
 }

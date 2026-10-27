@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
@@ -137,4 +138,43 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		assert.Equal(t, block, &decodedBlock)
 	})
+}
+
+// A block read from the storage counts as one row scanned and one answered in
+// the tally of its request; a missing one as none
+func TestGetBlock_TalliesTheRowItReads(t *testing.T) {
+	t.Parallel()
+
+	testTable := []struct {
+		block *types.Block
+		name  string
+		want  int64
+	}{
+		{&types.Block{Header: types.Header{Height: 1}}, "found", 1},
+		{nil, "missing", 0},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			h := NewHandler(&mockStorage{
+				getBlockFn: func(uint64) (*types.Block, error) {
+					if testCase.block == nil {
+						return nil, storageErrors.ErrNotFound
+					}
+
+					return testCase.block, nil
+				},
+			})
+
+			rows := &tally.Rows{}
+
+			_, err := h.GetBlockHandler(tally.NewContext(t.Context(), rows), nil, []any{"1"})
+			require.Nil(t, err)
+
+			assert.Equal(t, testCase.want, rows.Scanned())
+			assert.Equal(t, testCase.want, rows.Returned())
+		})
+	}
 }

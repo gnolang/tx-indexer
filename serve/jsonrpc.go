@@ -13,6 +13,7 @@ import (
 	"github.com/olahol/melody"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
 	"github.com/gnolang/tx-indexer/serve/deadline"
@@ -23,6 +24,7 @@ import (
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/serve/metadata"
+	"github.com/gnolang/tx-indexer/serve/observe"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/serve/writer"
 	httpWriter "github.com/gnolang/tx-indexer/serve/writer/http"
@@ -63,6 +65,9 @@ type JSONRPC struct {
 
 	// ws handles incoming and active WS connections
 	ws *melody.Melody
+
+	// observer records each call served; nil records none
+	observer *observe.Observer
 
 	// queryDeadline bounds each request, a batch as a whole; zero leaves
 	// requests unbounded
@@ -385,7 +390,9 @@ func (j *JSONRPC) handleRequest(
 	writer.WriteResponse(responses)
 }
 
-// route routes the base request to the appropriate handler
+// route routes the base request to the appropriate handler. Only a call to
+// a registered method is observed: the method then names a known operation,
+// never a string the client made up.
 func (j *JSONRPC) route(
 	ctx context.Context,
 	metadata *metadata.Metadata,
@@ -400,13 +407,38 @@ func (j *JSONRPC) route(
 		)
 	}
 
+	ctx, call := j.observer.Start(ctx, metrics.APIJSONRPC, request.Method)
+
+	// The call stays failed until its handler returns without an error: a
+	// handler that panics never returns, and its call still ends
+	failed := true
+
+	defer func() {
+		call.End(ctx, failed)
+	}()
+
+	response, err := runHandler(ctx, handler, metadata, request.Params)
+
+	failed = err != nil
+
+	return response, err
+}
+
+// runHandler runs handler for a call, unless the call's request has already
+// ended
+func runHandler(
+	ctx context.Context,
+	handler Handler,
+	metadata *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
 	// A request that has ended, by its deadline or its client leaving, runs
 	// no further calls of its batch: each answers the reason instead
 	if ctx.Err() != nil {
 		return nil, spec.GenerateResponseError(context.Cause(ctx))
 	}
 
-	return handler(ctx, metadata, request.Params)
+	return handler(ctx, metadata, params)
 }
 
 // isValidBaseRequest validates that the base JSON request is valid

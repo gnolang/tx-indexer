@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
@@ -189,4 +191,87 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		assert.Equal(t, txResult, &decodedTxResult)
 	})
+}
+
+// A transaction read from the storage, by height and index or by hash, counts
+// as one row scanned and one answered in the tally of its request; a missing
+// one as none
+func TestGetTx_TalliesTheRowItReads(t *testing.T) {
+	t.Parallel()
+
+	found := &types.TxResult{Height: 1, Tx: types.Tx{1}}
+
+	testTable := []struct {
+		tx     *types.TxResult
+		handle func(h *Handler, ctx context.Context) *spec.BaseJSONError
+		name   string
+		want   int64
+	}{
+		{
+			found,
+			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+				_, err := h.GetTxHandler(ctx, nil, []any{"1", "0"})
+
+				return err
+			},
+			"found by height and index",
+			1,
+		},
+		{
+			nil,
+			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+				_, err := h.GetTxHandler(ctx, nil, []any{"1", "0"})
+
+				return err
+			},
+			"missing by height and index",
+			0,
+		},
+		{
+			found,
+			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+				_, err := h.GetTxByHashHandler(ctx, nil, []any{"hash"})
+
+				return err
+			},
+			"found by hash",
+			1,
+		},
+		{
+			nil,
+			func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+				_, err := h.GetTxByHashHandler(ctx, nil, []any{"hash"})
+
+				return err
+			},
+			"missing by hash",
+			0,
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			read := func() (*types.TxResult, error) {
+				if testCase.tx == nil {
+					return nil, storageErrors.ErrNotFound
+				}
+
+				return testCase.tx, nil
+			}
+
+			h := NewHandler(&mockStorage{
+				getTxFn:     func(uint64, uint32) (*types.TxResult, error) { return read() },
+				getTxHashFn: func(string) (*types.TxResult, error) { return read() },
+			})
+
+			rows := &tally.Rows{}
+
+			require.Nil(t, testCase.handle(h, tally.NewContext(t.Context(), rows)))
+
+			assert.Equal(t, testCase.want, rows.Scanned())
+			assert.Equal(t, testCase.want, rows.Returned())
+		})
+	}
 }

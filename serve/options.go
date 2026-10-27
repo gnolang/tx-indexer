@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/gnolang/tx-indexer/serve/observe"
 )
 
 type Option func(s *JSONRPC)
@@ -21,5 +23,13 @@ func WithLogger(logger *zap.Logger) Option {
 func WithQueryDeadline(d time.Duration) Option {
 	return func(s *JSONRPC) {
 		s.queryDeadline = d
+	}
+}
+
+// WithObserver sets the observer that records each call the server serves.
+// Unset, calls are not recorded.
+func WithObserver(o *observe.Observer) Option {
+	return func(s *JSONRPC) {
+		s.observer = o
 	}
 }
