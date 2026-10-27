@@ -4,6 +4,7 @@ package metrics
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,27 +22,62 @@ const (
 	APIJSONRPC = "jsonrpc"
 )
 
-// The outcomes of a request, the values of the status label
+// Status is the outcome of a request, named by the status label. It is a type
+// of its own, so a value the metrics do not declare fails to compile rather
+// than open a series no alert reads.
+type Status int
+
+// The outcomes of a request
 const (
 	// StatusOK is a request answered without an error
-	StatusOK = "ok"
+	StatusOK Status = iota
 
 	// StatusError is a request answered with an error other than the query
 	// deadline
-	StatusError = "error"
+	StatusError
 
 	// StatusDeadline is a request stopped by the query deadline
-	StatusDeadline = "deadline"
+	StatusDeadline
 )
 
-// The steps of the fetch that can fail, the values of the stage label
+// String is the status label's value for s
+func (s Status) String() string {
+	switch s {
+	case StatusOK:
+		return "ok"
+	case StatusError:
+		return "error"
+	case StatusDeadline:
+		return "deadline"
+	default:
+		return "Status(" + strconv.Itoa(int(s)) + ")"
+	}
+}
+
+// FetchStage is a step of the fetch that can fail, named by the stage label.
+// It is a type of its own for the same reason as Status.
+type FetchStage int
+
+// The steps of the fetch that can fail
 const (
 	// FetchStageChainHeight is the read of the chain's latest height
-	FetchStageChainHeight = "chain_height"
+	FetchStageChainHeight FetchStage = iota
 
 	// FetchStageRange is the fetch of a range of blocks and their results
-	FetchStageRange = "range"
+	FetchStageRange
 )
+
+// String is the stage label's value for s
+func (s FetchStage) String() string {
+	switch s {
+	case FetchStageChainHeight:
+		return "chain_height"
+	case FetchStageRange:
+		return "range"
+	default:
+		return "FetchStage(" + strconv.Itoa(int(s)) + ")"
+	}
+}
 
 // durationBuckets span a point read to a scan of the whole chain, which runs
 // for minutes when no query deadline bounds it
@@ -56,9 +92,8 @@ type Request struct {
 	// Operation is the GraphQL root field or the JSON-RPC method
 	Operation string
 
-	// Status is the request's outcome: StatusOK, StatusError or
-	// StatusDeadline
-	Status string
+	// Status is the request's outcome
+	Status Status
 
 	// Duration is how long the request took to serve
 	Duration time.Duration
@@ -165,8 +200,8 @@ func New() *Metrics {
 		}),
 	}
 
-	for _, stage := range []string{FetchStageChainHeight, FetchStageRange} {
-		m.fetchErrors.WithLabelValues(stage)
+	for _, stage := range []FetchStage{FetchStageChainHeight, FetchStageRange} {
+		m.fetchErrors.WithLabelValues(stage.String())
 	}
 
 	m.registry.MustRegister(
@@ -213,7 +248,7 @@ func (m *Metrics) RequestEnded(r Request) {
 	}
 
 	m.inFlight.WithLabelValues(r.API, r.Operation).Dec()
-	m.requests.WithLabelValues(r.API, r.Operation, r.Status).Inc()
+	m.requests.WithLabelValues(r.API, r.Operation, r.Status.String()).Inc()
 	m.duration.WithLabelValues(r.API, r.Operation).Observe(r.Duration.Seconds())
 	m.rowsScanned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsScanned))
 	m.rowsReturned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsReturned))
@@ -238,14 +273,13 @@ func (m *Metrics) SetChainHeight(height uint64) {
 	m.chainHeight.Set(float64(height))
 }
 
-// CountFetchError counts a failed read from the node at stage,
-// FetchStageChainHeight or FetchStageRange
-func (m *Metrics) CountFetchError(stage string) {
+// CountFetchError counts a failed read from the node at stage
+func (m *Metrics) CountFetchError(stage FetchStage) {
 	if m == nil {
 		return
 	}
 
-	m.fetchErrors.WithLabelValues(stage).Inc()
+	m.fetchErrors.WithLabelValues(stage.String()).Inc()
 }
 
 // CountFetchRetry counts a block range fetched again after its fetch failed

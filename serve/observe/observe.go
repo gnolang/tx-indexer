@@ -145,7 +145,7 @@ func (c *Call) End(ctx context.Context, failed bool) {
 		"served request",
 		zap.String("api", request.API),
 		zap.String("operation", request.Operation),
-		zap.String("status", request.Status),
+		zap.String("status", request.Status.String()),
 		zap.Duration("duration", request.Duration),
 		zap.Int64("rows-scanned", request.RowsScanned),
 		zap.Int64("rows-returned", request.RowsReturned),
@@ -155,7 +155,7 @@ func (c *Call) End(ctx context.Context, failed bool) {
 
 // status is the outcome of a request served with ctx: a failure is the query
 // deadline's once the deadline has ended ctx, whatever error it surfaced as
-func status(ctx context.Context, failed bool) string {
+func status(ctx context.Context, failed bool) metrics.Status {
 	if !failed {
 		return metrics.StatusOK
 	}

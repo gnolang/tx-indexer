@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -58,7 +59,7 @@ func TestMetrics_CountsEachStatusApart(t *testing.T) {
 
 	m := New()
 
-	for _, status := range []string{StatusOK, StatusError, StatusDeadline, StatusDeadline} {
+	for _, status := range []Status{StatusOK, StatusError, StatusDeadline, StatusDeadline} {
 		request := testRequest
 		request.Status = status
 
@@ -138,4 +139,21 @@ func TestMetrics_RecordsTheFetch(t *testing.T) {
 
 	m.CountFetchError(FetchStageChainHeight)
 	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
+}
+
+// Each status and fetch stage names its label value. They are types of their
+// own, so a misspelt one fails to compile rather than open a series no alert
+// reads.
+func TestMetrics_EnumsNameTheirLabels(t *testing.T) {
+	t.Parallel()
+
+	for value, want := range map[fmt.Stringer]string{
+		StatusOK:              "ok",
+		StatusError:           "error",
+		StatusDeadline:        "deadline",
+		FetchStageChainHeight: "chain_height",
+		FetchStageRange:       "range",
+	} {
+		assert.Equal(t, want, value.String())
+	}
 }
