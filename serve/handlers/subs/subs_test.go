@@ -50,7 +50,7 @@ func TestNewBlockFilter_InvalidParams(t *testing.T) {
 
 		h := NewHandler(nil, nil)
 
-		response, err := h.NewBlockFilterHandler(nil, []any{1, 2, 3})
+		response, err := h.NewBlockFilterHandler(t.Context(), nil, []any{1, 2, 3})
 		assert.Nil(t, response)
 
 		require.NotNil(t, err)
@@ -74,7 +74,7 @@ func TestNewBlockFilter_Valid(t *testing.T) {
 
 	h := NewHandler(fm, nil)
 
-	responseRaw, err := h.NewBlockFilterHandler(nil, []any{})
+	responseRaw, err := h.NewBlockFilterHandler(t.Context(), nil, []any{})
 	require.Nil(t, err)
 
 	response, ok := responseRaw.(string)
@@ -113,7 +113,7 @@ func TestUninstallFilter_InvalidParams(t *testing.T) {
 
 			h := NewHandler(nil, nil)
 
-			response, err := h.UninstallFilterHandler(nil, testCase.params)
+			response, err := h.UninstallFilterHandler(t.Context(), nil, testCase.params)
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
@@ -141,7 +141,7 @@ func TestUninstallFilter_Valid(t *testing.T) {
 
 		h := NewHandler(fm, nil)
 
-		responseRaw, err := h.UninstallFilterHandler(nil, []any{"123"})
+		responseRaw, err := h.UninstallFilterHandler(t.Context(), nil, []any{"123"})
 		require.Nil(t, err)
 
 		response, ok := responseRaw.(bool)
@@ -166,7 +166,7 @@ func TestUninstallFilter_Valid(t *testing.T) {
 		h := NewHandler(fm, nil)
 
 		// Create the initial filter
-		responseRaw, newFilterErr := h.NewBlockFilterHandler(nil, []any{})
+		responseRaw, newFilterErr := h.NewBlockFilterHandler(t.Context(), nil, []any{})
 		require.Nil(t, newFilterErr)
 
 		id, ok := responseRaw.(string)
@@ -176,7 +176,7 @@ func TestUninstallFilter_Valid(t *testing.T) {
 		assert.NotEmpty(t, id)
 
 		// Uninstall the filter
-		responseRaw, uninstallFilterErr := h.UninstallFilterHandler(nil, []any{id})
+		responseRaw, uninstallFilterErr := h.UninstallFilterHandler(t.Context(), nil, []any{id})
 		require.Nil(t, uninstallFilterErr)
 
 		response, ok := responseRaw.(bool)
@@ -214,7 +214,7 @@ func TestGetFilterChanges_InvalidParams(t *testing.T) {
 
 			h := NewHandler(nil, nil)
 
-			response, err := h.GetFilterChangesHandler(nil, testCase.params)
+			response, err := h.GetFilterChangesHandler(t.Context(), nil, testCase.params)
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
@@ -252,7 +252,7 @@ func TestGetFilterChanges_Valid(t *testing.T) {
 	h := NewHandler(fm, nil)
 
 	// Create the initial filter
-	responseRaw, newFilterErr := h.NewBlockFilterHandler(nil, []any{})
+	responseRaw, newFilterErr := h.NewBlockFilterHandler(t.Context(), nil, []any{})
 	require.Nil(t, newFilterErr)
 
 	id, ok := responseRaw.(string)
@@ -272,7 +272,7 @@ func TestGetFilterChanges_Valid(t *testing.T) {
 	}
 
 	// Get filter changes
-	changesRaw, changesErr := h.GetFilterChangesHandler(nil, []any{id})
+	changesRaw, changesErr := h.GetFilterChangesHandler(t.Context(), nil, []any{id})
 	require.Nil(t, changesErr)
 
 	// Check the changes
@@ -328,6 +328,7 @@ func TestSubscribe_InvalidParams(t *testing.T) {
 		h := NewHandler(nil, connFetcher)
 
 		response, err := h.SubscribeHandler(
+			t.Context(),
 			metadata,
 			[]any{subscription.NewHeadsEvent},
 		)
@@ -363,6 +364,7 @@ func TestSubscribe_InvalidParams(t *testing.T) {
 		h := NewHandler(nil, connFetcher)
 
 		response, err := h.SubscribeHandler(
+			t.Context(),
 			metadata,
 			[]any{
 				eventType,
@@ -431,7 +433,7 @@ func TestSubscribe_Valid(t *testing.T) {
 	h := NewHandler(fm, mockConnFetcher)
 
 	// Create the initial filter
-	responseRaw, newFilterErr := h.SubscribeHandler(metadata, []any{
+	responseRaw, newFilterErr := h.SubscribeHandler(t.Context(), metadata, []any{
 		subscription.NewHeadsEvent,
 	})
 	require.Nil(t, newFilterErr)
@@ -549,6 +551,7 @@ func TestSubscribeUnsubscribe_InvalidParams(t *testing.T) {
 			h := NewHandler(nil, nil)
 
 			response, err := h.UnsubscribeHandler(
+				t.Context(),
 				testCase.metadata,
 				testCase.params,
 			)
@@ -556,6 +559,7 @@ func TestSubscribeUnsubscribe_InvalidParams(t *testing.T) {
 			commonVerification(response, err, testCase.expectedErrorCode)
 
 			response, err = h.SubscribeHandler(
+				t.Context(),
 				testCase.metadata,
 				testCase.params,
 			)
@@ -600,7 +604,7 @@ func TestUnsubscribe_Valid(t *testing.T) {
 	h := NewHandler(fm, mockConnFetcher)
 
 	// Subscribe to changes
-	responseRaw, newFilterErr := h.SubscribeHandler(metadata, []any{
+	responseRaw, newFilterErr := h.SubscribeHandler(t.Context(), metadata, []any{
 		subscription.NewHeadsEvent,
 	})
 	require.Nil(t, newFilterErr)
@@ -609,7 +613,7 @@ func TestUnsubscribe_Valid(t *testing.T) {
 	require.True(t, ok)
 
 	// Unsubscribe from changes
-	responseRaw, unsubscribeErr := h.UnsubscribeHandler(metadata, []any{id})
+	responseRaw, unsubscribeErr := h.UnsubscribeHandler(t.Context(), metadata, []any{id})
 	require.Nil(t, unsubscribeErr)
 
 	response, ok := responseRaw.(bool)

@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -24,6 +25,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetTxHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -62,6 +64,7 @@ func (h *Handler) GetTxHandler(
 }
 
 func (h *Handler) GetTxByHashHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {

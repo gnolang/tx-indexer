@@ -1,6 +1,7 @@
 package methods
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
@@ -16,19 +17,26 @@ type gasFeeTotalInfo struct {
 }
 
 // GetGasPricesByBlock calculates the gas price statistics (low, high, average)
-// for a single block.
+// for a single block. A subscription computes one block per new block, outside
+// any request, so nothing bounds it but the size of a block.
 func GetGasPricesByBlock(block *types.Block) ([]*GasPrice, error) {
 	blocks := []*types.Block{block}
 
-	return GetGasPricesByBlocks(blocks)
+	return GetGasPricesByBlocks(context.Background(), blocks)
 }
 
 // GetGasPricesByBlocks calculates the gas price statistics (low, high, average)
-// for multiple blocks.
-func GetGasPricesByBlocks(blocks []*types.Block) ([]*GasPrice, error) {
+// for multiple blocks. It decodes every transaction of every block, so over a
+// wide range it can cost more than reading the blocks: once ctx has ended it
+// stops at the next block and answers context.Cause(ctx).
+func GetGasPricesByBlocks(ctx context.Context, blocks []*types.Block) ([]*GasPrice, error) {
 	gasFeeInfoMap := make(map[string]*gasFeeTotalInfo)
 
 	for _, block := range blocks {
+		if ctx.Err() != nil {
+			return nil, context.Cause(ctx)
+		}
+
 		blockGasFeeInfo := calculateGasFeePerBlock(block)
 
 		for denom, gasFeeInfo := range blockGasFeeInfo {

@@ -92,6 +92,7 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
+  -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
   -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
@@ -99,6 +100,7 @@ FLAGS
   -log-level info                 the log level for the CLI output
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
+  -query-deadline 0s              the maximum time a GraphQL or JSON-RPC request may run before it is answered with a deadline error, unlimited by default; subscriptions are exempt
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
   -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
@@ -118,6 +120,42 @@ Two consequences worth knowing when running it:
 - **A database is bound to its chain.** The chain ID is stored alongside the genesis and checked against the node on
   every start, so pointing `--remote` at a different network while reusing `--db-path` refuses to start rather than
   mixing two chains' data. Use a separate `--db-path` per chain.
+
+### Query deadline
+
+`--query-deadline` bounds how long one GraphQL or JSON-RPC request may run. A list query filters rows as it reads
+them, and its 10000 element cap counts the rows it returns rather than the rows it reads, so a filter that matches
+little can read the whole chain on every call. The deadline is off (`0s`) by default; set it to a Go duration such as
+`10s`.
+
+A transaction list (`getTransactions`, `transactions`) that runs past it answers no rows and an error naming it: the
+rows read so far can end inside a block. Narrow the block height range and retry.
+
+```json
+{
+  "errors": [
+    {
+      "message": "query deadline exceeded (10s); narrow the block height range",
+      "path": ["getTransactions"],
+      "extensions": { "code": "QUERY_DEADLINE_EXCEEDED", "queryDeadline": "10s" }
+    }
+  ],
+  "data": { "getTransactions": null }
+}
+```
+
+A block list (`getBlocks`, `blocks`) answers the same error beside the blocks it read before the deadline. A block row
+is a whole block, so resume past the last height returned: above it ascending, below it descending.
+
+Over JSON-RPC, `getGasPrice`, the one method that scans a block range, answers the same message with code `-32000`,
+and the same `code` and `queryDeadline` in the error's `data`. The calls of a batch share one deadline: those not yet
+run when it passes answer the error without running.
+
+The deadline bounds time, not CPU: the list fields of one GraphQL query run in parallel, so a query naming several can
+keep as many cores busy for the length of the deadline.
+
+Subscriptions, over GraphQL or the `/ws` endpoint, last as long as their connection and are not bounded; each JSON-RPC
+call sent over `/ws` is. `/health` and `/ready` are not bounded.
 
 ## GraphQL Endpoint
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
+	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/filters"
 	"github.com/gnolang/tx-indexer/serve/handlers/block"
 	"github.com/gnolang/tx-indexer/serve/handlers/gas"
@@ -61,6 +63,10 @@ type JSONRPC struct {
 
 	// ws handles incoming and active WS connections
 	ws *melody.Melody
+
+	// queryDeadline bounds each request, a batch as a whole; zero leaves
+	// requests unbounded
+	queryDeadline time.Duration
 }
 
 // NewJSONRPC creates a new instance of the JSONRPC server
@@ -242,8 +248,10 @@ func (j *JSONRPC) setupWSListeners() {
 		wsIDRaw, _ := s.Get(wsIDKey)
 		wsConnID := wsIDRaw.(string)
 
-		// Handle the request
+		// Handle the request. The upgrade request's context lasts as long as
+		// the connection does
 		j.handleRequest(
+			s.Request.Context(),
 			metadata.NewMetadata(
 				s.RemoteAddr().String(),
 				metadata.WithWebSocketID(wsConnID),
@@ -281,6 +289,7 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	// Handle the request
 	w.Header().Set("Content-Type", jsonMimeType)
 	j.handleRequest(
+		r.Context(),
 		metadata.NewMetadata(r.RemoteAddr),
 		httpWriter.New(j.logger, w),
 		requests,
@@ -300,10 +309,16 @@ func (j *JSONRPC) handleWSRequest(w http.ResponseWriter, r *http.Request) {
 // handleRequest handles the specific requests with a
 // custom response writer
 func (j *JSONRPC) handleRequest(
+	ctx context.Context,
 	metadata *metadata.Metadata,
 	writer writer.ResponseWriter,
 	requests spec.BaseJSONRequests,
 ) {
+	// The calls of a batch share one deadline, so the batch is bounded as a
+	// whole and not call by call
+	ctx, cancel := deadline.WithTimeout(ctx, j.queryDeadline)
+	defer cancel()
+
 	// Parse all JSON-RPC requests
 	responses := make(spec.BaseJSONResponses, len(requests))
 
@@ -330,7 +345,7 @@ func (j *JSONRPC) handleRequest(
 		}
 
 		// Run the method methodHandler
-		handleResp, handleErr := j.route(metadata, baseRequest)
+		handleResp, handleErr := j.route(ctx, metadata, baseRequest)
 		if handleErr != nil {
 			j.logger.Debug(
 				"unable to handle JSON-RPC request",
@@ -372,6 +387,7 @@ func (j *JSONRPC) handleRequest(
 
 // route routes the base request to the appropriate handler
 func (j *JSONRPC) route(
+	ctx context.Context,
 	metadata *metadata.Metadata,
 	request *spec.BaseJSONRequest,
 ) (any, *spec.BaseJSONError) {
@@ -384,7 +400,13 @@ func (j *JSONRPC) route(
 		)
 	}
 
-	return handler(metadata, request.Params)
+	// A request that has ended, by its deadline or its client leaving, runs
+	// no further calls of its batch: each answers the reason instead
+	if ctx.Err() != nil {
+		return nil, spec.GenerateResponseError(context.Cause(ctx))
+	}
+
+	return handler(ctx, metadata, request.Params)
 }
 
 // isValidBaseRequest validates that the base JSON request is valid

@@ -1,11 +1,15 @@
 package methods
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/internal/contexttest"
 )
 
 func TestGetGasPricesByBlocks_EmptyTransactions(t *testing.T) {
@@ -29,7 +33,7 @@ func TestGetGasPricesByBlocks_EmptyTransactions(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			response, err := GetGasPricesByBlocks(testCase.blocks)
+			response, err := GetGasPricesByBlocks(t.Context(), testCase.blocks)
 
 			assert.Nil(t, err)
 
@@ -145,7 +149,7 @@ func TestGetGasPricesByBlocks_Transactions(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			response, err := GetGasPricesByBlocks(testCase.blocks)
+			response, err := GetGasPricesByBlocks(t.Context(), testCase.blocks)
 
 			assert.Nil(t, err)
 			require.NotNil(t, response)
@@ -170,4 +174,34 @@ func TestGetGasPricesByBlocks_Transactions(t *testing.T) {
 			assert.Equal(t, count, len(testCase.results))
 		})
 	}
+}
+
+// The computation decodes every transaction of every block, so over a wide
+// range it can cost more than the reads: it stops at the first block after its
+// context ends, and answers the context's cause
+func TestGetGasPricesByBlocks_StopsWhenTheContextEnds(t *testing.T) {
+	t.Parallel()
+
+	const budget = 2
+
+	errEnded := errors.New("request ended")
+
+	blocks := make([]*types.Block, 0, 5)
+	for height := int64(1); height <= 5; height++ {
+		blocks = append(blocks, makeBlockWithTxs(height, []types.Tx{makeTxResultWithGasFee(height, "ugnot")}))
+	}
+
+	ctx := &contexttest.Countdown{
+		Context:  context.Background(),
+		EndsWith: errEnded,
+		Budget:   budget,
+	}
+
+	prices, err := GetGasPricesByBlocks(ctx, blocks)
+
+	assert.Nil(t, prices)
+	require.ErrorIs(t, err, errEnded)
+
+	// One check per block until the context ends, plus the ask for its cause
+	assert.LessOrEqual(t, ctx.Asked, budget+2, "the computation ran on after its context ended")
 }

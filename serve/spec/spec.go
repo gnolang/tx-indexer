@@ -2,7 +2,10 @@ package spec
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"github.com/gnolang/tx-indexer/serve/deadline"
 )
 
 const (
@@ -112,9 +115,17 @@ func NewJSONSubscribeResponse(id string, result any) *BaseJSONSubscribeResponse 
 	}
 }
 
-// GenerateResponseError generates the JSON-RPC server error response
+// GenerateResponseError generates the JSON-RPC server error response. An
+// error past the query deadline carries its machine-readable details in Data.
 func GenerateResponseError(err error) *BaseJSONError {
-	return NewJSONError(err.Error(), ServerErrorCode)
+	jsonErr := NewJSONError(err.Error(), ServerErrorCode)
+
+	var exceeded *deadline.ExceededError
+	if errors.As(err, &exceeded) {
+		jsonErr.Data = exceeded.Details()
+	}
+
+	return jsonErr
 }
 
 // GenerateInvalidParamError generates the JSON-RPC invalid param error response

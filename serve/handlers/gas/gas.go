@@ -1,6 +1,7 @@
 package gas
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -25,6 +26,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetGasPriceHandler(
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -46,7 +48,7 @@ func (h *Handler) GetGasPriceHandler(
 		fromBlockNum, toBlockNum = parseBlockRangeByParams(params)
 	}
 
-	response, err := h.getGasPriceBy(fromBlockNum, toBlockNum)
+	response, err := h.getGasPriceBy(ctx, fromBlockNum, toBlockNum)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -54,7 +56,7 @@ func (h *Handler) GetGasPriceHandler(
 	return response, nil
 }
 
-func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.GasPrice, error) {
+func (h *Handler) getGasPriceBy(ctx context.Context, fromBlockNum, toBlockNum uint64) ([]*methods.GasPrice, error) {
 	it, err := h.
 		storage.
 		BlockIterator(
@@ -69,7 +71,13 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 
 	blocks := make([]*types.Block, 0)
 
-	for it.Next() {
+	for it.Next(ctx) {
+		// The caller picks the range, so it can span the whole chain: stop
+		// decoding once the request has ended
+		if ctx.Err() != nil {
+			return nil, context.Cause(ctx)
+		}
+
 		block, itErr := it.Value()
 		if itErr != nil {
 			return nil, itErr
@@ -82,7 +90,7 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 		return nil, itErr
 	}
 
-	gasPrices, err := methods.GetGasPricesByBlocks(blocks)
+	gasPrices, err := methods.GetGasPricesByBlocks(ctx, blocks)
 	if err != nil {
 		return nil, err
 	}

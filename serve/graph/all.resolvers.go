@@ -46,14 +46,19 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 			return truncateTransactions(ctx, out, false), nil
 		}
 
-		if !it.Next() {
-			return out, it.Error()
+		if !it.Next(ctx) {
+			// The storage stops its walk past rows outside the index
+			// window once ctx has ended, so it can end on the deadline
+			if itErr := it.Error(); itErr != nil {
+				return nil, scanError(itErr)
+			}
+
+			return out, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanError(context.Cause(ctx))
 		default:
 			t, err := it.Value()
 			if err != nil {
@@ -93,13 +98,15 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 			return out, nil
 		}
 
-		if !it.Next() {
+		if !it.Next(ctx) {
 			return out, it.Error()
 		}
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
+			// A block row is a whole block, so the blocks read so far are
+			// kept: the client resumes from the last height
+			graphql.AddError(ctx, scanError(context.Cause(ctx)))
 			return out, nil
 		default:
 			b, err := it.Value()
@@ -178,13 +185,15 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 			return out, nil
 		}
 
-		if !it.Next() {
+		if !it.Next(ctx) {
 			return out, it.Error()
 		}
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
+			// A block row is a whole block, so the blocks read so far are
+			// kept: the client resumes from the last height
+			graphql.AddError(ctx, scanError(context.Cause(ctx)))
 			return out, nil
 		default:
 			b, err := it.Value()
@@ -280,14 +289,19 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 			return truncateTransactions(ctx, out, descending), nil
 		}
 
-		if !it.Next() {
-			return out, it.Error()
+		if !it.Next(ctx) {
+			// The storage stops its walk past rows outside the index
+			// window once ctx has ended, so it can end on the deadline
+			if itErr := it.Error(); itErr != nil {
+				return nil, scanError(itErr)
+			}
+
+			return out, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanError(context.Cause(ctx))
 		default:
 			t, err := it.Value()
 			if err != nil {

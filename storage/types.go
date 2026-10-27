@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"io"
 
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
@@ -56,7 +57,12 @@ type Reader interface {
 
 type Iterator[T any] interface {
 	io.Closer
-	Next() bool
+	// Next moves to the next row and reports whether there is one. An
+	// iterator that passes over rows it does not yield, such as a
+	// transaction iterator outside its index window, stops passing over
+	// them once ctx has ended: Next then returns false and Error reports
+	// context.Cause(ctx). Callers still check ctx between the rows they read.
+	Next(ctx context.Context) bool
 	Error() error
 	Value() (T, error)
 }

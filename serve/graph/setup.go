@@ -29,6 +29,7 @@ func Setup(
 	sup *supply.Handler,
 	m *chi.Mux,
 	disableIntrospection bool,
+	queryDeadline time.Duration,
 ) *chi.Mux {
 	srv := handler.New(NewExecutableSchema(
 		Config{
@@ -62,6 +63,8 @@ func Setup(
 	if !disableIntrospection {
 		srv.Use(extension.Introspection{})
 	}
+
+	srv.Use(deadlineExtension{deadline: queryDeadline})
 
 	es, err := examplesToSlice()
 	if err != nil {
