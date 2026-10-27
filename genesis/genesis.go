@@ -16,6 +16,7 @@ import (
 	bft_types "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
@@ -81,6 +82,10 @@ func bootstrap(ctx context.Context, store Storage, client Client, cfg *config) e
 
 	status, err := client.GetStatus(ctx)
 	if err != nil {
+		// The same read of the chain's height the fetcher counts, so a node
+		// down at start shows while the bootstrap holds the fetcher back
+		cfg.metrics.CountFetchError(metrics.FetchStageChainHeight)
+
 		return fmt.Errorf("unable to fetch the chain status: %w", err)
 	}
 

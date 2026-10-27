@@ -501,6 +501,26 @@ func TestStartCfg_ServesTheFetchHeights(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond)
 }
 
+// While the node is down at start, the genesis bootstrap's failed reads of
+// its status count as chain_height fetch errors: the fetcher waits on the
+// bootstrap, and the lag alone would read 0
+func TestStartCfg_CountsTheNodeDownAtStart(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, true)
+
+	series := `tx_indexer_fetch_errors_total{stage="chain_height"}`
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		scrape := get(c, "http://"+started.metricsAddress+"/metrics")
+		require.NotNil(c, scrape)
+
+		failures := sample(scrape.body, series)
+		assert.NotEmpty(c, failures)
+		assert.NotEqual(c, series+" 0", failures)
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
 // TestStartCfg_RequestLogFlags makes sure the request log is off unless the
 // operator turns it on, and that the client address is the address the
 // request came from unless a header is trusted.

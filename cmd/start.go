@@ -381,6 +381,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 			genesis.WithLogger(
 				logger.Named("genesis"),
 			),
+			genesis.WithMetrics(m),
 		); err != nil {
 			if errors.Is(err, context.Canceled) {
 				// Shut down while still retrying, like the other services

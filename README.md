@@ -195,7 +195,9 @@ The rows scanned for each row returned tell how much reading a filter costs:
 
 The lag behind the chain, in blocks, is `tx_indexer_chain_height - tx_indexer_indexed_height`. The chain's height is read
 once per fetch round, and not while every fetch slot is busy catching up, so it can trail the chain; a node that stops
-answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag.
+answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag. That
+counter also counts the genesis bootstrap's failed reads of the node's status, so a node down when the indexer starts
+shows there too.
 
 ### Request log
 
