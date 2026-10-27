@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -418,8 +419,28 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// Wait for the services to stop
 	return errors.Join(
 		w.wait(),
-		logger.Sync(),
+		syncLogger(logger, os.Stderr),
 	)
+}
+
+// syncLogger flushes logger to storage when out, the stderr it writes to, is a
+// regular file: zap writes each line to out as it logs it, and only a file
+// holds lines the kernel has yet to store. A terminal, a pipe or a socket, as
+// Docker and systemd hand the indexer, takes no sync: zap's Sync fails on one
+// with an error that differs by OS and by kind of file (EINVAL on Linux;
+// EBADF, ENODEV or ENOTTY on macOS: uber-go/zap#370 and #880), and would end
+// a clean stop with exit 1.
+func syncLogger(logger *zap.Logger, out *os.File) error {
+	info, err := out.Stat()
+	if err != nil {
+		return fmt.Errorf("unable to stat the log output, %w", err)
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+
+	return logger.Sync()
 }
 
 // newObserver creates the observer of the served requests: it records them

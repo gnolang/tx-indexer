@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -24,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gnolang/tx-indexer/metrics"
@@ -256,7 +259,7 @@ func tryStartIndexer(t *testing.T, serveMetrics bool, args []string) (indexer, b
 
 				select {
 				case err := <-stopped:
-					assert.NoError(t, withoutStderrSync(err))
+					assert.NoError(t, err)
 				case <-time.After(10 * time.Second):
 					assert.Fail(t, "the indexer did not stop")
 				}
@@ -316,29 +319,6 @@ func sample(scrape, series string) string {
 	}
 
 	return ""
-}
-
-// withoutStderrSync is what the start command returned at shutdown, less the
-// error of its logger's sync. The command returns the error logger.Sync
-// returns, and zap fails to sync a stderr that is not a terminal, as under go
-// test or a container's log pipe: a clean stop of the indexer ends on that
-// error, and main exits 1. The test drops that one error and fails on any
-// other.
-func withoutStderrSync(err error) error {
-	joined, ok := err.(interface{ Unwrap() []error })
-	if !ok {
-		return err
-	}
-
-	var rest []error
-
-	for _, e := range joined.Unwrap() {
-		if !strings.HasPrefix(e.Error(), "sync /dev/stderr") {
-			rest = append(rest, e)
-		}
-	}
-
-	return errors.Join(rest...)
 }
 
 // get fetches url and returns the response with its body read, or nil if
@@ -640,4 +620,67 @@ func TestStartCfg_ObserverLogsNothingByDefault(t *testing.T) {
 	serveCall(o)
 
 	assert.Empty(t, logs.All())
+}
+
+// errSyncFailed is the error a failingSync sink fails each sync with
+var errSyncFailed = errors.New("sync failed")
+
+// failingSync is a log sink whose every sync fails, as a disk's can
+type failingSync struct {
+	io.Writer
+}
+
+// Sync fails with errSyncFailed
+func (failingSync) Sync() error {
+	return errSyncFailed
+}
+
+// The logger is synced, and the sync's error returned, when the stderr it
+// writes to is a regular file. A pipe takes no sync, and is not synced. A
+// stderr whose kind cannot be told is an error.
+func TestSyncLogger(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, file.Close())
+	})
+
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, reader.Close())
+		assert.NoError(t, writer.Close())
+	})
+
+	closed, err := os.Create(filepath.Join(t.TempDir(), "closed"))
+	require.NoError(t, err)
+	require.NoError(t, closed.Close())
+
+	logger := zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		failingSync{io.Discard},
+		zap.InfoLevel,
+	))
+
+	testTable := []struct {
+		want error
+		out  *os.File
+		name string
+	}{
+		{errSyncFailed, file, "a regular file"},
+		{nil, writer, "a pipe"},
+		{os.ErrClosed, closed, "a closed file"},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.ErrorIs(t, syncLogger(logger, testCase.out), testCase.want)
+		})
+	}
 }
