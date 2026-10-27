@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/contexttest"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -330,27 +331,8 @@ func generateRandomTxs(t *testing.T, count int) []*types.TxResult {
 	return txs
 }
 
-// errCountdown is the error a countdownContext ends with
+// errCountdown is the error the walk test's context ends with
 var errCountdown = errors.New("countdown over")
-
-// countdownContext ends once its Err has been asked more than budget times.
-// It lets a test end a context in the middle of an iterator's walk without a
-// clock, and tells how often the iterator checked it.
-type countdownContext struct {
-	context.Context
-	budget int
-	asked  int
-}
-
-func (c *countdownContext) Err() error {
-	c.asked++
-
-	if c.asked > c.budget {
-		return errCountdown
-	}
-
-	return nil
-}
 
 // A transaction iterator walks past every key outside its index window before
 // it yields a row, so a narrow window over a long range can read the whole
@@ -405,14 +387,18 @@ func TestStorage_TxIteratorWalkStopsWithItsContext(t *testing.T) {
 				assert.NoError(t, it.Close())
 			})
 
-			ctx := &countdownContext{Context: context.Background(), budget: budget}
+			ctx := &contexttest.Countdown{
+				Context:  context.Background(),
+				EndsWith: errCountdown,
+				Budget:   budget,
+			}
 
 			require.False(t, it.Next(ctx))
 			require.ErrorIs(t, it.Error(), errCountdown)
 
 			// One check per key until the context ends, plus the ask for its
 			// cause: the walk went no further than budget keys
-			assert.LessOrEqual(t, ctx.asked, budget+2, "the walk ran on after its context ended")
+			assert.LessOrEqual(t, ctx.Asked, budget+2, "the walk ran on after its context ended")
 		})
 	}
 }
