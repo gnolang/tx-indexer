@@ -172,6 +172,37 @@ func (failingStore) GetLatestHeight() (uint64, error) {
 	return 0, errors.New("storage unavailable")
 }
 
+// A block list cut at its element cap answers its rows with an error beside
+// them that is not the deadline: it counts as ok, as its page is whole
+func TestObserve_CountsAPageCutAtTheCapAsOK(t *testing.T) {
+	t.Parallel()
+
+	for _, field := range []string{"blocks", "getBlocks"} {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				m := metrics.New()
+				mux := Setup(
+					&slowStore{rows: maxElementsPerQuery + 1},
+					events.NewManager(),
+					nil,
+					chi.NewMux(),
+					false,
+					0,
+					observe.New(m),
+				)
+
+				resp := postQuery(t, mux, listQueries[field])
+				require.Len(t, resp.Errors, 1)
+				require.Equal(t, codeMaxElementsReached, resp.Errors[0].Extensions["code"])
+
+				assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_total", fieldRequests(field, "ok")), 0)
+			})
+		})
+	}
+}
+
 // slowFailingStore reads the latest height past the query deadline, taking
 // no context, then fails
 type slowFailingStore struct {

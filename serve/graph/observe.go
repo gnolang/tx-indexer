@@ -2,11 +2,13 @@ package graph
 
 import (
 	"context"
+	"errors"
 
 	"github.com/99designs/gqlgen/graphql"
 
 	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/metrics"
+	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/serve/observe"
 )
@@ -75,10 +77,28 @@ func (observeExtension) InterceptField(ctx context.Context, next graphql.Resolve
 	res, err := next(ctx)
 
 	answer.err = err
+	if err == nil {
+		answer.err = deadlineBesideRows(ctx)
+	}
 
 	tally.FromContext(ctx).AddReturned(answeredRows(res))
 
 	return res, err
+}
+
+// deadlineBesideRows returns the query deadline's error when the resolver ctx
+// resolves added it beside the rows it answered, as a block list the deadline
+// cut short does, and nil otherwise. An error of another kind beside the rows,
+// such as a page cut at its element cap, leaves the field answered.
+func deadlineBesideRows(ctx context.Context) error {
+	for _, added := range graphql.GetFieldErrors(ctx, graphql.GetFieldContext(ctx)) {
+		var exceeded *deadline.ExceededError
+		if errors.As(added, &exceeded) {
+			return added
+		}
+	}
+
+	return nil
 }
 
 // rootAnswerOf returns the answer of the root field ctx resolves, or nil when
