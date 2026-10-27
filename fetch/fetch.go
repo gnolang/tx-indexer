@@ -74,7 +74,30 @@ func New(
 
 	f.retrying = make(map[chunkRange]bool)
 
+	f.reportStoredHeight()
+
 	return f
+}
+
+// reportStoredHeight sets the indexed height to the one the storage holds.
+// FetchChainData waits on the genesis bootstrap, which waits on the node, so
+// a restart while the node is down would otherwise report 0 for a database
+// that keeps serving its rows.
+func (f *Fetcher) reportStoredHeight() {
+	if f.metrics == nil {
+		return
+	}
+
+	height, err := f.storage.GetLatestHeight()
+
+	switch {
+	case err == nil:
+		f.metrics.SetIndexedHeight(height)
+	case errors.Is(err, storageErrors.ErrNotFound):
+		// Nothing is indexed yet: the gauge's zero holds
+	default:
+		f.logger.Error("unable to read the stored height for the metrics", zap.Error(err))
+	}
 }
 
 // FetchChainData starts the fetching process that indexes

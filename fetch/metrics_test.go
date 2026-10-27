@@ -12,9 +12,12 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	clientTypes "github.com/gnolang/tx-indexer/client/types"
 	"github.com/gnolang/tx-indexer/internal/metricstest"
+	"github.com/gnolang/tx-indexer/internal/mock"
 	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/storage"
 )
@@ -168,4 +171,46 @@ func TestFetcher_CountsFetchErrorsAndRetries(t *testing.T) {
 	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
 	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", rangeErrors), 0)
 	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_retries_total", nil), 0)
+}
+
+// A fetcher reports the height its database holds from the moment it is
+// built: its fetch waits on the genesis bootstrap, which waits on the node, and
+// the database keeps serving its rows meanwhile
+func TestFetcher_ReportsTheStoredHeightWhenBuilt(t *testing.T) {
+	t.Parallel()
+
+	s := newStore(t)
+
+	wb := s.WriteBatch()
+	require.NoError(t, wb.SetLatestHeight(7))
+	require.NoError(t, wb.Commit())
+
+	m := metrics.New()
+
+	New(s, &mockClient{}, &mockEvents{}, WithMetrics(m))
+
+	assert.InDelta(t, 7, metricstest.Value(t, m, "tx_indexer_indexed_height", nil), 0)
+}
+
+// A stored height the storage fails to read is logged, and leaves the gauge
+// as it is: FetchChainData reads it again, and fails on it
+func TestFetcher_LogsAStoredHeightItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	core, logs := observer.New(zap.ErrorLevel)
+	m := metrics.New()
+
+	store := &mock.Storage{
+		GetLatestSavedHeightFn: func() (uint64, error) {
+			return 0, errors.New("pebble: corrupted sstable")
+		},
+	}
+
+	New(store, &mockClient{}, &mockEvents{}, WithMetrics(m), WithLogger(zap.New(core)))
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "pebble: corrupted sstable", entries[0].ContextMap()["error"])
+
+	assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_indexed_height", nil), 0)
 }

@@ -28,6 +28,7 @@ import (
 
 	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve/observe"
+	"github.com/gnolang/tx-indexer/storage"
 )
 
 // TestAfterGenesis_WaitsForBootstrap makes sure a service that reads the
@@ -519,6 +520,29 @@ func TestStartCfg_CountsTheNodeDownAtStart(t *testing.T) {
 		assert.NotEmpty(c, failures)
 		assert.NotEqual(c, series+" 0", failures)
 	}, 5*time.Second, 10*time.Millisecond)
+}
+
+// Restarted on an indexed database while the node is down, the indexer
+// reports the height the database holds, which it keeps serving
+func TestStartCfg_ReportsTheStoredHeightWithTheNodeDown(t *testing.T) {
+	t.Parallel()
+
+	dbPath := t.TempDir()
+
+	db, err := storage.NewPebble(dbPath)
+	require.NoError(t, err)
+
+	wb := db.WriteBatch()
+	require.NoError(t, wb.SetLatestHeight(5))
+	require.NoError(t, wb.Commit())
+	require.NoError(t, db.Close())
+
+	started := startIndexer(t, true, "--db-path", dbPath)
+
+	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
+	require.NotNil(t, scrape)
+
+	assert.Equal(t, "tx_indexer_indexed_height 5", sample(scrape.body, "tx_indexer_indexed_height"))
 }
 
 // TestStartCfg_RequestLogFlags makes sure the request log is off unless the
