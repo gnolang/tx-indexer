@@ -90,7 +90,7 @@ func (h *Handler) getGasPriceBy(ctx context.Context, fromBlockNum, toBlockNum ui
 		return nil, itErr
 	}
 
-	gasPrices, err := methods.GetGasPricesByBlocks(blocks)
+	gasPrices, err := methods.GetGasPricesByBlocks(ctx, blocks)
 	if err != nil {
 		return nil, err
 	}

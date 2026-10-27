@@ -7,7 +7,9 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/storage"
@@ -167,4 +169,56 @@ func TestGetGasPriceHandler_NamesTheQueryDeadline(t *testing.T) {
 		assert.Equal(t, "query deadline exceeded (50ms); narrow the block height range", err.Message)
 		assert.Equal(t, map[string]any{"code": "QUERY_DEADLINE_EXCEEDED", "queryDeadline": "50ms"}, err.Data)
 	})
+}
+
+// The deadline can pass once the blocks are read, while the prices are
+// computed over many transactions per block. The computation stops too, and
+// the request answers the named deadline rather than prices.
+func TestGetGasPriceHandler_DeadlinePassesDuringTheComputation(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blocks      = 5
+		txsPerBlock = 1_000
+	)
+
+	txs := make(types.Txs, 0, txsPerBlock)
+	for amount := int64(1); amount <= txsPerBlock; amount++ {
+		txs = append(txs, amino.MustMarshal(std.Tx{
+			Fee: std.Fee{GasFee: std.Coin{Denom: "ugnot", Amount: amount}},
+		}))
+	}
+
+	block := &types.Block{Data: types.Data{Txs: txs}}
+
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+
+	read := 0
+	h := NewHandler(&mockStorage{
+		blockIteratorFn: func(uint64, uint64) (storage.Iterator[*types.Block], error) {
+			return &mockIterator{
+				nextFn: func() bool {
+					read++
+					if read <= blocks {
+						return true
+					}
+
+					// Every block is read: the deadline passes now, before
+					// the prices are computed
+					cancel(&deadline.ExceededError{Deadline: 50 * time.Millisecond})
+
+					return false
+				},
+				valueFn: func() (*types.Block, error) { return block, nil },
+			}, nil
+		},
+	})
+
+	response, err := h.GetGasPriceHandler(ctx, nil, []any{"0", "0"})
+	assert.Nil(t, response)
+
+	require.NotNil(t, err)
+	assert.Equal(t, "query deadline exceeded (50ms); narrow the block height range", err.Message)
+	assert.Equal(t, map[string]any{"code": "QUERY_DEADLINE_EXCEEDED", "queryDeadline": "50ms"}, err.Data)
 }
