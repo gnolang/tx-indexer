@@ -32,3 +32,37 @@ func (m *mockStorage) BlockIterator(
 
 	return nil, nil
 }
+
+type mockIterator struct {
+	nextFn  func() bool
+	valueFn func() (*types.Block, error)
+	errorFn func() error
+}
+
+func (m *mockIterator) Next() bool {
+	if m.nextFn != nil {
+		return m.nextFn()
+	}
+
+	return false
+}
+
+func (m *mockIterator) Value() (*types.Block, error) {
+	if m.valueFn != nil {
+		return m.valueFn()
+	}
+
+	return nil, nil
+}
+
+func (m *mockIterator) Error() error {
+	if m.errorFn != nil {
+		return m.errorFn()
+	}
+
+	return nil
+}
+
+func (m *mockIterator) Close() error {
+	return nil
+}
