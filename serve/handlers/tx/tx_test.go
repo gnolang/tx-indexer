@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"testing"
@@ -10,7 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
+	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -189,4 +192,65 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		assert.Equal(t, txResult, &decodedTxResult)
 	})
+}
+
+// A transaction lookup, by height and index or by hash, counts as one row
+// scanned in the tally of its request, whether it finds the transaction or
+// not: a miss reads the storage all the same. Only a transaction found counts
+// as a row answered.
+func TestGetTx_TalliesTheRowItReads(t *testing.T) {
+	t.Parallel()
+
+	s, err := storage.NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	stored := types.Tx{1}
+
+	wb := s.WriteBatch()
+	require.NoError(t, wb.SetTx(&types.TxResult{Height: 1, Tx: stored}))
+	require.NoError(t, wb.Commit())
+
+	byHeight := func(height string) func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+		return func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+			_, jsonErr := h.GetTxHandler(ctx, nil, []any{height, "0"})
+
+			return jsonErr
+		}
+	}
+
+	byHash := func(hash string) func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+		return func(h *Handler, ctx context.Context) *spec.BaseJSONError {
+			_, jsonErr := h.GetTxByHashHandler(ctx, nil, []any{hash})
+
+			return jsonErr
+		}
+	}
+
+	testTable := []struct {
+		handle   func(h *Handler, ctx context.Context) *spec.BaseJSONError
+		name     string
+		returned int64
+	}{
+		{byHeight("1"), "found by height and index", 1},
+		{byHeight("9"), "missing by height and index", 0},
+		{byHash(base64.StdEncoding.EncodeToString(stored.Hash())), "found by hash", 1},
+		{byHash("unknown"), "missing by hash", 0},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := &tally.Rows{}
+
+			require.Nil(t, testCase.handle(NewHandler(s), tally.NewContext(t.Context(), rows)))
+
+			assert.Equal(t, int64(1), rows.Scanned())
+			assert.Equal(t, testCase.returned, rows.Returned())
+		})
+	}
 }

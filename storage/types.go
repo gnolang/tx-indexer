@@ -30,14 +30,16 @@ type Reader interface {
 	// GetGenesisBalances returns the stored genesis balance rows, unfolded
 	GetGenesisBalances() ([]gnoland.Balance, error)
 
-	// GetBlock fetches the block by its number
-	GetBlock(uint64) (*types.Block, error)
+	// GetBlock fetches the block by its number. Like every point read, it
+	// counts as one row scanned in the tally.Rows ctx carries, if any, whether
+	// it finds its row or not: a miss reads the storage all the same.
+	GetBlock(ctx context.Context, blockNum uint64) (*types.Block, error)
 
 	// GetTx fetches the tx using the block height and the transaction index
-	GetTx(blockNum uint64, index uint32) (*types.TxResult, error)
+	GetTx(ctx context.Context, blockNum uint64, index uint32) (*types.TxResult, error)
 
 	// GetTxByHash fetches the tx using the transaction hash
-	GetTxByHash(txHash string) (*types.TxResult, error)
+	GetTxByHash(ctx context.Context, txHash string) (*types.TxResult, error)
 
 	// BlockIterator iterates over Blocks, limiting the results to be between the provided block numbers
 	BlockIterator(fromBlockNum, toBlockNum uint64) (Iterator[*types.Block], error)
@@ -62,6 +64,8 @@ type Iterator[T any] interface {
 	// transaction iterator outside its index window, stops passing over
 	// them once ctx has ended: Next then returns false and Error reports
 	// context.Cause(ctx). Callers still check ctx between the rows they read.
+	// Every key Next walks, yielded or passed over, counts as a row scanned
+	// in the tally.Rows ctx carries, if any.
 	Next(ctx context.Context) bool
 	Error() error
 	Value() (T, error)

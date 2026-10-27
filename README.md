@@ -92,6 +92,8 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
+  -client-ip-header string        the header trusted to carry the client address the request log names, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
+  -client-ip-trusted-hops 1       the number of trusted proxies appending to --client-ip-header: the client address is that many entries from the right of its list
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
@@ -100,8 +102,10 @@ FLAGS
   -log-level info                 the log level for the CLI output
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
+  -metrics-listen-address string  the IP:PORT address to serve the Prometheus metrics on, at /metrics, apart from the public endpoints; off by default
   -query-deadline 0s              the maximum time a GraphQL or JSON-RPC request may run before it is answered with a deadline error, unlimited by default; subscriptions are exempt
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
+  -request-log=false              log one line per GraphQL root field or JSON-RPC call served, at info: its operation, status, duration, rows and client address, never its arguments
   -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
 ```
 
@@ -156,6 +160,68 @@ keep as many cores busy for the length of the deadline.
 
 Subscriptions, over GraphQL or the `/ws` endpoint, last as long as their connection and are not bounded; each JSON-RPC
 call sent over `/ws` is. `/health` and `/ready` are not bounded.
+
+### Metrics
+
+`--metrics-listen-address` serves Prometheus metrics at `/metrics` on a listener of its own, apart from the GraphQL and
+JSON-RPC endpoints, so it can stay on a private interface. It is off by default, and the indexer then collects none.
+
+A request is one GraphQL root query field or one JSON-RPC call: a batch counts each of its calls. Its `api` label is
+`graphql` or `jsonrpc`, and its `operation` label the field or the method. No label carries a client address or a
+request's arguments.
+
+| Metric                                | Type      | Labels                       | Value                                                                                                        |
+| ------------------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `tx_indexer_requests_total`           | counter   | `api`, `operation`, `status` | requests served; `status` is `ok` (partial answers included), `error`, or `deadline` (`--query-deadline`)    |
+| `tx_indexer_request_duration_seconds` | histogram | `api`, `operation`           | the time a request takes, the fields of the rows it answers included                                         |
+| `tx_indexer_rows_scanned_total`       | counter   | `api`, `operation`           | the blocks and transactions read from the database, the ones a filter or an index window then drops included |
+| `tx_indexer_rows_returned_total`      | counter   | `api`, `operation`           | the blocks and transactions answered                                                                         |
+| `tx_indexer_requests_in_flight`       | gauge     | `api`, `operation`           | the requests being served                                                                                    |
+| `tx_indexer_indexed_height`           | gauge     |                              | the latest block height written to the database                                                              |
+| `tx_indexer_chain_height`             | gauge     |                              | the chain's latest block height, as last read from the node                                                  |
+| `tx_indexer_fetch_errors_total`       | counter   | `stage`                      | failed reads from the node: of its latest height (`chain_height`), or of a range of blocks (`range`)         |
+| `tx_indexer_fetch_retries_total`      | counter   |                              | the block ranges fetched again after their fetch failed                                                      |
+
+The Go runtime's (`go_*`) and the process's (`process_*`) metrics are served beside them. A subscription's stream is
+not counted, as it lasts as long as its connection: a GraphQL subscription is left out, and a JSON-RPC `subscribe` call
+counts for its answer alone. Neither is a request that runs no operation: a GraphQL document that does not validate, or
+a JSON-RPC call that is not valid JSON-RPC 2.0 or names a method that does not exist.
+
+A GraphQL list answered in part counts as `ok`, with an error beside its rows: one cut at its element cap, or one short
+of a row that failed to decode. A block list the query deadline cuts short counts as `deadline`, though it answers the
+blocks it read.
+
+A lookup of one block or transaction, by height, index or hash, counts as one row scanned whether it finds its row or
+not: a miss reads the database all the same.
+
+The rows scanned for each row returned tell how much reading a filter costs:
+`rate(tx_indexer_rows_scanned_total[5m]) / rate(tx_indexer_rows_returned_total[5m])`.
+
+The lag behind the chain, in blocks, is `tx_indexer_chain_height - tx_indexer_indexed_height`. The chain's height is read
+once per fetch round, and not while every fetch slot is busy catching up, so it can trail the chain; a node that stops
+answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag. That
+counter also counts the genesis bootstrap's failed reads of the node's status, so a node down when the indexer starts
+shows there too.
+
+### Request log
+
+`--request-log` logs one line at info per request served, the same requests the metrics count: its `api`, `operation`
+and `status`, its `duration`, its `rows-scanned` and `rows-returned`, and the `client` address. It never logs a
+request's arguments: a GraphQL query's variables or a JSON-RPC call's params. It is off by default, as it adds a line
+per call of every client and their addresses to the log.
+
+The client address is the address the request came from, which behind a proxy is the proxy's. `--client-ip-header`
+names a header the proxies in front of the indexer fill with the client's address instead:
+
+- behind Cloudflare, `CF-Connecting-IP`, which Cloudflare sets to the client's address;
+- behind load balancers, `X-Forwarded-For`. Each appends the address it was reached from, and the client can write
+  anything to the left of those entries, so `--client-ip-trusted-hops` counts the load balancers and the client address
+  is that many entries from the right, 1 by default.
+
+A header that is missing, holds fewer entries, or holds no IP address there leaves the address the request came from.
+An entry's port, which some proxies append (`203.0.113.7:51234`, `[2001:db8::1]:443`), is dropped.
+Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
+writes the header it likes.
 
 ## GraphQL Endpoint
 

@@ -19,7 +19,7 @@ import (
 // Transactions is the resolver for the transactions field.
 func (r *queryResolver) Transactions(ctx context.Context, filter model.TransactionFilter) ([]*model.Transaction, error) {
 	if filter.Hash != nil {
-		tx, err := r.store.GetTxByHash(*filter.Hash)
+		tx, err := r.store.GetTxByHash(ctx, *filter.Hash)
 		if err != nil {
 			return nil, gqlerror.Wrap(err)
 		}
@@ -220,7 +220,7 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	if where.Hash != nil &&
 		where.Hash.Eq != nil &&
 		len(where.Or) == 0 {
-		tx, err := r.store.GetTxByHash(*where.Hash.Eq)
+		tx, err := r.store.GetTxByHash(ctx, *where.Hash.Eq)
 		if err != nil {
 			return nil, gqlerror.Wrap(err)
 		}

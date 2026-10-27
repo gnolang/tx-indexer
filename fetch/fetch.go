@@ -11,6 +11,7 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -29,6 +30,7 @@ type Fetcher struct {
 	events  Events
 
 	logger      *zap.Logger
+	metrics     *metrics.Metrics
 	chunkBuffer *slots
 
 	// retrying holds the chunk ranges whose fetch failed, mapped to whether
@@ -72,7 +74,30 @@ func New(
 
 	f.retrying = make(map[chunkRange]bool)
 
+	f.reportStoredHeight()
+
 	return f
+}
+
+// reportStoredHeight sets the indexed height to the one the storage holds.
+// FetchChainData waits on the genesis bootstrap, which waits on the node, so
+// a restart while the node is down would otherwise report 0 for a database
+// that keeps serving its rows.
+func (f *Fetcher) reportStoredHeight() {
+	if f.metrics == nil {
+		return
+	}
+
+	height, err := f.storage.GetLatestHeight()
+
+	switch {
+	case err == nil:
+		f.metrics.SetIndexedHeight(height)
+	case errors.Is(err, storageErrors.ErrNotFound):
+		// Nothing is indexed yet: the gauge's zero holds
+	default:
+		f.logger.Error("unable to read the stored height for the metrics", zap.Error(err))
+	}
 }
 
 // FetchChainData starts the fetching process that indexes
@@ -96,13 +121,18 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			return fmt.Errorf("unable to fetch latest block height, %w", err)
 		}
 
+		f.metrics.SetIndexedHeight(latestLocal)
+
 		// Fetch the latest block from the chain
 		latestRemote, latestErr := f.client.GetLatestBlockNumber(ctx)
 		if latestErr != nil {
 			f.logger.Error("unable to fetch latest block number", zap.Error(latestErr))
+			f.metrics.CountFetchError(metrics.FetchStageChainHeight)
 
 			return nil
 		}
+
+		f.metrics.SetChainHeight(latestRemote)
 
 		// Check if there is a block gap
 		if latestRemote <= latestLocal {
@@ -146,6 +176,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			}
 
 			f.retrying[gap] = false
+			f.metrics.CountFetchRetry()
 
 			f.logger.Info(
 				"Refetching range",
@@ -203,6 +234,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// reserved with a nil chunk blocks the write loop below until
 				// the refetch succeeds
 				f.retrying[response.chunkRange] = true
+				f.metrics.CountFetchError(metrics.FetchStageRange)
 
 				continue
 			}
@@ -303,6 +335,8 @@ func (f *Fetcher) writeSlot(s *slot) error {
 	if err := wb.Commit(); err != nil {
 		return fmt.Errorf("error persisting block information into storage, %w", err)
 	}
+
+	f.metrics.SetIndexedHeight(s.chunkRange.to)
 
 	f.latestChunkSize = len(s.chunk.blocks)
 

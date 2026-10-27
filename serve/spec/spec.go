@@ -55,11 +55,28 @@ type SubscribeResponse struct {
 	Subscription string `json:"subscription"`
 }
 
-// BaseJSONError defines the base JSON response error format
+// BaseJSONError defines the base JSON response error format. It is an error
+// itself, wrapping the error it was made from, if any, so the error a call is
+// answered with can be inspected with errors.Is and errors.As.
 type BaseJSONError struct {
-	Data    any    `json:"data,omitempty"`
+	Data any `json:"data,omitempty"`
+
+	// cause is the error GenerateResponseError made the answer from
+	cause error
+
 	Message string `json:"message"`
 	Code    int    `json:"code"`
+}
+
+// Error is the message the call is answered with
+func (e *BaseJSONError) Error() string {
+	return e.Message
+}
+
+// Unwrap is the error the answer was made from, nil when it was made from a
+// message alone
+func (e *BaseJSONError) Unwrap() error {
+	return e.cause
 }
 
 // NewJSONRequest creates a new JSON-RPC request
@@ -119,6 +136,7 @@ func NewJSONSubscribeResponse(id string, result any) *BaseJSONSubscribeResponse 
 // error past the query deadline carries its machine-readable details in Data.
 func GenerateResponseError(err error) *BaseJSONError {
 	jsonErr := NewJSONError(err.Error(), ServerErrorCode)
+	jsonErr.cause = err
 
 	var exceeded *deadline.ExceededError
 	if errors.As(err, &exceeded) {

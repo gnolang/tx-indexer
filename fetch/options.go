@@ -1,6 +1,10 @@
 package fetch
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+
+	"github.com/gnolang/tx-indexer/metrics"
+)
 
 type Option func(f *Fetcher)
 
@@ -26,5 +30,13 @@ func WithMaxChunkSize(maxChunkSize int64) Option {
 	return func(f *Fetcher) {
 		f.maxChunkSize = maxChunkSize
 		f.latestChunkSize = int(maxChunkSize)
+	}
+}
+
+// WithMetrics sets the metrics the fetcher reports its progress and its
+// failures to. Unset, it reports none.
+func WithMetrics(m *metrics.Metrics) Option {
+	return func(f *Fetcher) {
+		f.metrics = m
 	}
 }

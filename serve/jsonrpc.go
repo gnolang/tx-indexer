@@ -13,6 +13,7 @@ import (
 	"github.com/olahol/melody"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
 	"github.com/gnolang/tx-indexer/serve/deadline"
@@ -23,6 +24,7 @@ import (
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/handlers/tx"
 	"github.com/gnolang/tx-indexer/serve/metadata"
+	"github.com/gnolang/tx-indexer/serve/observe"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/serve/writer"
 	httpWriter "github.com/gnolang/tx-indexer/serve/writer/http"
@@ -64,6 +66,9 @@ type JSONRPC struct {
 	// ws handles incoming and active WS connections
 	ws *melody.Melody
 
+	// observer records each call served; nil records none
+	observer *observe.Observer
+
 	// queryDeadline bounds each request, a batch as a whole; zero leaves
 	// requests unbounded
 	queryDeadline time.Duration
@@ -100,11 +105,14 @@ func (j *JSONRPC) SetupRoutes(mux *chi.Mux) *chi.Mux {
 	// OPTIONS requests are ignored
 	mux.Options("/", func(http.ResponseWriter, *http.Request) {})
 
-	// Register the POST methodHandler for HTTP requests
-	mux.Post("/", j.handleHTTPRequest)
+	// Register the POST methodHandler for HTTP requests. The observer's
+	// middleware reads the client address before the calls are served
+	mux.Method(http.MethodPost, "/", j.observer.Middleware(http.HandlerFunc(j.handleHTTPRequest)))
 
-	// Register the WS methodHandler
-	mux.HandleFunc("/ws", j.handleWSRequest)
+	// Register the WS methodHandler. The observer's middleware reads the
+	// client address of the upgrade request, which every call the connection
+	// carries shares
+	mux.Handle("/ws", j.observer.Middleware(http.HandlerFunc(j.handleWSRequest)))
 
 	return mux
 }
@@ -385,7 +393,9 @@ func (j *JSONRPC) handleRequest(
 	writer.WriteResponse(responses)
 }
 
-// route routes the base request to the appropriate handler
+// route routes the base request to the appropriate handler. Only a call to
+// a registered method is observed: the method then names a known operation,
+// never a string the client made up.
 func (j *JSONRPC) route(
 	ctx context.Context,
 	metadata *metadata.Metadata,
@@ -400,13 +410,41 @@ func (j *JSONRPC) route(
 		)
 	}
 
+	ctx, call := j.observer.Start(ctx, metrics.APIJSONRPC, request.Method)
+
+	// The call stays unanswered until its handler returns: a handler that
+	// panics never returns, and its call still ends
+	answered := observe.ErrUnanswered
+
+	defer func() {
+		call.End(ctx, answered)
+	}()
+
+	response, err := runHandler(ctx, handler, metadata, request.Params)
+
+	answered = nil
+	if err != nil {
+		answered = err
+	}
+
+	return response, err
+}
+
+// runHandler runs handler for a call, unless the call's request has already
+// ended
+func runHandler(
+	ctx context.Context,
+	handler Handler,
+	metadata *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
 	// A request that has ended, by its deadline or its client leaving, runs
 	// no further calls of its batch: each answers the reason instead
 	if ctx.Err() != nil {
 		return nil, spec.GenerateResponseError(context.Cause(ctx))
 	}
 
-	return handler(ctx, metadata, request.Params)
+	return handler(ctx, metadata, params)
 }
 
 // isValidBaseRequest validates that the base JSON request is valid

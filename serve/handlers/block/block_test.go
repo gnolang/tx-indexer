@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
+	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -137,4 +139,45 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		assert.Equal(t, block, &decodedBlock)
 	})
+}
+
+// A block lookup counts as one row scanned in the tally of its request,
+// whether it finds the block or not: a miss reads the storage all the same.
+// Only a block found counts as a row answered.
+func TestGetBlock_TalliesTheRowItReads(t *testing.T) {
+	t.Parallel()
+
+	s, err := storage.NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	wb := s.WriteBatch()
+	require.NoError(t, wb.SetBlock(&types.Block{Header: types.Header{Height: 1}}))
+	require.NoError(t, wb.Commit())
+
+	testTable := []struct {
+		name     string
+		height   string
+		returned int64
+	}{
+		{"found", "1", 1},
+		{"missing", "9", 0},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := &tally.Rows{}
+
+			_, jsonErr := NewHandler(s).GetBlockHandler(tally.NewContext(t.Context(), rows), nil, []any{testCase.height})
+			require.Nil(t, jsonErr)
+
+			assert.Equal(t, int64(1), rows.Scanned())
+			assert.Equal(t, testCase.returned, rows.Returned())
+		})
+	}
 }

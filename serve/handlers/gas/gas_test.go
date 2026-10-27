@@ -10,6 +10,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/storage"
@@ -221,4 +222,37 @@ func TestGetGasPriceHandler_DeadlinePassesBeforeTheComputation(t *testing.T) {
 	require.NotNil(t, err)
 	assert.Equal(t, "query deadline exceeded (50ms); narrow the block height range", err.Message)
 	assert.Equal(t, map[string]any{"code": "QUERY_DEADLINE_EXCEEDED", "queryDeadline": "50ms"}, err.Data)
+}
+
+// The blocks the range scan reads count as rows scanned in the tally of the
+// request; the gas prices it answers are no rows
+func TestGetGasPriceHandler_TalliesTheBlocksItScans(t *testing.T) {
+	t.Parallel()
+
+	s, err := storage.NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	wb := s.WriteBatch()
+
+	for height := int64(1); height <= 10; height++ {
+		require.NoError(t, wb.SetBlock(&types.Block{Header: types.Header{Height: height}}))
+	}
+
+	require.NoError(t, wb.Commit())
+
+	rows := &tally.Rows{}
+
+	_, jsonErr := NewHandler(s).GetGasPriceHandler(
+		tally.NewContext(context.Background(), rows),
+		nil,
+		[]any{"3", "7"},
+	)
+	require.Nil(t, jsonErr)
+
+	assert.Equal(t, int64(5), rows.Scanned())
+	assert.Zero(t, rows.Returned())
 }

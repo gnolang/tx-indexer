@@ -16,7 +16,9 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/require"
 
+	"github.com/gnolang/tx-indexer/internal/metricstest"
 	"github.com/gnolang/tx-indexer/internal/mock"
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
@@ -474,4 +476,46 @@ func TestBootstrap_CancelledWhileRetrying(t *testing.T) {
 		Bootstrap(ctx, store, client, WithBackoff(time.Millisecond)),
 		context.DeadlineExceeded,
 	)
+}
+
+// Each failed read of the chain's status counts as a chain_height fetch
+// error, so a node down at start shows in the metrics while the bootstrap
+// retries, before the fetcher runs
+func TestBootstrap_CountsFailedStatusReads(t *testing.T) {
+	t.Parallel()
+
+	var statusCalls int
+
+	m := metrics.New()
+	rec := newRecorder()
+
+	client := &mockClient{
+		getStatusFn: func() (*core_types.ResultStatus, error) {
+			statusCalls++
+
+			// Fail twice, then answer.
+			if statusCalls < 3 {
+				return nil, errors.New("node unreachable")
+			}
+
+			return statusFor(testChainID), nil
+		},
+		getGenesisFn: func() (*core_types.ResultGenesis, error) {
+			return genesisFor(testChainID, nil, nil), nil
+		},
+		getBlockResultsFn: func(uint64) (*core_types.ResultBlockResults, error) {
+			return &core_types.ResultBlockResults{Results: &state.ABCIResponses{}}, nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	require.NoError(t, Bootstrap(ctx, rec.storage(), client, WithBackoff(time.Millisecond), WithMetrics(m)))
+
+	chainHeightErrors := map[string]string{"stage": "chain_height"}
+	rangeErrors := map[string]string{"stage": "range"}
+
+	require.InDelta(t, 2, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
+	require.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", rangeErrors), 0)
 }

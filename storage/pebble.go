@@ -12,6 +12,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"go.uber.org/multierr"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -141,7 +142,9 @@ func (s *Pebble) GetGenesisBalances() ([]gnoland.Balance, error) {
 }
 
 // GetBlock fetches the specified block from storage, if any
-func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
+func (s *Pebble) GetBlock(ctx context.Context, blockNum uint64) (*types.Block, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	block, c, err := s.db.Get(keyBlock(blockNum))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -157,7 +160,9 @@ func (s *Pebble) GetBlock(blockNum uint64) (*types.Block, error) {
 }
 
 // GetTx fetches the specified tx result from storage, if any
-func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
+func (s *Pebble) GetTx(ctx context.Context, blockNum uint64, index uint32) (*types.TxResult, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	tx, c, err := s.db.Get(keyTx(blockNum, index))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -172,7 +177,11 @@ func (s *Pebble) GetTx(blockNum uint64, index uint32) (*types.TxResult, error) {
 	return decodeTx(tx)
 }
 
-func (s *Pebble) GetTxByHash(txHash string) (*types.TxResult, error) {
+// GetTxByHash fetches the tx result the hash indexes, if any. The read of the
+// hash index and of the row it points to count as one row scanned.
+func (s *Pebble) GetTxByHash(ctx context.Context, txHash string) (*types.TxResult, error) {
+	tally.FromContext(ctx).AddScanned(1)
+
 	txKey, ch, err := s.db.Get(keyHashTx(txHash))
 	if errors.Is(err, pebble.ErrNotFound) {
 		return nil, storageErrors.ErrNotFound
@@ -381,14 +390,14 @@ type PebbleBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleBlockIter) Next(_ context.Context) bool {
+func (pi *PebbleBlockIter) Next(ctx context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
-		return pi.i.First()
+		return countScanned(ctx, pi.i.First())
 	}
 
-	return pi.i.Valid() && pi.i.Next()
+	return pi.i.Valid() && countScanned(ctx, pi.i.Next())
 }
 
 var _ Iterator[*types.Block] = &PebbleReverseBlockIter{}
@@ -397,14 +406,24 @@ type PebbleReverseBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleReverseBlockIter) Next(_ context.Context) bool {
+func (pi *PebbleReverseBlockIter) Next(ctx context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
-		return pi.i.Last()
+		return countScanned(ctx, pi.i.Last())
 	}
 
-	return pi.i.Valid() && pi.i.Prev()
+	return pi.i.Valid() && countScanned(ctx, pi.i.Prev())
+}
+
+// countScanned counts the key a move of an iterator landed on, if it landed
+// on one, as a row scanned in the tally ctx carries
+func countScanned(ctx context.Context, moved bool) bool {
+	if moved {
+		tally.FromContext(ctx).AddScanned(1)
+	}
+
+	return moved
 }
 
 type pebbleBaseTxIter struct {
@@ -452,48 +471,7 @@ type PebbleTxIter struct {
 }
 
 func (pi *PebbleTxIter) Next(ctx context.Context) bool {
-	for {
-		if pi.stopped(ctx) {
-			return false
-		}
-
-		if !pi.init {
-			if !pi.i.First() {
-				return false
-			}
-
-			pi.init = true
-		} else if !pi.i.Next() {
-			return false
-		}
-
-		var buf []byte
-
-		key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		key, _, err = decodeUint64Ascending(key)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		_, txIdx, err := decodeUint32Ascending(key)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		if txIdx >= pi.fromIndex && txIdx < pi.toIndex {
-			return true
-		}
-	}
+	return pi.next(ctx, pi.i.First, pi.i.Next)
 }
 
 var _ Iterator[*types.TxResult] = &PebbleReverseTxIter{}
@@ -503,20 +481,31 @@ type PebbleReverseTxIter struct {
 }
 
 func (pi *PebbleReverseTxIter) Next(ctx context.Context) bool {
+	return pi.next(ctx, pi.i.Last, pi.i.Prev)
+}
+
+// next walks to the next key inside the index window, landing on the first
+// key with start and stepping to the following ones with step: both iterators
+// walk alike and differ only in direction
+func (pi *pebbleBaseTxIter) next(ctx context.Context, start, step func() bool) bool {
+	rows := tally.FromContext(ctx)
+
 	for {
 		if pi.stopped(ctx) {
 			return false
 		}
 
 		if !pi.init {
-			if !pi.i.Last() {
+			if !start() {
 				return false
 			}
 
 			pi.init = true
-		} else if !pi.i.Prev() {
+		} else if !step() {
 			return false
 		}
+
+		rows.AddScanned(1)
 
 		var buf []byte
 

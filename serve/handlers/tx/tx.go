@@ -8,6 +8,7 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -25,7 +26,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetTxHandler(
-	_ context.Context,
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -46,7 +47,7 @@ func (h *Handler) GetTxHandler(
 	}
 
 	// Run the handler
-	response, err := h.getTx(blockNum, uint32(txIndex))
+	response, err := h.getTx(ctx, blockNum, uint32(txIndex))
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -60,11 +61,14 @@ func (h *Handler) GetTxHandler(
 		return nil, spec.GenerateResponseError(err)
 	}
 
+	// The storage counted the row it read; the one asked for is answered
+	tally.FromContext(ctx).AddReturned(1)
+
 	return encodedResponse, nil
 }
 
 func (h *Handler) GetTxByHashHandler(
-	_ context.Context,
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -80,7 +84,7 @@ func (h *Handler) GetTxByHashHandler(
 	}
 
 	// Run the handler
-	response, err := h.getTxByHash(txHash)
+	response, err := h.getTxByHash(ctx, txHash)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -94,12 +98,15 @@ func (h *Handler) GetTxByHashHandler(
 		return nil, spec.GenerateResponseError(err)
 	}
 
+	// The storage counted the row it read; the one asked for is answered
+	tally.FromContext(ctx).AddReturned(1)
+
 	return encodedResponse, nil
 }
 
 // getTx fetches the tx from storage, if any
-func (h *Handler) getTx(blockNum uint64, txIndex uint32) (*types.TxResult, error) {
-	tx, err := h.storage.GetTx(blockNum, txIndex)
+func (h *Handler) getTx(ctx context.Context, blockNum uint64, txIndex uint32) (*types.TxResult, error) {
+	tx, err := h.storage.GetTx(ctx, blockNum, txIndex)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case
@@ -114,8 +121,8 @@ func (h *Handler) getTx(blockNum uint64, txIndex uint32) (*types.TxResult, error
 }
 
 // getTx fetches the tx from storage, if any
-func (h *Handler) getTxByHash(hash string) (*types.TxResult, error) {
-	tx, err := h.storage.GetTxByHash(hash)
+func (h *Handler) getTxByHash(ctx context.Context, hash string) (*types.TxResult, error) {
+	tx, err := h.storage.GetTxByHash(ctx, hash)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/encode"
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -24,7 +25,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetBlockHandler(
-	_ context.Context,
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -45,7 +46,7 @@ func (h *Handler) GetBlockHandler(
 	}
 
 	// Run the handler
-	response, err := h.getBlock(blockNum)
+	response, err := h.getBlock(ctx, blockNum)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}
@@ -59,12 +60,15 @@ func (h *Handler) GetBlockHandler(
 		return nil, spec.GenerateResponseError(err)
 	}
 
+	// The storage counted the row it read; the one asked for is answered
+	tally.FromContext(ctx).AddReturned(1)
+
 	return encodedResponse, nil
 }
 
 // getBlock fetches the block from storage, if any
-func (h *Handler) getBlock(blockNum uint64) (*types.Block, error) {
-	block, err := h.storage.GetBlock(blockNum)
+func (h *Handler) getBlock(ctx context.Context, blockNum uint64) (*types.Block, error) {
+	block, err := h.storage.GetBlock(ctx, blockNum)
 	if errors.Is(err, storageErrors.ErrNotFound) {
 		// Wrap the error
 		//nolint:nilnil // This is a special case
