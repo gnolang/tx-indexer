@@ -810,7 +810,7 @@ func TestGetSupplyHandlerParamValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, rpcErr := h.GetSupplyHandler(metadata.NewMetadata(""), tc.params)
+			_, rpcErr := h.GetSupplyHandler(t.Context(), metadata.NewMetadata(""), tc.params)
 			require.NotNil(t, rpcErr)
 		})
 	}
@@ -825,7 +825,7 @@ func TestGetSupplyHandlerServesSnapshot(t *testing.T) {
 	h := newHandler(t, fixture)
 	h.refresh(context.Background())
 
-	resp, rpcErr := h.GetSupplyHandler(metadata.NewMetadata(""), []any{testDenom})
+	resp, rpcErr := h.GetSupplyHandler(t.Context(), metadata.NewMetadata(""), []any{testDenom})
 	require.Nil(t, rpcErr)
 
 	supply, ok := resp.(*methods.Supply)

@@ -1,6 +1,7 @@
 package subs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gnolang/tx-indexer/serve/encode"
@@ -29,6 +30,7 @@ func NewHandler(
 
 // NewBlockFilterHandler creates a block filter object
 func (h *Handler) NewBlockFilterHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -46,6 +48,7 @@ func (h *Handler) newBlockFilter() string {
 
 // NewTransactionFilterHandler creates a transaction filter object
 func (h *Handler) NewTransactionFilterHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -70,6 +73,7 @@ func (h *Handler) newTxFilter(options filter.TxFilterOption) string {
 
 // UninstallFilterHandler uninstalls a filter with given id
 func (h *Handler) UninstallFilterHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -92,6 +96,7 @@ func (h *Handler) uninstallFilter(id string) bool {
 }
 
 func (h *Handler) SubscribeHandler(
+	_ context.Context,
 	metadata *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -144,6 +149,7 @@ func (h *Handler) subscribe(connID, eventType string) (string, error) {
 }
 
 func (h *Handler) UnsubscribeHandler(
+	_ context.Context,
 	metadata *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -174,7 +180,11 @@ func (h *Handler) unsubscribe(subscriptionID string) bool {
 }
 
 // GetFilterChangesHandler returns recent changes for a specified filter
-func (h *Handler) GetFilterChangesHandler(_ *metadata.Metadata, params []any) (any, *spec.BaseJSONError) {
+func (h *Handler) GetFilterChangesHandler(
+	_ context.Context,
+	_ *metadata.Metadata,
+	params []any,
+) (any, *spec.BaseJSONError) {
 	// Check the params
 	if len(params) != 1 {
 		return nil, spec.GenerateInvalidParamCountError()

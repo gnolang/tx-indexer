@@ -1,8 +1,11 @@
 package gas
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -34,7 +37,7 @@ func TestGetGasPriceHandler_InvalidParams(t *testing.T) {
 
 			h := NewHandler(&mockStorage{})
 
-			response, err := h.GetGasPriceHandler(nil, testCase.params)
+			response, err := h.GetGasPriceHandler(t.Context(), nil, testCase.params)
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
@@ -80,7 +83,7 @@ func TestGetGasPriceHandler_IteratorErrors(t *testing.T) {
 				},
 			})
 
-			response, err := h.GetGasPriceHandler(nil, []any{"1", "2"})
+			response, err := h.GetGasPriceHandler(t.Context(), nil, []any{"1", "2"})
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
@@ -88,4 +91,49 @@ func TestGetGasPriceHandler_IteratorErrors(t *testing.T) {
 			assert.Equal(t, errIterator.Error(), err.Message)
 		})
 	}
+}
+
+// A scan stops once its request's context ends and answers the context's
+// cause, instead of reading the rest of the range for a caller that is gone
+func TestGetGasPriceHandler_StopsWhenTheContextEnds(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		const (
+			blocks   = 1_000
+			perBlock = time.Millisecond
+			bound    = 50 * time.Millisecond
+		)
+
+		errBound := errors.New("request bound reached")
+
+		ctx, cancel := context.WithTimeoutCause(t.Context(), bound, errBound)
+		defer cancel()
+
+		read := 0
+		h := NewHandler(&mockStorage{
+			blockIteratorFn: func(uint64, uint64) (storage.Iterator[*types.Block], error) {
+				return &mockIterator{
+					nextFn: func() bool {
+						time.Sleep(perBlock)
+
+						read++
+
+						return read <= blocks
+					},
+					valueFn: func() (*types.Block, error) { return &types.Block{}, nil },
+				}, nil
+			},
+		})
+
+		start := time.Now()
+
+		response, err := h.GetGasPriceHandler(ctx, nil, []any{"0", "0"})
+		assert.Nil(t, response)
+
+		require.NotNil(t, err)
+		assert.Equal(t, spec.ServerErrorCode, err.Code)
+		assert.Equal(t, errBound.Error(), err.Message)
+		assert.Less(t, time.Since(start), 2*bound, "the scan ran past its context")
+	})
 }

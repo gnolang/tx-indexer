@@ -1,13 +1,15 @@
 package serve
 
 import (
+	"context"
+
 	"github.com/gnolang/tx-indexer/serve/metadata"
 	"github.com/gnolang/tx-indexer/serve/spec"
 )
 
-// Handler executes a method with accompanying
+// Handler executes a method with the request's context and accompanying
 // data such as metadata and params
-type Handler func(metadata *metadata.Metadata, params []any) (any, *spec.BaseJSONError)
+type Handler func(ctx context.Context, metadata *metadata.Metadata, params []any) (any, *spec.BaseJSONError)
 
 type handlers map[string]Handler
 

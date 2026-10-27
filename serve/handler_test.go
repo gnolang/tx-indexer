@@ -2,6 +2,7 @@ package serve
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -106,7 +107,7 @@ func TestHTTP_Handle(t *testing.T) {
 			webServer := setupTestWebServer(t, func(s *JSONRPC) {
 				s.handlers = make(handlers)
 
-				s.handlers.addHandler(method, func(_ *metadata.Metadata, _ []any) (any, *spec.BaseJSONError) {
+				s.handlers.addHandler(method, func(_ context.Context, _ *metadata.Metadata, _ []any) (any, *spec.BaseJSONError) {
 					return commonResponse, nil
 				})
 			})

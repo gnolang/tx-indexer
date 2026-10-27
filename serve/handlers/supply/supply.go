@@ -331,6 +331,7 @@ func (h *Handler) GetSupply(_ context.Context, denom string) (*methods.Supply, e
 //
 // params: [denom]
 func (h *Handler) GetSupplyHandler(
+	ctx context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {
@@ -343,7 +344,7 @@ func (h *Handler) GetSupplyHandler(
 		return nil, spec.GenerateInvalidParamError(1)
 	}
 
-	supply, err := h.GetSupply(context.Background(), denom)
+	supply, err := h.GetSupply(ctx, denom)
 	if err != nil {
 		return nil, spec.GenerateResponseError(err)
 	}

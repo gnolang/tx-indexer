@@ -38,7 +38,7 @@ func TestGetBlock_InvalidParams(t *testing.T) {
 
 			h := NewHandler(&mockStorage{})
 
-			response, err := h.GetBlockHandler(nil, testCase.params)
+			response, err := h.GetBlockHandler(t.Context(), nil, testCase.params)
 			assert.Nil(t, response)
 
 			require.NotNil(t, err)
@@ -62,7 +62,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		response, err := h.GetBlockHandler(nil, []any{"1"})
+		response, err := h.GetBlockHandler(t.Context(), nil, []any{"1"})
 
 		// This is a special case
 		assert.Nil(t, response)
@@ -84,7 +84,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		response, err := h.GetBlockHandler(nil, []any{"1"})
+		response, err := h.GetBlockHandler(t.Context(), nil, []any{"1"})
 		assert.Nil(t, response)
 
 		// Make sure the error is populated
@@ -117,7 +117,7 @@ func TestGetBlock_Handler(t *testing.T) {
 
 		h := NewHandler(mockStorage)
 
-		responseRaw, err := h.GetBlockHandler(nil, []any{strconv.FormatInt(blockNum, 10)})
+		responseRaw, err := h.GetBlockHandler(t.Context(), nil, []any{strconv.FormatInt(blockNum, 10)})
 		require.Nil(t, err)
 
 		require.NotNil(t, responseRaw)

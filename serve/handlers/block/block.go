@@ -1,6 +1,7 @@
 package block
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -23,6 +24,7 @@ func NewHandler(storage Storage) *Handler {
 }
 
 func (h *Handler) GetBlockHandler(
+	_ context.Context,
 	_ *metadata.Metadata,
 	params []any,
 ) (any, *spec.BaseJSONError) {

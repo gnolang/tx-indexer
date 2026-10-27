@@ -242,8 +242,10 @@ func (j *JSONRPC) setupWSListeners() {
 		wsIDRaw, _ := s.Get(wsIDKey)
 		wsConnID := wsIDRaw.(string)
 
-		// Handle the request
+		// Handle the request. The upgrade request's context lasts as long as
+		// the connection does
 		j.handleRequest(
+			s.Request.Context(),
 			metadata.NewMetadata(
 				s.RemoteAddr().String(),
 				metadata.WithWebSocketID(wsConnID),
@@ -281,6 +283,7 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	// Handle the request
 	w.Header().Set("Content-Type", jsonMimeType)
 	j.handleRequest(
+		r.Context(),
 		metadata.NewMetadata(r.RemoteAddr),
 		httpWriter.New(j.logger, w),
 		requests,
@@ -300,6 +303,7 @@ func (j *JSONRPC) handleWSRequest(w http.ResponseWriter, r *http.Request) {
 // handleRequest handles the specific requests with a
 // custom response writer
 func (j *JSONRPC) handleRequest(
+	ctx context.Context,
 	metadata *metadata.Metadata,
 	writer writer.ResponseWriter,
 	requests spec.BaseJSONRequests,
@@ -330,7 +334,7 @@ func (j *JSONRPC) handleRequest(
 		}
 
 		// Run the method methodHandler
-		handleResp, handleErr := j.route(metadata, baseRequest)
+		handleResp, handleErr := j.route(ctx, metadata, baseRequest)
 		if handleErr != nil {
 			j.logger.Debug(
 				"unable to handle JSON-RPC request",
@@ -372,6 +376,7 @@ func (j *JSONRPC) handleRequest(
 
 // route routes the base request to the appropriate handler
 func (j *JSONRPC) route(
+	ctx context.Context,
 	metadata *metadata.Metadata,
 	request *spec.BaseJSONRequest,
 ) (any, *spec.BaseJSONError) {
@@ -384,7 +389,7 @@ func (j *JSONRPC) route(
 		)
 	}
 
-	return handler(metadata, request.Params)
+	return handler(ctx, metadata, request.Params)
 }
 
 // isValidBaseRequest validates that the base JSON request is valid
