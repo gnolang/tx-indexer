@@ -12,6 +12,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"go.uber.org/multierr"
 
+	"github.com/gnolang/tx-indexer/internal/tally"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -381,14 +382,14 @@ type PebbleBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleBlockIter) Next(_ context.Context) bool {
+func (pi *PebbleBlockIter) Next(ctx context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
-		return pi.i.First()
+		return countScanned(ctx, pi.i.First())
 	}
 
-	return pi.i.Valid() && pi.i.Next()
+	return pi.i.Valid() && countScanned(ctx, pi.i.Next())
 }
 
 var _ Iterator[*types.Block] = &PebbleReverseBlockIter{}
@@ -397,14 +398,24 @@ type PebbleReverseBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleReverseBlockIter) Next(_ context.Context) bool {
+func (pi *PebbleReverseBlockIter) Next(ctx context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
-		return pi.i.Last()
+		return countScanned(ctx, pi.i.Last())
 	}
 
-	return pi.i.Valid() && pi.i.Prev()
+	return pi.i.Valid() && countScanned(ctx, pi.i.Prev())
+}
+
+// countScanned counts the key a move of an iterator landed on, if it landed
+// on one, as a row scanned in the tally ctx carries
+func countScanned(ctx context.Context, moved bool) bool {
+	if moved {
+		tally.FromContext(ctx).AddScanned(1)
+	}
+
+	return moved
 }
 
 type pebbleBaseTxIter struct {
@@ -469,6 +480,8 @@ func (pi *PebbleReverseTxIter) Next(ctx context.Context) bool {
 // key with start and stepping to the following ones with step: both iterators
 // walk alike and differ only in direction
 func (pi *pebbleBaseTxIter) next(ctx context.Context, start, step func() bool) bool {
+	rows := tally.FromContext(ctx)
+
 	for {
 		if pi.stopped(ctx) {
 			return false
@@ -483,6 +496,8 @@ func (pi *pebbleBaseTxIter) next(ctx context.Context, start, step func() bool) b
 		} else if !step() {
 			return false
 		}
+
+		rows.AddScanned(1)
 
 		var buf []byte
 

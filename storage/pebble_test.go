@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/gnolang/tx-indexer/internal/contexttest"
+	"github.com/gnolang/tx-indexer/internal/tally"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 )
 
@@ -472,6 +473,159 @@ func TestStorage_TxIteratorWalkStopsWithItsContext(t *testing.T) {
 			// One check per key until the context ends, plus the ask for its
 			// cause: the walk went no further than budget keys
 			assert.LessOrEqual(t, ctx.Asked, budget+2, "the walk ran on after its context ended")
+		})
+	}
+}
+
+// drain walks it to its end and returns the number of rows it yielded
+func drain[T any](t *testing.T, ctx context.Context, it Iterator[T]) int {
+	t.Helper()
+
+	t.Cleanup(func() {
+		assert.NoError(t, it.Close())
+	})
+
+	yielded := 0
+
+	for it.Next(ctx) {
+		yielded++
+	}
+
+	require.NoError(t, it.Error())
+
+	return yielded
+}
+
+// Every key an iterator walks counts as a row scanned in the tally its context
+// carries, the keys a transaction iterator passes over outside its index
+// window included: they cost a read whether or not a row is yielded
+func TestStorage_IteratorsTallyTheKeysTheyWalk(t *testing.T) {
+	t.Parallel()
+
+	const (
+		heights      = 10
+		txsPerHeight = 3
+	)
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	wb := s.WriteBatch()
+
+	for height := int64(1); height <= heights; height++ {
+		require.NoError(t, wb.SetBlock(&types.Block{Header: types.Header{Height: height}}))
+
+		for index := range txsPerHeight {
+			require.NoError(t, wb.SetTx(&types.TxResult{
+				Height: height,
+				Index:  uint32(index),
+				Tx:     types.Tx{byte(height), byte(index)},
+			}))
+		}
+	}
+
+	require.NoError(t, wb.Commit())
+
+	testTable := []struct {
+		walk        func(t *testing.T, ctx context.Context) int
+		name        string
+		wantYielded int
+		wantScanned int64
+	}{
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.TxIterator(0, 0, 0, 0)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"txs",
+			heights * txsPerHeight,
+			heights * txsPerHeight,
+		},
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.TxIterator(0, 0, 2, 0)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"txs in an index window",
+			heights,
+			heights * txsPerHeight,
+		},
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.TxReverseIterator(0, 0, 2, 0)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"txs in an index window, descending",
+			heights,
+			heights * txsPerHeight,
+		},
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.BlockIterator(0, 0)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"blocks",
+			heights,
+			heights,
+		},
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.BlockIterator(3, 5)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"blocks in a height range",
+			3,
+			3,
+		},
+		{
+			func(t *testing.T, ctx context.Context) int {
+				t.Helper()
+
+				it, err := s.BlockReverseIterator(0, 0)
+				require.NoError(t, err)
+
+				return drain(t, ctx, it)
+			},
+			"blocks, descending",
+			heights,
+			heights,
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			rows := &tally.Rows{}
+
+			yielded := testCase.walk(t, tally.NewContext(context.Background(), rows))
+
+			assert.Equal(t, testCase.wantYielded, yielded)
+			assert.Equal(t, testCase.wantScanned, rows.Scanned())
 		})
 	}
 }

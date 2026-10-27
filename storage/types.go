@@ -62,6 +62,8 @@ type Iterator[T any] interface {
 	// transaction iterator outside its index window, stops passing over
 	// them once ctx has ended: Next then returns false and Error reports
 	// context.Cause(ctx). Callers still check ctx between the rows they read.
+	// Every key Next walks, yielded or passed over, counts as a row scanned
+	// in the tally.Rows ctx carries, if any.
 	Next(ctx context.Context) bool
 	Error() error
 	Value() (T, error)
