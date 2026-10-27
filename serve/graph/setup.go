@@ -17,12 +17,15 @@ import (
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
+	"github.com/gnolang/tx-indexer/serve/observe"
 	"github.com/gnolang/tx-indexer/storage"
 )
 
 //go:embed examples/*.gql
 var examples embed.FS
 
+// Setup mounts the GraphQL playground and endpoint on m. observer records each
+// root query field served; a nil observer records none, at no cost to them.
 func Setup(
 	s storage.Storage,
 	manager *events.Manager,
@@ -30,6 +33,7 @@ func Setup(
 	m *chi.Mux,
 	disableIntrospection bool,
 	queryDeadline time.Duration,
+	observer *observe.Observer,
 ) *chi.Mux {
 	srv := handler.New(NewExecutableSchema(
 		Config{
@@ -65,6 +69,11 @@ func Setup(
 	}
 
 	srv.Use(deadlineExtension{deadline: queryDeadline})
+
+	// With nothing to record, every field is spared the extension
+	if observer != nil {
+		srv.Use(observeExtension{observer: observer})
+	}
 
 	es, err := examplesToSlice()
 	if err != nil {

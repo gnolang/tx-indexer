@@ -10,6 +10,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	bfttypes "github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/gnolang/tx-indexer/types"
@@ -23,6 +24,10 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 		if err != nil {
 			return nil, gqlerror.Wrap(err)
 		}
+
+		// The storage read the one row the hash names
+		tally.FromContext(ctx).AddScanned(1)
+
 		return []*model.Transaction{model.NewTransaction(tx)}, nil
 	}
 
@@ -224,6 +229,9 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 		if err != nil {
 			return nil, gqlerror.Wrap(err)
 		}
+
+		// The storage read the one row the hash names
+		tally.FromContext(ctx).AddScanned(1)
 
 		otx := model.NewTransaction(tx)
 
