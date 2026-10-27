@@ -23,8 +23,7 @@ const (
 )
 
 // Status is the outcome of a request, named by the status label. It is a type
-// of its own, so a value the metrics do not declare fails to compile rather
-// than open a series no alert reads.
+// of its own, so a raw string cannot reach the label.
 type Status int
 
 // The outcomes of a request
