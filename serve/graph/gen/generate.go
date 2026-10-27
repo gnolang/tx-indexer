@@ -24,6 +24,11 @@ type Query {
    Resume from it with a height greater than that value when ordering
    ascending, or less than it when ordering descending. Read the
    extensions rather than the message text.
+
+   A server started with a query deadline (--query-deadline) answers a
+   query that runs past it with no Blocks and an error whose extensions
+   hold "code": "QUERY_DEADLINE_EXCEEDED" and "queryDeadline", the
+   configured deadline. Narrow the height range and retry.
    """
    getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 
@@ -43,6 +48,12 @@ type Query {
    more Transactions than the limit no boundary exists, so the partial
    block is returned with "code": "BLOCK_EXCEEDS_MAX_ELEMENTS" and
    "blockHeight". Read the extensions rather than the message text.
+
+   A server started with a query deadline (--query-deadline) answers a
+   query that runs past it with no Transactions and an error whose
+   extensions hold "code": "QUERY_DEADLINE_EXCEEDED" and
+   "queryDeadline", the configured deadline. Narrow the block_height
+   range and retry.
    """
    getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
 }
