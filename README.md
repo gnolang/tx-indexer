@@ -215,6 +215,7 @@ names a header the proxies in front of the indexer fill with the client's addres
   is that many entries from the right, 1 by default.
 
 A header that is missing, holds fewer entries, or holds no IP address there leaves the address the request came from.
+An entry's port, which some proxies append (`203.0.113.7:51234`, `[2001:db8::1]:443`), is dropped.
 Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
 writes the header it likes.
 

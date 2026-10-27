@@ -14,8 +14,9 @@ import (
 // from, so the entries further left are the client's own to forge, and are
 // never read. A header missing, holding fewer entries than trustedHops, or
 // holding no IP address at that entry leaves the address the request came
-// from. An IPv6 zone is dropped: it names a link on the proxy's host, in text
-// the client can choose.
+// from. An entry's port, when a proxy appends one, is dropped. An IPv6 zone is
+// dropped too: it names a link on the proxy's host, in text the client can
+// choose.
 func clientAddress(r *http.Request, header string, trustedHops int) string {
 	peer := hostOf(r.RemoteAddr)
 
@@ -28,12 +29,28 @@ func clientAddress(r *http.Request, header string, trustedHops int) string {
 		return peer
 	}
 
-	client, err := netip.ParseAddr(strings.TrimSpace(entry))
-	if err != nil {
+	client, ok := parseEntry(strings.TrimSpace(entry))
+	if !ok {
 		return peer
 	}
 
 	return client.WithZone("").String()
+}
+
+// parseEntry reads the IP address of an entry, which some proxies append with
+// the port they were reached from: IP:port, or [IPv6]:port
+func parseEntry(entry string) (netip.Addr, bool) {
+	client, err := netip.ParseAddr(entry)
+	if err == nil {
+		return client, true
+	}
+
+	withPort, err := netip.ParseAddrPort(entry)
+	if err != nil {
+		return netip.Addr{}, false
+	}
+
+	return withPort.Addr(), true
 }
 
 // entryFromRight returns the entry n from the right of the comma-separated

@@ -44,6 +44,11 @@ func TestClientAddress(t *testing.T) {
 		{"an empty line between entries", "X-Forwarded-For", "10.0.0.7", []string{"203.0.113.9", "", "198.51.100.4"}, 2},
 		{"an IPv6 client with a zone", "X-Forwarded-For", "fe80::1", []string{"fe80::1%eth0"}, 1},
 		{"a zone carrying text", "X-Forwarded-For", "2001:db8::1", []string{"2001:db8::1%<forged log text>"}, 1},
+		{"an entry with a port", "X-Forwarded-For", "203.0.113.7", []string{"203.0.113.7:51234"}, 1},
+		{"an IPv6 entry with a port", "X-Forwarded-For", "2001:db8::1", []string{"[2001:db8::1]:443"}, 1},
+		{"an IPv6 entry with a zone and a port", "X-Forwarded-For", "fe80::1", []string{"[fe80::1%eth0]:443"}, 1},
+		{"a port behind spoofed entries", "X-Forwarded-For", "203.0.113.7", []string{"6.6.6.6:1, 203.0.113.7:51234"}, 1},
+		{"a port with no address", "X-Forwarded-For", "10.0.0.7", []string{":51234"}, 1},
 	}
 
 	for _, testCase := range testTable {
