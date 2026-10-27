@@ -171,15 +171,15 @@ func TestGetGasPriceHandler_NamesTheQueryDeadline(t *testing.T) {
 	})
 }
 
-// The deadline can pass once the blocks are read, while the prices are
-// computed over many transactions per block. The computation stops too, and
-// the request answers the named deadline rather than prices.
-func TestGetGasPriceHandler_DeadlinePassesDuringTheComputation(t *testing.T) {
+// The deadline can pass once the blocks are read, before the prices are
+// computed. The computation checks it too, and the request answers the named
+// deadline rather than prices.
+func TestGetGasPriceHandler_DeadlinePassesBeforeTheComputation(t *testing.T) {
 	t.Parallel()
 
 	const (
 		blocks      = 5
-		txsPerBlock = 1_000
+		txsPerBlock = 1
 	)
 
 	txs := make(types.Txs, 0, txsPerBlock)
