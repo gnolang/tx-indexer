@@ -114,10 +114,14 @@ func (o *Observer) Start(ctx context.Context, api, operation string) (context.Co
 	return tally.NewContext(ctx, &call.rows), call
 }
 
-// End records the call once its request is served. failed tells whether the
-// request was answered with an error; ctx, the request's context, tells
-// whether the query deadline caused it, and carries the client address.
-func (c *Call) End(ctx context.Context, failed bool) {
+// ErrUnanswered is the error a call ends with when its request was answered
+// by no handler: the handler panicked, or the request failed before it ran
+var ErrUnanswered = errors.New("the request was answered by no handler")
+
+// End records the call once its request is served. err is the error the
+// request was answered with, nil for none; ctx, the request's context, carries
+// the client address.
+func (c *Call) End(ctx context.Context, err error) {
 	if c == nil {
 		return
 	}
@@ -125,7 +129,7 @@ func (c *Call) End(ctx context.Context, failed bool) {
 	request := metrics.Request{
 		API:          c.api,
 		Operation:    c.operation,
-		Status:       status(ctx, failed),
+		Status:       status(err),
 		Duration:     time.Since(c.started),
 		RowsScanned:  c.rows.Scanned(),
 		RowsReturned: c.rows.Returned(),
@@ -153,15 +157,16 @@ func (c *Call) End(ctx context.Context, failed bool) {
 	)
 }
 
-// status is the outcome of a request served with ctx: a failure is the query
-// deadline's once the deadline has ended ctx, whatever error it surfaced as
-func status(ctx context.Context, failed bool) metrics.Status {
-	if !failed {
+// status is the outcome of a request answered with err: the query deadline's
+// when err is the deadline, as the client is told by the same test, and an
+// error of its own otherwise, even one surfacing after the deadline passed
+func status(err error) metrics.Status {
+	if err == nil {
 		return metrics.StatusOK
 	}
 
 	var exceeded *deadline.ExceededError
-	if errors.As(context.Cause(ctx), &exceeded) {
+	if errors.As(err, &exceeded) {
 		return metrics.StatusDeadline
 	}
 

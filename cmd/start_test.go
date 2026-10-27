@@ -554,7 +554,7 @@ func serveCall(o *observe.Observer) {
 
 	o.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		ctx, call := o.Start(r.Context(), metrics.APIJSONRPC, "getBlock")
-		call.End(ctx, false)
+		call.End(ctx, nil)
 	})).ServeHTTP(httptest.NewRecorder(), r)
 }
 

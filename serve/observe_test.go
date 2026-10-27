@@ -154,6 +154,39 @@ func TestJSONRPC_CountsADeadlineHit(t *testing.T) {
 	})
 }
 
+// A call that fails on its own error after the query deadline has passed is
+// answered that error, and counts as error: only a call answered the deadline
+// counts as deadline
+func TestJSONRPC_CountsAnOwnErrorPastTheDeadlineAsError(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		m := metrics.New()
+
+		j := NewJSONRPC(nil, WithQueryDeadline(testDeadline), WithObserver(observe.New(m)))
+		j.RegisterHandler(
+			"corrupted",
+			func(context.Context, *metadata.Metadata, []any) (any, *spec.BaseJSONError) {
+				// A read that takes no context outlasts the deadline, then fails
+				time.Sleep(testDeadline + 10*time.Millisecond)
+
+				return nil, spec.GenerateResponseError(errors.New("pebble: corrupted sstable"))
+			},
+		)
+
+		response := decodeResponse[spec.BaseJSONResponse](
+			t,
+			serveRequest(t, j, spec.NewJSONRequest(1, "corrupted", nil)),
+		)
+		require.NotNil(t, response.Error)
+		assert.Equal(t, "pebble: corrupted sstable", response.Error.Message)
+		assert.Nil(t, response.Error.Data)
+
+		assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_total", requestsOf("corrupted", "error")), 0)
+		assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", requestsOf("corrupted", "deadline")))
+	})
+}
+
 // A call naming no registered method runs no operation and is not counted:
 // its method, which the client picks, never becomes a label
 func TestJSONRPC_LeavesAnUnknownMethodUncounted(t *testing.T) {

@@ -412,17 +412,20 @@ func (j *JSONRPC) route(
 
 	ctx, call := j.observer.Start(ctx, metrics.APIJSONRPC, request.Method)
 
-	// The call stays failed until its handler returns without an error: a
-	// handler that panics never returns, and its call still ends
-	failed := true
+	// The call stays unanswered until its handler returns: a handler that
+	// panics never returns, and its call still ends
+	answered := observe.ErrUnanswered
 
 	defer func() {
-		call.End(ctx, failed)
+		call.End(ctx, answered)
 	}()
 
 	response, err := runHandler(ctx, handler, metadata, request.Params)
 
-	failed = err != nil
+	answered = nil
+	if err != nil {
+		answered = err
+	}
 
 	return response, err
 }

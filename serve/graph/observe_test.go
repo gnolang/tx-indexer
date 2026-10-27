@@ -155,6 +155,38 @@ func (failingStore) GetLatestHeight() (uint64, error) {
 	return 0, errors.New("storage unavailable")
 }
 
+// slowFailingStore reads the latest height past the query deadline, taking
+// no context, then fails
+type slowFailingStore struct {
+	storage.Storage
+}
+
+func (slowFailingStore) GetLatestHeight() (uint64, error) {
+	time.Sleep(testDeadline + 10*time.Millisecond)
+
+	return 0, errors.New("pebble: corrupted sstable")
+}
+
+// A root field that fails on its own error after the query deadline has
+// passed is answered that error, and counts as error: only a field answered
+// the deadline counts as deadline
+func TestObserve_CountsAnOwnErrorPastTheDeadlineAsError(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		m := metrics.New()
+		mux := Setup(slowFailingStore{}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, observe.New(m))
+
+		resp := postQuery(t, mux, `{ latestBlockHeight }`)
+		require.Len(t, resp.Errors, 1)
+		assert.Equal(t, "pebble: corrupted sstable", resp.Errors[0].Message)
+
+		failed := fieldRequests("latestBlockHeight", "error")
+		assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_total", failed), 0)
+		assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", fieldRequests("latestBlockHeight", "deadline")))
+	})
+}
+
 // A root field whose resolver answers an error counts as error
 func TestObserve_CountsAFailedField(t *testing.T) {
 	t.Parallel()

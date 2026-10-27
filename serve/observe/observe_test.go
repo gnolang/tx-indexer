@@ -2,6 +2,8 @@ package observe
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -45,7 +47,7 @@ func TestObserver_RecordsACall(t *testing.T) {
 
 		time.Sleep(3 * time.Second)
 
-		call.End(ctx, false)
+		call.End(ctx, nil)
 
 		assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_requests_in_flight", operationLabels), 0)
 		assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_total", requestsWithStatus("ok")), 0)
@@ -58,7 +60,9 @@ func TestObserver_RecordsACall(t *testing.T) {
 	})
 }
 
-// A call's status tells a failure the query deadline caused from any other
+// A call's status follows the error it was answered with: the query deadline
+// only when that error is the deadline, as the client is told, and not for an
+// error of the call's own surfacing after the deadline passed
 func TestObserver_ClassifiesTheStatus(t *testing.T) {
 	t.Parallel()
 
@@ -72,25 +76,22 @@ func TestObserver_ClassifiesTheStatus(t *testing.T) {
 		return ctx
 	}
 
-	// clientLeft is a context its client has cancelled
-	clientLeft := func() context.Context {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		return ctx
-	}
+	exceeded := &deadline.ExceededError{Deadline: time.Second}
 
 	testTable := []struct {
 		ctx    func() context.Context
+		err    error
 		name   string
 		status string
-		failed bool
 	}{
-		{context.Background, "answered", "ok", false},
-		{context.Background, "failed", "error", true},
-		{pastDeadline, "failed past the query deadline", "deadline", true},
-		{pastDeadline, "answered as the query deadline passed", "ok", false},
-		{clientLeft, "failed as its client left", "error", true},
+		{context.Background, nil, "answered", "ok"},
+		{context.Background, errors.New("storage unavailable"), "failed", "error"},
+		{pastDeadline, exceeded, "answered the query deadline", "deadline"},
+		{pastDeadline, fmt.Errorf("scan: %w", exceeded), "answered a wrapped query deadline", "deadline"},
+		{pastDeadline, errors.New("pebble: corrupted sstable"), "failed on its own past the query deadline", "error"},
+		{pastDeadline, nil, "answered as the query deadline passed", "ok"},
+		{context.Background, context.Canceled, "failed as its client left", "error"},
+		{context.Background, ErrUnanswered, "never answered", "error"},
 	}
 
 	for _, testCase := range testTable {
@@ -100,7 +101,7 @@ func TestObserver_ClassifiesTheStatus(t *testing.T) {
 			m := metrics.New()
 
 			ctx, call := New(m).Start(testCase.ctx(), metrics.APIJSONRPC, "getBlock")
-			call.End(ctx, testCase.failed)
+			call.End(ctx, testCase.err)
 
 			assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_total", requestsWithStatus(testCase.status)), 0)
 		})
@@ -118,7 +119,7 @@ func TestObserver_NilObservesNothing(t *testing.T) {
 
 	assert.Nil(t, tally.FromContext(ctx))
 	assert.NotPanics(t, func() {
-		call.End(ctx, false)
+		call.End(ctx, nil)
 	})
 }
 
@@ -159,7 +160,7 @@ func TestObserver_LogsEachCall(t *testing.T) {
 
 			time.Sleep(2 * time.Second)
 
-			call.End(ctx, true)
+			call.End(ctx, errors.New("storage unavailable"))
 		})
 
 		entries := logs.All()
@@ -191,7 +192,7 @@ func TestObserver_LogsThePeerWithNoHeaderTrusted(t *testing.T) {
 
 	serveThrough(o, "10.0.0.7:41234", header, func(_ http.ResponseWriter, r *http.Request) {
 		ctx, call := o.Start(r.Context(), metrics.APIGraphQL, "getBlocks")
-		call.End(ctx, false)
+		call.End(ctx, nil)
 	})
 
 	entries := logs.All()

@@ -28,7 +28,8 @@ var (
 // rootAnswer is what the resolver of a root field answered, noted by
 // InterceptField, which sees it, for InterceptRootField, which records it
 type rootAnswer struct {
-	failed bool
+	// err is the error the resolver returned, nil for none
+	err error
 }
 
 // rootAnswerKey is the context key a rootAnswer is carried under
@@ -52,19 +53,19 @@ func (e observeExtension) InterceptRootField(
 ) graphql.Marshaler {
 	ctx, call := e.observer.Start(ctx, metrics.APIGraphQL, graphql.GetRootFieldContext(ctx).Field.Name)
 
-	// The field stays failed until its resolver returns without an error: a
-	// field whose arguments do not coerce never reaches its resolver, and a
-	// resolver that panics never returns, gqlgen recovering it below
-	answer := &rootAnswer{failed: true}
+	// The field stays unanswered until its resolver returns: a field whose
+	// arguments do not coerce never reaches its resolver, and a resolver that
+	// panics never returns, gqlgen recovering it below
+	answer := &rootAnswer{err: observe.ErrUnanswered}
 	marshaler := next(context.WithValue(ctx, rootAnswerKey{}, answer))
 
-	call.End(ctx, answer.failed)
+	call.End(ctx, answer.err)
 
 	return marshaler
 }
 
-// InterceptField notes what the resolver of a root field answered: whether it
-// failed, and the rows of its list
+// InterceptField notes what the resolver of a root field answered: its error,
+// and the rows of its list
 func (observeExtension) InterceptField(ctx context.Context, next graphql.Resolver) (any, error) {
 	answer := rootAnswerOf(ctx)
 	if answer == nil {
@@ -73,7 +74,7 @@ func (observeExtension) InterceptField(ctx context.Context, next graphql.Resolve
 
 	res, err := next(ctx)
 
-	answer.failed = err != nil
+	answer.err = err
 
 	tally.FromContext(ctx).AddReturned(answeredRows(res))
 
