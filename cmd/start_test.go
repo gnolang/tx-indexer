@@ -685,7 +685,7 @@ func TestStartCfg_RateLimitKey(t *testing.T) {
 		other string
 		same  bool
 	}{
-		{"two addresses of one IPv6 /64", "[2001:db8::1]:1", "[2001:db8::ffff:2]:2", true},
+		{"two addresses of one IPv6 /64", "[2001:db8::1]:1", "[2001:db8::ffff:ffff:ffff:ffff]:2", true},
 		{"two IPv6 /64s", "[2001:db8::1]:1", "[2001:db8:0:1::1]:2", false},
 		{"an IPv4 address and its IPv6 form", "203.0.113.9:1", "[::ffff:203.0.113.9]:2", true},
 		{"two IPv4 addresses", "203.0.113.9:1", "203.0.113.10:2", false},
