@@ -74,6 +74,19 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, cmd.Start())
 
+	// A failed assertion returns before the wait at the end: the child is
+	// then killed and reaped before the test's directories are removed
+	reaped := false
+
+	t.Cleanup(func() {
+		if reaped {
+			return
+		}
+
+		cancel()
+		t.Logf("the indexer, killed on the test's failure, stopped: %v", cmd.Wait())
+	})
+
 	var (
 		output  strings.Builder
 		lines   = bufio.NewScanner(stderr)
@@ -96,5 +109,8 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 
 	require.NoError(t, lines.Err())
 	require.True(t, started, "the indexer never served:\n%s", output.String())
+
+	reaped = true
+
 	require.NoError(t, cmd.Wait(), "the indexer's stderr:\n%s", output.String())
 }
