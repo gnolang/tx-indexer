@@ -72,10 +72,14 @@ func (h *Handler) getGasPriceBy(fromBlockNum, toBlockNum uint64) ([]*methods.Gas
 	for it.Next() {
 		block, itErr := it.Value()
 		if itErr != nil {
-			return nil, err
+			return nil, itErr
 		}
 
 		blocks = append(blocks, block)
+	}
+
+	if itErr := it.Error(); itErr != nil {
+		return nil, itErr
 	}
 
 	gasPrices, err := methods.GetGasPricesByBlocks(blocks)
