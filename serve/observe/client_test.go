@@ -66,7 +66,7 @@ func TestClientAddress(t *testing.T) {
 			// for is never read
 			r.Header.Add("X-Real-IP", "6.6.6.6")
 
-			assert.Equal(t, testCase.want, clientAddress(r, testCase.header, testCase.trustedHops))
+			assert.Equal(t, testCase.want, ClientAddress(r, testCase.header, testCase.trustedHops))
 		})
 	}
 }
@@ -84,7 +84,7 @@ func TestClientAddress_ReadsNoFurtherThanTheTrustedEntries(t *testing.T) {
 
 	runtime.ReadMemStats(&before)
 
-	client := clientAddress(r, "X-Forwarded-For", 1)
+	client := ClientAddress(r, "X-Forwarded-For", 1)
 
 	runtime.ReadMemStats(&after)
 

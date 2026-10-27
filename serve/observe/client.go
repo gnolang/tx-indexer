@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// clientAddress is the IP address of the client that sent r. With no header
+// ClientAddress is the IP address of the client that sent r. With no header
 // trusted, it is the address the request came from. With one, it is the entry
 // trustedHops from the right of the comma-separated list the header carries
 // over all its lines: each trusted proxy appends the address it was reached
@@ -17,7 +17,7 @@ import (
 // from. An entry's port, when a proxy appends one, is dropped. An IPv6 zone is
 // dropped too: it names a link on the proxy's host, in text the client can
 // choose.
-func clientAddress(r *http.Request, header string, trustedHops int) string {
+func ClientAddress(r *http.Request, header string, trustedHops int) string {
 	peer := hostOf(r.RemoteAddr)
 
 	if header == "" || trustedHops < 1 {

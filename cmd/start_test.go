@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -329,14 +330,14 @@ func get(t require.TestingT, url string) *httpResponse {
 		h.Helper()
 	}
 
-	return fetchURL(t, http.MethodGet, url, "", "")
+	return fetchURL(t, http.MethodGet, url, nil, "")
 }
 
 // post sends body to url as JSON, and requires an OK answer
 func post(t *testing.T, url, body string) {
 	t.Helper()
 
-	response := fetchURL(t, http.MethodPost, url, "application/json", body)
+	response := fetchURL(t, http.MethodPost, url, http.Header{"Content-Type": {"application/json"}}, body)
 	require.NotNil(t, response, "nothing answers at %s", url)
 	require.Equal(t, http.StatusOK, response.status, response.body)
 }
@@ -348,10 +349,10 @@ type httpResponse struct {
 	status int
 }
 
-// fetchURL sends one request and returns its answer, or nil if nothing
-// answers at url. It takes a *testing.T, or the *assert.CollectT of an
+// fetchURL sends one request with header and returns its answer, or nil if
+// nothing answers at url. It takes a *testing.T, or the *assert.CollectT of an
 // EventuallyWithT condition.
-func fetchURL(t require.TestingT, method, url, contentType, body string) *httpResponse {
+func fetchURL(t require.TestingT, method, url string, header http.Header, body string) *httpResponse {
 	if h, ok := t.(interface{ Helper() }); ok {
 		h.Helper()
 	}
@@ -359,9 +360,7 @@ func fetchURL(t require.TestingT, method, url, contentType, body string) *httpRe
 	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
 	require.NoError(t, err)
 
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
+	maps.Copy(req.Header, header)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -574,6 +573,94 @@ func TestStartCfg_InvalidTrustedHops(t *testing.T) {
 	cancel()
 
 	require.ErrorContains(t, cfg.exec(ctx), "--client-ip-trusted-hops")
+}
+
+// statuses sends url one GET per header, in turn, and returns the status each
+// is answered with
+func statuses(t *testing.T, url string, headers ...http.Header) []int {
+	t.Helper()
+
+	answered := make([]int, 0, len(headers))
+
+	for _, header := range headers {
+		response := fetchURL(t, http.MethodGet, url, header, "")
+		require.NotNil(t, response, "nothing answers at %s", url)
+
+		answered = append(answered, response.status)
+	}
+
+	return answered
+}
+
+// The rate limit counts a client behind two trusted proxies under the address
+// the first appended to X-Forwarded-For, whichever node of the second serves
+// it: what the client writes itself, left of those entries or in another
+// header, never makes it a new client
+func TestStartCfg_RateLimitIgnoresForgedAddresses(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(
+		t,
+		false,
+		"--http-rate-limit", "2",
+		"--client-ip-header", "X-Forwarded-For",
+		"--client-ip-trusted-hops", "2",
+	)
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
+		statuses(
+			t,
+			"http://"+started.apiAddress+"/health",
+			http.Header{"X-Forwarded-For": {"6.6.6.1, 203.0.113.9, 198.51.100.4"}},
+			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.5"}, "X-Real-Ip": {"6.6.6.2"}},
+			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.6"}, "True-Client-Ip": {"6.6.6.3"}},
+		),
+	)
+}
+
+// Two clients behind the trusted proxy are counted apart, each under the
+// address the proxy names: one past the limit leaves the other served
+func TestStartCfg_RateLimitCountsClientsApart(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--http-rate-limit", "2", "--client-ip-header", "CF-Connecting-IP")
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests, http.StatusOK},
+		statuses(
+			t,
+			"http://"+started.apiAddress+"/health",
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.10"}},
+		),
+	)
+}
+
+// With no header trusted, the rate limit counts every request from one
+// address as one client's, whatever addresses its headers name
+func TestStartCfg_RateLimitCountsThePeerByDefault(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--http-rate-limit", "2")
+
+	// startIndexer's readiness probe, sent from the same address, is the
+	// first request the limit counts
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusTooManyRequests, http.StatusTooManyRequests},
+		statuses(
+			t,
+			"http://"+started.apiAddress+"/health",
+			http.Header{"X-Forwarded-For": {"6.6.6.1"}},
+			http.Header{"X-Real-Ip": {"6.6.6.2"}},
+			http.Header{"True-Client-Ip": {"6.6.6.3"}},
+		),
+	)
 }
 
 // serveCall serves one getBlock call through o, from a client behind two

@@ -75,7 +75,7 @@ func (o *Observer) Middleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		client := clientAddress(r, o.clientHeader, o.trustedHops)
+		client := ClientAddress(r, o.clientHeader, o.trustedHops)
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientKey{}, client)))
 	})

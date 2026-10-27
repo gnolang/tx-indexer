@@ -65,8 +65,14 @@ const requestLogHelp = "log one line per GraphQL root field or JSON-RPC call ser
 
 // clientIPHeaderHelp is built up over multiple lines so each stays under the
 // linter's line-length limit.
-const clientIPHeaderHelp = "the header trusted to carry the client address the request log names, " +
-	"such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from"
+const clientIPHeaderHelp = "the header trusted to carry the client address the request log names " +
+	"and the rate limit counts by, such as CF-Connecting-IP or X-Forwarded-For; " +
+	"unset, the address the request came from"
+
+// rateLimitHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const rateLimitHelp = "the maximum HTTP requests allowed per minute per client address, " +
+	"as --client-ip-header reads it, unlimited by default"
 
 // clientIPTrustedHopsHelp is built up over multiple lines so each stays under
 // the linter's line-length limit.
@@ -184,7 +190,7 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		&c.rateLimit,
 		"http-rate-limit",
 		0,
-		"the maximum HTTP requests allowed per minute per IP, unlimited by default",
+		rateLimitHelp,
 	)
 
 	fs.DurationVar(
@@ -395,11 +401,11 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 		mux.Use(httprate.Limit(
 			c.rateLimit,
 			1*time.Minute,
-			httprate.WithKeyFuncs(httprate.KeyByRealIP),
+			httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
+				return c.rateLimitKey(r), nil
+			}),
 			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
-				//nolint:errcheck // no need to handle error here, it had been checked before
-				ip, _ := httprate.KeyByRealIP(r)
-				startLogger.Debug("too many requests", zap.String("from", ip))
+				logger.Debug("too many requests", zap.String("from", c.rateLimitKey(r)))
 
 				// send a json response to give more info when using the graphQL explorer
 				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
@@ -581,6 +587,14 @@ func (c *startCfg) newObserver(m *metrics.Metrics, logger *zap.Logger) *observe.
 	}
 
 	return observe.New(m, opts...)
+}
+
+// rateLimitKey is the key the rate limit counts r under: its client address,
+// read as the request log reads it, from --client-ip-header as far as the
+// trusted proxies reach, or the address the request came from with no header
+// trusted. A header a client sets itself is never read.
+func (c *startCfg) rateLimitKey(r *http.Request) string {
+	return observe.ClientAddress(r, c.clientIPHeader, c.clientIPTrustedHops)
 }
 
 // afterGenesis holds a service back until the genesis bootstrap has stored the

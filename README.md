@@ -92,12 +92,12 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
-  -client-ip-header string        the header trusted to carry the client address the request log names, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
+  -client-ip-header string        the header trusted to carry the client address the request log names and the rate limit counts by, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
   -client-ip-trusted-hops 1       the number of trusted proxies appending to --client-ip-header: the client address is that many entries from the right of its list
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
-  -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
+  -http-rate-limit 0              the maximum HTTP requests allowed per minute per client address, as --client-ip-header reads it, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-format console             the format of the log lines: console, columns for people to read, or json, one object per line for log pipelines to parse
   -log-level info                 the log level for the CLI output
@@ -254,6 +254,13 @@ A header that is missing, holds fewer entries, or holds no IP address there leav
 An entry's port, which some proxies append (`203.0.113.7:51234`, `[2001:db8::1]:443`), is dropped.
 Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
 writes the header it likes.
+
+### Rate limit
+
+`--http-rate-limit` caps the requests one client sends per minute, and answers the rest with a 429. It counts each
+client under the client address the request log names: the address the request came from, or the one
+`--client-ip-header` reads behind trusted proxies. A header the client sets itself, such as `X-Real-IP` or
+`X-Forwarded-For` when no proxy is trusted, never names a client.
 
 ## GraphQL Endpoint
 
