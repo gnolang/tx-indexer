@@ -135,9 +135,14 @@ var listQueries = map[string]string{
 	"blocks":          `{ blocks(filter: {}) { height } }`,
 }
 
+// blockLists are the list queries whose rows are whole blocks
+var blockLists = map[string]bool{"blocks": true, "getBlocks": true}
+
 // A scan that runs past the deadline is stopped at the deadline, not before,
-// and answers no rows and an error naming the deadline, so the client can
-// neither mistake the page for a whole one nor resume from an arbitrary row
+// and answers an error naming the deadline. A block list keeps the blocks it
+// read before the deadline: a block row is a whole block, so the client
+// resumes from the last height. A transaction list answers no rows: they can
+// end inside a block and say nothing of how far the scan got.
 func TestQueryDeadline_StopsAScanWithANamedError(t *testing.T) {
 	t.Parallel()
 
@@ -157,8 +162,26 @@ func TestQueryDeadline_StopsAScanWithANamedError(t *testing.T) {
 				assert.GreaterOrEqual(t, elapsed, testDeadline, "the scan stopped before the deadline")
 				assert.LessOrEqual(t, elapsed, testDeadline+slowRowDelay, "the scan ran past the deadline")
 
-				answered := string(resp.Data[field])
-				assert.Truef(t, answered == "null", "answered rows: %.60s", answered)
+				if blockLists[field] {
+					var blocks []struct {
+						Height int64 `json:"height"`
+					}
+
+					require.NoError(t, json.Unmarshal(resp.Data[field], &blocks))
+
+					// Every block read before the deadline, from the first:
+					// the last one lands on either side of it
+					read := int(testDeadline / slowRowDelay)
+					assert.GreaterOrEqual(t, len(blocks), read-1)
+					assert.LessOrEqual(t, len(blocks), read)
+
+					for i, block := range blocks {
+						require.Equal(t, int64(i+1), block.Height, "block %d", i)
+					}
+				} else {
+					answered := string(resp.Data[field])
+					assert.Truef(t, answered == "null", "answered rows: %.60s", answered)
+				}
 
 				require.Len(t, resp.Errors, 1)
 

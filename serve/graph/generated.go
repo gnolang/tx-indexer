@@ -3422,10 +3422,14 @@ Root Query type to fetch data about Blocks and Transactions based on filters or 
 type Query {
 	"""
 	Retrieves a list of Transactions that match the given filter criteria. If the result is incomplete due to errors, both partial results and errors are returned.
+	
+	A server started with a query deadline (--query-deadline) answers a query that runs past it with no Transactions and an error whose extensions hold "code": "QUERY_DEADLINE_EXCEEDED" and "queryDeadline", the configured deadline.
 	"""
 	transactions(filter: TransactionFilter!): [Transaction!] @deprecated(reason: "Use ` + "`" + `getTransactions` + "`" + ` instead.")
 	"""
 	Fetches Blocks matching the specified filter criteria. Incomplete results due to errors return both the partial Blocks and the associated errors.
+	
+	A server started with a query deadline (--query-deadline) answers a query that runs past it with the Blocks read before it and an error whose extensions hold "code": "QUERY_DEADLINE_EXCEEDED" and "queryDeadline", the configured deadline. Every Block returned is whole, so resume past the last height returned.
 	"""
 	blocks(filter: BlockFilter!): [Block!] @deprecated(reason: "Use ` + "`" + `getBlocks` + "`" + ` instead.")
 	"""
@@ -3449,9 +3453,11 @@ type Query {
 	extensions rather than the message text.
 	
 	A server started with a query deadline (--query-deadline) answers a
-	query that runs past it with no Blocks and an error whose extensions
-	hold "code": "QUERY_DEADLINE_EXCEEDED" and "queryDeadline", the
-	configured deadline. Narrow the height range and retry.
+	query that runs past it with the Blocks read before it and an error
+	whose extensions hold "code": "QUERY_DEADLINE_EXCEEDED" and
+	"queryDeadline", the configured deadline. Every Block returned is
+	whole, so resume past the last height returned: greater than it when
+	ordering ascending, less than it when ordering descending.
 	"""
 	getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 	"""

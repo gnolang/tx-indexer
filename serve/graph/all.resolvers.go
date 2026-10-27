@@ -104,7 +104,10 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 
 		select {
 		case <-ctx.Done():
-			return nil, scanError(context.Cause(ctx))
+			// A block row is a whole block, so the blocks read so far are
+			// kept: the client resumes from the last height
+			graphql.AddError(ctx, scanError(context.Cause(ctx)))
+			return out, nil
 		default:
 			b, err := it.Value()
 			if err != nil {
@@ -188,7 +191,10 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 
 		select {
 		case <-ctx.Done():
-			return nil, scanError(context.Cause(ctx))
+			// A block row is a whole block, so the blocks read so far are
+			// kept: the client resumes from the last height
+			graphql.AddError(ctx, scanError(context.Cause(ctx)))
+			return out, nil
 		default:
 			b, err := it.Value()
 			if err != nil {

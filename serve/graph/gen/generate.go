@@ -26,9 +26,11 @@ type Query {
    extensions rather than the message text.
 
    A server started with a query deadline (--query-deadline) answers a
-   query that runs past it with no Blocks and an error whose extensions
-   hold "code": "QUERY_DEADLINE_EXCEEDED" and "queryDeadline", the
-   configured deadline. Narrow the height range and retry.
+   query that runs past it with the Blocks read before it and an error
+   whose extensions hold "code": "QUERY_DEADLINE_EXCEEDED" and
+   "queryDeadline", the configured deadline. Every Block returned is
+   whole, so resume past the last height returned: greater than it when
+   ordering ascending, less than it when ordering descending.
    """
    getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
 

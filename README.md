@@ -128,8 +128,8 @@ them, and its 10000 element cap counts the rows it returns rather than the rows 
 little can read the whole chain on every call. The deadline is off (`0s`) by default; set it to a Go duration such as
 `10s`.
 
-A list query (`getTransactions`, `getBlocks`, `transactions`, `blocks`) that runs past it answers no rows and an error
-naming it. Narrow the block height range and retry.
+A transaction list (`getTransactions`, `transactions`) that runs past it answers no rows and an error naming it: the
+rows read so far can end inside a block. Narrow the block height range and retry.
 
 ```json
 {
@@ -143,6 +143,9 @@ naming it. Narrow the block height range and retry.
   "data": { "getTransactions": null }
 }
 ```
+
+A block list (`getBlocks`, `blocks`) answers the same error beside the blocks it read before the deadline. A block row
+is a whole block, so resume past the last height returned: above it ascending, below it descending.
 
 Over JSON-RPC, `getGasPrice`, the one method that scans a block range, answers the same message with code `-32000`,
 and the same `code` and `queryDeadline` in the error's `data`. The calls of a batch share one deadline: those not yet
