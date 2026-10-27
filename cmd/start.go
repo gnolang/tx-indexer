@@ -20,10 +20,12 @@ import (
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/fetch"
 	"github.com/gnolang/tx-indexer/genesis"
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve"
 	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
+	"github.com/gnolang/tx-indexer/serve/observe"
 	"github.com/gnolang/tx-indexer/storage"
 
 	"github.com/gnolang/gno/tm2/pkg/std"
@@ -49,8 +51,14 @@ const corsAllowedOriginsHelp = "a comma-separated list of origins allowed to mak
 const queryDeadlineHelp = "the maximum time a GraphQL or JSON-RPC request may run before it is answered " +
 	"with a deadline error, unlimited by default; subscriptions are exempt"
 
+// metricsListenAddressHelp is built up over multiple lines so each stays
+// under the linter's line-length limit.
+const metricsListenAddressHelp = "the IP:PORT address to serve the Prometheus metrics on, at /metrics, " +
+	"apart from the public endpoints; off by default"
+
 type startCfg struct {
 	listenAddress        string
+	metricsListenAddress string
 	remote               string
 	dbPath               string
 	logLevel             string
@@ -89,6 +97,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"listen-address",
 		serve.DefaultListenAddress,
 		"the IP:PORT URL for the indexer JSON-RPC server",
+	)
+
+	fs.StringVar(
+		&c.metricsListenAddress,
+		"metrics-listen-address",
+		"",
+		metricsListenAddressHelp,
 	)
 
 	fs.StringVar(
@@ -235,6 +250,17 @@ func (c *startCfg) exec(ctx context.Context) error {
 		supply.WithDenoms(denoms),
 	)
 
+	// The metrics are collected only when they are served
+	var (
+		m        *metrics.Metrics
+		observer *observe.Observer
+	)
+
+	if c.metricsListenAddress != "" {
+		m = metrics.New()
+		observer = observe.New(m)
+	}
+
 	// Create the JSON-RPC service
 	j := setupJSONRPC(
 		db,
@@ -242,6 +268,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 		em,
 		logger,
 		c.queryDeadline,
+		observer,
 	)
 
 	mux := chi.NewMux()
@@ -275,7 +302,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline, nil)
+	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline, observer)
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
@@ -320,6 +347,15 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
+
+	// Add the metrics server. It listens apart from the public endpoints, so
+	// the operator decides who reaches it
+	if m != nil {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("GET /metrics", m.Handler())
+
+		w.add(serve.NewHTTPServer(metricsMux, c.metricsListenAddress, logger.Named("metrics-server")).Serve)
+	}
 
 	// Add the fetcher service
 	w.add(afterGenesis(genesisReady, f.FetchChainData))
@@ -384,6 +420,7 @@ func setupJSONRPC(
 	em *events.Manager,
 	logger *zap.Logger,
 	queryDeadline time.Duration,
+	observer *observe.Observer,
 ) *serve.JSONRPC {
 	j := serve.NewJSONRPC(
 		em,
@@ -391,6 +428,7 @@ func setupJSONRPC(
 			logger.Named("json-rpc"),
 		),
 		serve.WithQueryDeadline(queryDeadline),
+		serve.WithObserver(observer),
 	)
 
 	// Transaction handlers

@@ -100,6 +100,7 @@ FLAGS
   -log-level info                 the log level for the CLI output
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
+  -metrics-listen-address string  the IP:PORT address to serve the Prometheus metrics on, at /metrics, apart from the public endpoints; off by default
   -query-deadline 0s              the maximum time a GraphQL or JSON-RPC request may run before it is answered with a deadline error, unlimited by default; subscriptions are exempt
   -remote http://127.0.0.1:26657  the JSON-RPC URL of the Gno chain
   -supply-denoms ugnot            comma-separated denominations whose supply (total/spendable/locked) is tracked and served by getSupply
@@ -156,6 +157,34 @@ keep as many cores busy for the length of the deadline.
 
 Subscriptions, over GraphQL or the `/ws` endpoint, last as long as their connection and are not bounded; each JSON-RPC
 call sent over `/ws` is. `/health` and `/ready` are not bounded.
+
+### Metrics
+
+`--metrics-listen-address` serves Prometheus metrics at `/metrics` on a listener of its own, apart from the GraphQL and
+JSON-RPC endpoints, so it can stay on a private interface. It is off by default, and the indexer then collects none.
+
+A request is one GraphQL root query field or one JSON-RPC call: a batch counts each of its calls. Its `api` label is
+`graphql` or `jsonrpc`, and its `operation` label the field or the method. No label carries a client address or a
+request's arguments.
+
+| Metric                                | Type      | Labels                       | Counts                                                                                                       |
+| ------------------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `tx_indexer_requests_total`           | counter   | `api`, `operation`, `status` | requests served; `status` is `ok` (partial answers included), `error`, or `deadline` (`--query-deadline`)    |
+| `tx_indexer_request_duration_seconds` | histogram | `api`, `operation`           | the time a request takes, the fields of the rows it answers included                                         |
+| `tx_indexer_rows_scanned_total`       | counter   | `api`, `operation`           | the blocks and transactions read from the database, the ones a filter or an index window then drops included |
+| `tx_indexer_rows_returned_total`      | counter   | `api`, `operation`           | the blocks and transactions answered                                                                         |
+| `tx_indexer_requests_in_flight`       | gauge     | `api`, `operation`           | the requests being served                                                                                    |
+
+The Go runtime's (`go_*`) and the process's (`process_*`) metrics are served beside them. A subscription's stream is
+not counted, as it lasts as long as its connection: a GraphQL subscription is left out, and a JSON-RPC `subscribe` call
+counts for its answer alone. Neither is a request that runs no operation: a GraphQL document that does not validate, or
+a JSON-RPC call that is not valid JSON-RPC 2.0 or names a method that does not exist.
+
+A GraphQL list answered in part counts as `ok`, with an error beside its rows: one cut at its element cap, or one short
+of a row that failed to decode.
+
+The rows scanned for each row returned tell how much reading a filter costs:
+`rate(tx_indexer_rows_scanned_total[5m]) / rate(tx_indexer_rows_returned_total[5m])`.
 
 ## GraphQL Endpoint
 
