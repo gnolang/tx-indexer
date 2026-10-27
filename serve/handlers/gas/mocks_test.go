@@ -1,6 +1,8 @@
 package gas
 
 import (
+	"context"
+
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/tx-indexer/storage"
 )
@@ -39,7 +41,7 @@ type mockIterator struct {
 	errorFn func() error
 }
 
-func (m *mockIterator) Next() bool {
+func (m *mockIterator) Next(context.Context) bool {
 	if m.nextFn != nil {
 		return m.nextFn()
 	}

@@ -71,7 +71,7 @@ func (h *Handler) getGasPriceBy(ctx context.Context, fromBlockNum, toBlockNum ui
 
 	blocks := make([]*types.Block, 0)
 
-	for it.Next() {
+	for it.Next(ctx) {
 		// The caller picks the range, so it can span the whole chain: stop
 		// decoding once the request has ended
 		if ctx.Err() != nil {

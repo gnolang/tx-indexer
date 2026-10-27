@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -380,7 +381,7 @@ type PebbleBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleBlockIter) Next() bool {
+func (pi *PebbleBlockIter) Next(_ context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
@@ -396,7 +397,7 @@ type PebbleReverseBlockIter struct {
 	pebbleBaseBlockIter
 }
 
-func (pi *PebbleReverseBlockIter) Next() bool {
+func (pi *PebbleReverseBlockIter) Next(_ context.Context) bool {
 	if !pi.init {
 		pi.init = true
 
@@ -431,14 +432,31 @@ func (pi *pebbleBaseTxIter) Close() error {
 	return multierr.Append(pi.i.Close(), pi.s.Close())
 }
 
+// stopped reports whether ctx has ended, keeping its cause for Error. Next
+// asks it on every key: the keys outside the index window are walked past
+// inside one Next, and a narrow window can leave the whole range outside it.
+func (pi *pebbleBaseTxIter) stopped(ctx context.Context) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+
+	pi.nextError = context.Cause(ctx)
+
+	return true
+}
+
 var _ Iterator[*types.TxResult] = &PebbleTxIter{}
 
 type PebbleTxIter struct {
 	pebbleBaseTxIter
 }
 
-func (pi *PebbleTxIter) Next() bool {
+func (pi *PebbleTxIter) Next(ctx context.Context) bool {
 	for {
+		if pi.stopped(ctx) {
+			return false
+		}
+
 		if !pi.init {
 			if !pi.i.First() {
 				return false
@@ -484,8 +502,12 @@ type PebbleReverseTxIter struct {
 	pebbleBaseTxIter
 }
 
-func (pi *PebbleReverseTxIter) Next() bool {
+func (pi *PebbleReverseTxIter) Next(ctx context.Context) bool {
 	for {
+		if pi.stopped(ctx) {
+			return false
+		}
+
 		if !pi.init {
 			if !pi.i.Last() {
 				return false

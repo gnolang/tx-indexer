@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -202,7 +204,7 @@ func TestStorageIters(t *testing.T) {
 	txCount := 0
 
 	for {
-		if !it.Next() {
+		if !it.Next(t.Context()) {
 			require.NoError(t, it.Error())
 
 			break
@@ -225,7 +227,7 @@ func TestStorageIters(t *testing.T) {
 	blockCount := 0
 
 	for {
-		if !it2.Next() {
+		if !it2.Next(t.Context()) {
 			require.NoError(t, it2.Error())
 
 			break
@@ -247,7 +249,7 @@ func TestStorageIters(t *testing.T) {
 	txCount = 0
 
 	for {
-		if !it.Next() {
+		if !it.Next(t.Context()) {
 			require.NoError(t, it.Error())
 
 			break
@@ -269,7 +271,7 @@ func TestStorageIters(t *testing.T) {
 	txCount = 0
 
 	for {
-		if !it.Next() {
+		if !it.Next(t.Context()) {
 			require.NoError(t, it.Error())
 
 			break
@@ -326,4 +328,91 @@ func generateRandomTxs(t *testing.T, count int) []*types.TxResult {
 	}
 
 	return txs
+}
+
+// errCountdown is the error a countdownContext ends with
+var errCountdown = errors.New("countdown over")
+
+// countdownContext ends once its Err has been asked more than budget times.
+// It lets a test end a context in the middle of an iterator's walk without a
+// clock, and tells how often the iterator checked it.
+type countdownContext struct {
+	context.Context
+	budget int
+	asked  int
+}
+
+func (c *countdownContext) Err() error {
+	c.asked++
+
+	if c.asked > c.budget {
+		return errCountdown
+	}
+
+	return nil
+}
+
+// A transaction iterator walks past every key outside its index window before
+// it yields a row, so a narrow window over a long range can read the whole
+// chain inside one Next. The walk stops at the first key after its context
+// ends.
+func TestStorage_TxIteratorWalkStopsWithItsContext(t *testing.T) {
+	t.Parallel()
+
+	const (
+		heights = 1_000
+		budget  = 10
+	)
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	// One transaction per height, all at index 0: outside a window from 5
+	wb := s.WriteBatch()
+
+	for height := int64(1); height <= heights; height++ {
+		require.NoError(t, wb.SetTx(&types.TxResult{Height: height, Tx: types.Tx{byte(height), byte(height >> 8)}}))
+	}
+
+	require.NoError(t, wb.Commit())
+
+	testTable := []struct {
+		open func() (Iterator[*types.TxResult], error)
+		name string
+	}{
+		{
+			func() (Iterator[*types.TxResult], error) { return s.TxIterator(0, 0, 5, 0) },
+			"ascending",
+		},
+		{
+			func() (Iterator[*types.TxResult], error) { return s.TxReverseIterator(0, 0, 5, 0) },
+			"descending",
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			it, err := testCase.open()
+			require.NoError(t, err)
+
+			t.Cleanup(func() {
+				assert.NoError(t, it.Close())
+			})
+
+			ctx := &countdownContext{Context: context.Background(), budget: budget}
+
+			require.False(t, it.Next(ctx))
+			require.ErrorIs(t, it.Error(), errCountdown)
+
+			// One check per key until the context ends, plus the ask for its
+			// cause: the walk went no further than budget keys
+			assert.LessOrEqual(t, ctx.asked, budget+2, "the walk ran on after its context ended")
+		})
+	}
 }

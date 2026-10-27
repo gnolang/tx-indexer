@@ -63,23 +63,23 @@ func isSubscription(ctx context.Context) bool {
 	return operation != nil && operation.Operation == ast.Subscription
 }
 
-// scanStopped is what a list resolver answers when its context ends before its
-// scan does. It answers no rows: the rows read so far can end inside a block
-// and say nothing of how far the scan got, so the client could neither resume
-// from them nor tell them from a whole page. The query deadline names itself
-// in the error's extensions; any other end, such as the client leaving,
-// answers the context's cause as it is.
-func scanStopped(ctx context.Context) error {
-	cause := context.Cause(ctx)
-
+// scanError is what a list resolver answers when err cuts its scan short,
+// whether the resolver saw its context end between two rows or the storage
+// stopped on it in a walk past rows outside the index window. It answers no
+// rows: the rows read so far can end inside a block and say nothing of how far
+// the scan got, so the client could neither resume from them nor tell them
+// from a whole page. The query deadline names itself in the error's
+// extensions; any other error, such as the client leaving, is answered as it
+// is.
+func scanError(err error) error {
 	var exceeded *deadline.ExceededError
-	if !errors.As(cause, &exceeded) {
-		return cause
+	if !errors.As(err, &exceeded) {
+		return err
 	}
 
 	return &gqlerror.Error{
-		Err:        cause,
-		Message:    cause.Error(),
+		Err:        err,
+		Message:    err.Error(),
 		Extensions: exceeded.Details(),
 	}
 }

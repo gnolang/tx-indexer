@@ -15,8 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/gnolang/tx-indexer/events"
+	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/storage"
 	indexerTypes "github.com/gnolang/tx-indexer/types"
@@ -74,7 +76,7 @@ type slowIterator[T any] struct {
 	read  int64
 }
 
-func (it *slowIterator[T]) Next() bool {
+func (it *slowIterator[T]) Next(context.Context) bool {
 	time.Sleep(slowRowDelay)
 
 	it.read++
@@ -302,7 +304,7 @@ func TestQueryDeadline_UndecodableRequestIsAnswered(t *testing.T) {
 
 // A scan whose client has left answers the cancellation as it is: only the
 // deadline names itself
-func TestScanStopped_ClientLeftIsNotADeadline(t *testing.T) {
+func TestQueryDeadline_ClientLeftIsNotADeadline(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(testContext())
@@ -315,4 +317,69 @@ func TestScanStopped_ClientLeftIsNotADeadline(t *testing.T) {
 	assert.Nil(t, out)
 	require.ErrorIs(t, err, context.Canceled)
 	assert.NotContains(t, err.Error(), "query deadline")
+}
+
+// A narrow index window makes the storage walk past every transaction outside
+// it before it yields one, out of the resolver's reach between rows. The
+// deadline stops that walk too, and the scan answers it named.
+func TestQueryDeadline_StopsAnIndexWindowWalk(t *testing.T) {
+	t.Parallel()
+
+	r := testResolver(t)
+
+	// Every transaction at index 0, outside a window from index 5
+	seedTxs(t, r, 1_000, 1)
+
+	fromIndex := 5
+
+	testTable := []struct {
+		scan func(context.Context) ([]*model.Transaction, error)
+		name string
+	}{
+		{
+			func(ctx context.Context) ([]*model.Transaction, error) {
+				return r.Query().GetTransactions(
+					ctx,
+					model.FilterTransaction{Index: &model.FilterInt{Gt: &fromIndex}},
+					nil,
+				)
+			},
+			"getTransactions",
+		},
+		{
+			func(ctx context.Context) ([]*model.Transaction, error) {
+				return r.Query().GetTransactions(
+					ctx,
+					model.FilterTransaction{Index: &model.FilterInt{Gt: &fromIndex}},
+					&model.TransactionOrder{HeightAndIndex: model.OrderDesc},
+				)
+			},
+			"getTransactions descending",
+		},
+		{
+			func(ctx context.Context) ([]*model.Transaction, error) {
+				return r.Query().Transactions(ctx, model.TransactionFilter{FromIndex: &fromIndex})
+			},
+			"transactions",
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := deadline.WithTimeout(testContext(), time.Nanosecond)
+			defer cancel()
+
+			<-ctx.Done()
+
+			out, err := testCase.scan(ctx)
+			assert.Nil(t, out)
+
+			var gqlErr *gqlerror.Error
+
+			require.ErrorAs(t, err, &gqlErr)
+			assert.Equal(t, "QUERY_DEADLINE_EXCEEDED", gqlErr.Extensions["code"])
+		})
+	}
 }
