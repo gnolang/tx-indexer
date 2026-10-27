@@ -214,7 +214,11 @@ func tryStartIndexer(t *testing.T, serveMetrics bool, args []string) (indexer, b
 
 	cfg := testCfg(t, append(flags, args...)...)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// The test's context ends on every way out of the test, a failure before
+	// the Cleanup below is registered included, so the indexer never outlives
+	// it; it ends before the Cleanup functions run, so that one still waits
+	// for the stop
+	ctx, cancel := context.WithCancel(t.Context())
 	stopped := make(chan error, 1)
 
 	go func() {
