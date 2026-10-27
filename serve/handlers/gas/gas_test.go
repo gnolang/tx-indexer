@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
+	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/spec"
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/stretchr/testify/assert"
@@ -135,5 +136,35 @@ func TestGetGasPriceHandler_StopsWhenTheContextEnds(t *testing.T) {
 		assert.Equal(t, spec.ServerErrorCode, err.Code)
 		assert.Equal(t, errBound.Error(), err.Message)
 		assert.Less(t, time.Since(start), 2*bound, "the scan ran past its context")
+	})
+}
+
+// A scan stopped by the query deadline answers its machine-readable code
+// beside the message
+func TestGetGasPriceHandler_NamesTheQueryDeadline(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := deadline.WithTimeout(t.Context(), 50*time.Millisecond)
+		defer cancel()
+
+		h := NewHandler(&mockStorage{
+			blockIteratorFn: func(uint64, uint64) (storage.Iterator[*types.Block], error) {
+				return &mockIterator{
+					nextFn: func() bool {
+						time.Sleep(time.Millisecond)
+
+						return true
+					},
+					valueFn: func() (*types.Block, error) { return &types.Block{}, nil },
+				}, nil
+			},
+		})
+
+		_, err := h.GetGasPriceHandler(ctx, nil, []any{"0", "0"})
+
+		require.NotNil(t, err)
+		assert.Equal(t, "query deadline exceeded (50ms); narrow the block height range", err.Message)
+		assert.Equal(t, map[string]any{"code": "QUERY_DEADLINE_EXCEEDED", "queryDeadline": "50ms"}, err.Data)
 	})
 }

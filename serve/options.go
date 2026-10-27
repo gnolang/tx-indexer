@@ -1,6 +1,10 @@
 package serve
 
-import "go.uber.org/zap"
+import (
+	"time"
+
+	"go.uber.org/zap"
+)
 
 type Option func(s *JSONRPC)
 
@@ -9,5 +13,13 @@ type Option func(s *JSONRPC)
 func WithLogger(logger *zap.Logger) Option {
 	return func(s *JSONRPC) {
 		s.logger = logger
+	}
+}
+
+// WithQueryDeadline sets how long one request may run before its calls
+// answer a deadline error. Zero, the default, leaves requests unbounded.
+func WithQueryDeadline(d time.Duration) Option {
+	return func(s *JSONRPC) {
+		s.queryDeadline = d
 	}
 }

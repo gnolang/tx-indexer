@@ -44,6 +44,11 @@ const (
 const corsAllowedOriginsHelp = "a comma-separated list of origins allowed to make cross-origin requests " +
 	"to the GraphQL and JSON-RPC endpoints, or \"*\" to allow any origin"
 
+// queryDeadlineHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const queryDeadlineHelp = "the maximum time a GraphQL or JSON-RPC request may run before it is answered " +
+	"with a deadline error, unlimited by default; subscriptions are exempt"
+
 type startCfg struct {
 	listenAddress        string
 	remote               string
@@ -54,6 +59,7 @@ type startCfg struct {
 	maxSlots             int
 	maxChunkSize         int64
 	rateLimit            int
+	queryDeadline        time.Duration
 	disableIntrospection bool
 }
 
@@ -127,6 +133,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"the maximum HTTP requests allowed per minute per IP, unlimited by default",
 	)
 
+	fs.DurationVar(
+		&c.queryDeadline,
+		"query-deadline",
+		0,
+		queryDeadlineHelp,
+	)
+
 	fs.BoolVar(
 		&c.disableIntrospection,
 		"disable-introspection",
@@ -151,6 +164,12 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 
 // exec executes the indexer start command
 func (c *startCfg) exec(ctx context.Context) error {
+	// A negative deadline is a typo rather than a setting: refuse it instead
+	// of serving with the deadline off
+	if c.queryDeadline < 0 {
+		return fmt.Errorf("invalid --query-deadline %s: it must be 0 (off) or positive", c.queryDeadline)
+	}
+
 	// Parse the log level
 	logLevel, err := zap.ParseAtomicLevel(c.logLevel)
 	if err != nil {
@@ -222,6 +241,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 		supplyHandler,
 		em,
 		logger,
+		c.queryDeadline,
 	)
 
 	mux := chi.NewMux()
@@ -250,8 +270,12 @@ func (c *startCfg) exec(ctx context.Context) error {
 		))
 	}
 
+	if c.queryDeadline != 0 {
+		logger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
+	}
+
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection)
+	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline)
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
@@ -359,12 +383,14 @@ func setupJSONRPC(
 	supplyHandler *supply.Handler,
 	em *events.Manager,
 	logger *zap.Logger,
+	queryDeadline time.Duration,
 ) *serve.JSONRPC {
 	j := serve.NewJSONRPC(
 		em,
 		serve.WithLogger(
 			logger.Named("json-rpc"),
 		),
+		serve.WithQueryDeadline(queryDeadline),
 	)
 
 	// Transaction handlers

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
+	"github.com/gnolang/tx-indexer/serve/deadline"
 	"github.com/gnolang/tx-indexer/serve/filters"
 	"github.com/gnolang/tx-indexer/serve/handlers/block"
 	"github.com/gnolang/tx-indexer/serve/handlers/gas"
@@ -61,6 +63,10 @@ type JSONRPC struct {
 
 	// ws handles incoming and active WS connections
 	ws *melody.Melody
+
+	// queryDeadline bounds each request, a batch as a whole; zero leaves
+	// requests unbounded
+	queryDeadline time.Duration
 }
 
 // NewJSONRPC creates a new instance of the JSONRPC server
@@ -308,6 +314,11 @@ func (j *JSONRPC) handleRequest(
 	writer writer.ResponseWriter,
 	requests spec.BaseJSONRequests,
 ) {
+	// The calls of a batch share one deadline, so the batch is bounded as a
+	// whole and not call by call
+	ctx, cancel := deadline.WithTimeout(ctx, j.queryDeadline)
+	defer cancel()
+
 	// Parse all JSON-RPC requests
 	responses := make(spec.BaseJSONResponses, len(requests))
 
@@ -387,6 +398,12 @@ func (j *JSONRPC) route(
 			"Method handler not set",
 			spec.MethodNotFoundErrorCode,
 		)
+	}
+
+	// A request that has ended, by its deadline or its client leaving, runs
+	// no further calls of its batch: each answers the reason instead
+	if ctx.Err() != nil {
+		return nil, spec.GenerateResponseError(context.Cause(ctx))
 	}
 
 	return handler(ctx, metadata, request.Params)

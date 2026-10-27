@@ -52,8 +52,7 @@ func (r *queryResolver) Transactions(ctx context.Context, filter model.Transacti
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanStopped(ctx)
 		default:
 			t, err := it.Value()
 			if err != nil {
@@ -99,8 +98,7 @@ func (r *queryResolver) Blocks(ctx context.Context, filter model.BlockFilter) ([
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanStopped(ctx)
 		default:
 			b, err := it.Value()
 			if err != nil {
@@ -184,8 +182,7 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanStopped(ctx)
 		default:
 			b, err := it.Value()
 			if err != nil {
@@ -286,8 +283,7 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 
 		select {
 		case <-ctx.Done():
-			graphql.AddError(ctx, ctx.Err())
-			return out, nil
+			return nil, scanStopped(ctx)
 		default:
 			t, err := it.Value()
 			if err != nil {
