@@ -97,7 +97,7 @@ FLAGS
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
-  -http-rate-limit 0              the maximum HTTP requests allowed per minute per client address, as --client-ip-header reads it, unlimited by default
+  -http-rate-limit 0              the maximum HTTP requests allowed per minute per client address, as --client-ip-header reads it, an IPv6 one by its /64, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-format console             the format of the log lines: console, columns for people to read, or json, one object per line for log pipelines to parse
   -log-level info                 the log level for the CLI output
@@ -260,7 +260,8 @@ writes the header it likes.
 `--http-rate-limit` caps the requests one client sends per minute, and answers the rest with a 429. It counts each
 client under the client address the request log names: the address the request came from, or the one
 `--client-ip-header` reads behind trusted proxies. A header the client sets itself, such as `X-Real-IP` or
-`X-Forwarded-For` when no proxy is trusted, never names a client.
+`X-Forwarded-For` when no proxy is trusted, never names a client. An IPv6 client is counted under its /64, the block
+one end site is given, so moving across its addresses leaves it one client.
 
 ## GraphQL Endpoint
 

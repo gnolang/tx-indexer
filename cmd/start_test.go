@@ -663,6 +663,47 @@ func TestStartCfg_RateLimitCountsThePeerByDefault(t *testing.T) {
 	)
 }
 
+// The rate limit counts an IPv6 client under its /64, the block one end site
+// is given, so a client moving across its block's addresses stays one client.
+// An IPv4 address written in IPv6 form is the IPv4 client it names. An address
+// that is no IP is a client of its own.
+func TestStartCfg_RateLimitKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &startCfg{clientIPTrustedHops: 1}
+
+	keyOf := func(peer string) string {
+		r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+		r.RemoteAddr = peer
+
+		return cfg.rateLimitKey(r)
+	}
+
+	testTable := []struct {
+		name  string
+		one   string
+		other string
+		same  bool
+	}{
+		{"two addresses of one IPv6 /64", "[2001:db8::1]:1", "[2001:db8::ffff:2]:2", true},
+		{"two IPv6 /64s", "[2001:db8::1]:1", "[2001:db8:0:1::1]:2", false},
+		{"an IPv4 address and its IPv6 form", "203.0.113.9:1", "[::ffff:203.0.113.9]:2", true},
+		{"two IPv4 addresses", "203.0.113.9:1", "203.0.113.10:2", false},
+		{"two IPv4 addresses in IPv6 form", "[::ffff:203.0.113.9]:1", "[::ffff:203.0.113.10]:2", false},
+		{"two addresses that are no IP", "pipe-1", "pipe-2", false},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			one, other := keyOf(testCase.one), keyOf(testCase.other)
+
+			assert.Equal(t, testCase.same, one == other, "keys %q and %q", one, other)
+		})
+	}
+}
+
 // serveCall serves one getBlock call through o, from a client behind two
 // proxies appending to X-Forwarded-For
 func serveCall(o *observe.Observer) {

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -72,7 +73,7 @@ const clientIPHeaderHelp = "the header trusted to carry the client address the r
 // rateLimitHelp is built up over multiple lines so each stays under the
 // linter's line-length limit.
 const rateLimitHelp = "the maximum HTTP requests allowed per minute per client address, " +
-	"as --client-ip-header reads it, unlimited by default"
+	"as --client-ip-header reads it, an IPv6 one by its /64, unlimited by default"
 
 // clientIPTrustedHopsHelp is built up over multiple lines so each stays under
 // the linter's line-length limit.
@@ -589,12 +590,32 @@ func (c *startCfg) newObserver(m *metrics.Metrics, logger *zap.Logger) *observe.
 	return observe.New(m, opts...)
 }
 
+// ipv6ClientBits is the length of the prefix an IPv6 client is counted under:
+// one end site is given a /64 or wider, so its host picks any address in it
+const ipv6ClientBits = 64
+
 // rateLimitKey is the key the rate limit counts r under: its client address,
 // read as the request log reads it, from --client-ip-header as far as the
 // trusted proxies reach, or the address the request came from with no header
-// trusted. A header a client sets itself is never read.
+// trusted. A header a client sets itself is never read. An IPv6 client is
+// counted under its /64, as httprate's own key functions count one, and an
+// IPv4 address in IPv6 form as the IPv4 address.
 func (c *startCfg) rateLimitKey(r *http.Request) string {
-	return observe.ClientAddress(r, c.clientIPHeader, c.clientIPTrustedHops)
+	client := observe.ClientAddress(r, c.clientIPHeader, c.clientIPTrustedHops)
+
+	address, err := netip.ParseAddr(client)
+	if err != nil {
+		// An address that is no IP, which no TCP peer has, is counted as it
+		// is
+		return client
+	}
+
+	address = address.Unmap()
+	if address.Is4() {
+		return address.String()
+	}
+
+	return netip.PrefixFrom(address, ipv6ClientBits).Masked().String()
 }
 
 // afterGenesis holds a service back until the genesis bootstrap has stored the
