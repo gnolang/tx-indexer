@@ -452,48 +452,7 @@ type PebbleTxIter struct {
 }
 
 func (pi *PebbleTxIter) Next(ctx context.Context) bool {
-	for {
-		if pi.stopped(ctx) {
-			return false
-		}
-
-		if !pi.init {
-			if !pi.i.First() {
-				return false
-			}
-
-			pi.init = true
-		} else if !pi.i.Next() {
-			return false
-		}
-
-		var buf []byte
-
-		key, _, err := decodeUnsafeStringAscending(pi.i.Key(), buf)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		key, _, err = decodeUint64Ascending(key)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		_, txIdx, err := decodeUint32Ascending(key)
-		if err != nil {
-			pi.nextError = err
-
-			return false
-		}
-
-		if txIdx >= pi.fromIndex && txIdx < pi.toIndex {
-			return true
-		}
-	}
+	return pi.next(ctx, pi.i.First, pi.i.Next)
 }
 
 var _ Iterator[*types.TxResult] = &PebbleReverseTxIter{}
@@ -503,18 +462,25 @@ type PebbleReverseTxIter struct {
 }
 
 func (pi *PebbleReverseTxIter) Next(ctx context.Context) bool {
+	return pi.next(ctx, pi.i.Last, pi.i.Prev)
+}
+
+// next walks to the next key inside the index window, landing on the first
+// key with start and stepping to the following ones with step: both iterators
+// walk alike and differ only in direction
+func (pi *pebbleBaseTxIter) next(ctx context.Context, start, step func() bool) bool {
 	for {
 		if pi.stopped(ctx) {
 			return false
 		}
 
 		if !pi.init {
-			if !pi.i.Last() {
+			if !start() {
 				return false
 			}
 
 			pi.init = true
-		} else if !pi.i.Prev() {
+		} else if !step() {
 			return false
 		}
 

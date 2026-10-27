@@ -288,6 +288,79 @@ func TestStorageIters(t *testing.T) {
 	require.Equal(t, 100, txCount)
 }
 
+// The transaction iterators yield the rows of their index window in key
+// order: by height then index, the reverse iterator the other way round
+func TestStorage_TxIteratorsWalkInKeyOrder(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewPebble(t.TempDir())
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	wb := s.WriteBatch()
+
+	for height := int64(1); height <= 3; height++ {
+		for index := range 3 {
+			require.NoError(t, wb.SetTx(&types.TxResult{
+				Height: height,
+				Index:  uint32(index),
+				Tx:     types.Tx{byte(height), byte(index)},
+			}))
+		}
+	}
+
+	require.NoError(t, wb.Commit())
+
+	// The rows at index 1 and 2, outside index 0
+	ascending := []string{"1/1", "1/2", "2/1", "2/2", "3/1", "3/2"}
+	descending := []string{"3/2", "3/1", "2/2", "2/1", "1/2", "1/1"}
+
+	testTable := []struct {
+		open func() (Iterator[*types.TxResult], error)
+		name string
+		want []string
+	}{
+		{
+			func() (Iterator[*types.TxResult], error) { return s.TxIterator(0, 0, 1, 0) },
+			"ascending",
+			ascending,
+		},
+		{
+			func() (Iterator[*types.TxResult], error) { return s.TxReverseIterator(0, 0, 1, 0) },
+			"descending",
+			descending,
+		},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			it, err := testCase.open()
+			require.NoError(t, err)
+
+			t.Cleanup(func() {
+				assert.NoError(t, it.Close())
+			})
+
+			var walked []string
+
+			for it.Next(t.Context()) {
+				tx, err := it.Value()
+				require.NoError(t, err)
+
+				walked = append(walked, fmt.Sprintf("%d/%d", tx.Height, tx.Index))
+			}
+
+			require.NoError(t, it.Error())
+			assert.Equal(t, testCase.want, walked)
+		})
+	}
+}
+
 // generateRandomBlocks generates dummy blocks
 func generateRandomBlocks(t *testing.T, count int) []*types.Block {
 	t.Helper()
