@@ -221,6 +221,17 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to create client, %w", err)
 	}
 
+	// The metrics are collected only when they are served
+	var (
+		m        *metrics.Metrics
+		observer *observe.Observer
+	)
+
+	if c.metricsListenAddress != "" {
+		m = metrics.New()
+		observer = observe.New(m)
+	}
+
 	// Create the fetcher service
 	f := fetch.New(
 		db,
@@ -231,6 +242,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 		),
 		fetch.WithMaxSlots(c.maxSlots),
 		fetch.WithMaxChunkSize(c.maxChunkSize),
+		fetch.WithMetrics(m),
 	)
 
 	// The supply handler serves both the JSON-RPC and GraphQL surfaces from
@@ -249,17 +261,6 @@ func (c *startCfg) exec(ctx context.Context) error {
 		),
 		supply.WithDenoms(denoms),
 	)
-
-	// The metrics are collected only when they are served
-	var (
-		m        *metrics.Metrics
-		observer *observe.Observer
-	)
-
-	if c.metricsListenAddress != "" {
-		m = metrics.New()
-		observer = observe.New(m)
-	}
 
 	// Create the JSON-RPC service
 	j := setupJSONRPC(

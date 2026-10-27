@@ -11,6 +11,7 @@ import (
 	queue "github.com/madz-lab/insertion-queue"
 	"go.uber.org/zap"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/storage"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
 	"github.com/gnolang/tx-indexer/types"
@@ -29,6 +30,7 @@ type Fetcher struct {
 	events  Events
 
 	logger      *zap.Logger
+	metrics     *metrics.Metrics
 	chunkBuffer *slots
 
 	// retrying holds the chunk ranges whose fetch failed, mapped to whether
@@ -96,13 +98,18 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			return fmt.Errorf("unable to fetch latest block height, %w", err)
 		}
 
+		f.metrics.SetIndexedHeight(latestLocal)
+
 		// Fetch the latest block from the chain
 		latestRemote, latestErr := f.client.GetLatestBlockNumber(ctx)
 		if latestErr != nil {
 			f.logger.Error("unable to fetch latest block number", zap.Error(latestErr))
+			f.metrics.CountFetchError(metrics.FetchStageChainHeight)
 
 			return nil
 		}
+
+		f.metrics.SetChainHeight(latestRemote)
 
 		// Check if there is a block gap
 		if latestRemote <= latestLocal {
@@ -146,6 +153,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 			}
 
 			f.retrying[gap] = false
+			f.metrics.CountFetchRetry()
 
 			f.logger.Info(
 				"Refetching range",
@@ -203,6 +211,7 @@ func (f *Fetcher) FetchChainData(ctx context.Context) error {
 				// reserved with a nil chunk blocks the write loop below until
 				// the refetch succeeds
 				f.retrying[response.chunkRange] = true
+				f.metrics.CountFetchError(metrics.FetchStageRange)
 
 				continue
 			}
@@ -303,6 +312,8 @@ func (f *Fetcher) writeSlot(s *slot) error {
 	if err := wb.Commit(); err != nil {
 		return fmt.Errorf("error persisting block information into storage, %w", err)
 	}
+
+	f.metrics.SetIndexedHeight(s.chunkRange.to)
 
 	f.latestChunkSize = len(s.chunk.blocks)
 

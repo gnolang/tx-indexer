@@ -167,13 +167,17 @@ A request is one GraphQL root query field or one JSON-RPC call: a batch counts e
 `graphql` or `jsonrpc`, and its `operation` label the field or the method. No label carries a client address or a
 request's arguments.
 
-| Metric                                | Type      | Labels                       | Counts                                                                                                       |
+| Metric                                | Type      | Labels                       | Value                                                                                                        |
 | ------------------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `tx_indexer_requests_total`           | counter   | `api`, `operation`, `status` | requests served; `status` is `ok` (partial answers included), `error`, or `deadline` (`--query-deadline`)    |
 | `tx_indexer_request_duration_seconds` | histogram | `api`, `operation`           | the time a request takes, the fields of the rows it answers included                                         |
 | `tx_indexer_rows_scanned_total`       | counter   | `api`, `operation`           | the blocks and transactions read from the database, the ones a filter or an index window then drops included |
 | `tx_indexer_rows_returned_total`      | counter   | `api`, `operation`           | the blocks and transactions answered                                                                         |
 | `tx_indexer_requests_in_flight`       | gauge     | `api`, `operation`           | the requests being served                                                                                    |
+| `tx_indexer_indexed_height`           | gauge     |                              | the latest block height written to the database                                                              |
+| `tx_indexer_chain_height`             | gauge     |                              | the chain's latest block height, as last read from the node                                                  |
+| `tx_indexer_fetch_errors_total`       | counter   | `stage`                      | failed reads from the node: of its latest height (`chain_height`), or of a range of blocks (`range`)         |
+| `tx_indexer_fetch_retries_total`      | counter   |                              | the block ranges fetched again after their fetch failed                                                      |
 
 The Go runtime's (`go_*`) and the process's (`process_*`) metrics are served beside them. A subscription's stream is
 not counted, as it lasts as long as its connection: a GraphQL subscription is left out, and a JSON-RPC `subscribe` call
@@ -185,6 +189,10 @@ of a row that failed to decode.
 
 The rows scanned for each row returned tell how much reading a filter costs:
 `rate(tx_indexer_rows_scanned_total[5m]) / rate(tx_indexer_rows_returned_total[5m])`.
+
+The lag behind the chain, in blocks, is `tx_indexer_chain_height - tx_indexer_indexed_height`. The chain's height is read
+once per fetch round, and not while every fetch slot is busy catching up, so it can trail the chain; a node that stops
+answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag.
 
 ## GraphQL Endpoint
 

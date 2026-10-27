@@ -84,6 +84,10 @@ func TestMetrics_NilRecordsNothing(t *testing.T) {
 	assert.NotPanics(t, func() {
 		m.RequestStarted(APIJSONRPC, "getBlock")
 		m.RequestEnded(testRequest)
+		m.SetIndexedHeight(1)
+		m.SetChainHeight(1)
+		m.CountFetchError(FetchStageRange)
+		m.CountFetchRetry()
 	})
 }
 
@@ -105,4 +109,33 @@ func TestMetrics_HandlerServesTheTextFormat(t *testing.T) {
 	body := rec.Body.String()
 	assert.Contains(t, body, `tx_indexer_requests_total{api="jsonrpc",operation="getBlock",status="ok"} 1`)
 	assert.Contains(t, body, "go_goroutines")
+}
+
+// The fetcher's heights and failures are recorded as it reports them. The
+// fetch errors are exported from the start, so an alert on their rate has a
+// series to read before the first error.
+func TestMetrics_RecordsTheFetch(t *testing.T) {
+	t.Parallel()
+
+	m := New()
+
+	chainHeightErrors := map[string]string{"stage": "chain_height"}
+	rangeErrors := map[string]string{"stage": "range"}
+
+	assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
+	assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", rangeErrors), 0)
+
+	m.SetIndexedHeight(7)
+	m.SetChainHeight(9)
+	m.CountFetchError(FetchStageRange)
+	m.CountFetchRetry()
+
+	assert.InDelta(t, 7, metricstest.Value(t, m, "tx_indexer_indexed_height", nil), 0)
+	assert.InDelta(t, 9, metricstest.Value(t, m, "tx_indexer_chain_height", nil), 0)
+	assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
+	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", rangeErrors), 0)
+	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_retries_total", nil), 0)
+
+	m.CountFetchError(FetchStageChainHeight)
+	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
 }

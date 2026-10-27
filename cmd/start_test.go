@@ -5,13 +5,22 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/gnolang/gno/gno.land/pkg/gnoland"
+	ctypes "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
+	rpcserver "github.com/gnolang/gno/tm2/pkg/bft/rpc/lib/server"
+	rpctypes "github.com/gnolang/gno/tm2/pkg/bft/rpc/lib/types"
+	"github.com/gnolang/gno/tm2/pkg/bft/state"
+	bftTypes "github.com/gnolang/gno/tm2/pkg/bft/types"
+	p2pTypes "github.com/gnolang/gno/tm2/pkg/p2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -287,6 +296,18 @@ func TestStartCfg_TakenAddressStopsTheCommand(t *testing.T) {
 	}
 }
 
+// sample returns the line of scrape that carries series, a metric name and
+// its labels as the exposition format writes them, or "" if none does
+func sample(scrape, series string) string {
+	for line := range strings.Lines(scrape) {
+		if strings.HasPrefix(line, series+" ") {
+			return strings.TrimSuffix(line, "\n")
+		}
+	}
+
+	return ""
+}
+
 // withoutStderrSync is what the start command returned at shutdown, less the
 // error of its logger's sync. The command returns the error logger.Sync
 // returns, and zap fails to sync a stderr that is not a terminal, as under go
@@ -312,8 +333,10 @@ func withoutStderrSync(err error) error {
 
 // get fetches url and returns the response with its body read, or nil if
 // nothing answers there
-func get(t *testing.T, url string) *httpResponse {
-	t.Helper()
+func get(t require.TestingT, url string) *httpResponse {
+	if h, ok := t.(interface{ Helper() }); ok {
+		h.Helper()
+	}
 
 	return fetchURL(t, http.MethodGet, url, "", "")
 }
@@ -334,11 +357,14 @@ type httpResponse struct {
 }
 
 // fetchURL sends one request and returns its answer, or nil if nothing
-// answers at url
-func fetchURL(t *testing.T, method, url, contentType, body string) *httpResponse {
-	t.Helper()
+// answers at url. It takes a *testing.T, or the *assert.CollectT of an
+// EventuallyWithT condition.
+func fetchURL(t require.TestingT, method, url, contentType, body string) *httpResponse {
+	if h, ok := t.(interface{ Helper() }); ok {
+		h.Helper()
+	}
 
-	req, err := http.NewRequestWithContext(t.Context(), method, url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
 	require.NoError(t, err)
 
 	if contentType != "" {
@@ -376,8 +402,11 @@ func TestStartCfg_ServesMetricsApartFromTheAPI(t *testing.T) {
 	require.NotNil(t, scrape, "nothing serves the metrics")
 	require.Equal(t, http.StatusOK, scrape.status)
 
-	assert.Contains(t, scrape.body, `tx_indexer_requests_total{api="jsonrpc",operation="getBlock",status="ok"} 1`)
-	assert.Contains(t, scrape.body, `tx_indexer_requests_total{api="graphql",operation="getBlocks",status="ok"} 1`)
+	jsonrpcCalls := `tx_indexer_requests_total{api="jsonrpc",operation="getBlock",status="ok"}`
+	graphqlFields := `tx_indexer_requests_total{api="graphql",operation="getBlocks",status="ok"}`
+
+	assert.Equal(t, jsonrpcCalls+" 1", sample(scrape.body, jsonrpcCalls))
+	assert.Equal(t, graphqlFields+" 1", sample(scrape.body, graphqlFields))
 
 	onAPI := get(t, "http://"+started.apiAddress+"/metrics")
 	require.NotNil(t, onAPI)
@@ -397,4 +426,72 @@ func TestStartCfg_MetricsAreOffByDefault(t *testing.T) {
 	require.NotNil(t, onAPI)
 	assert.NotEqual(t, http.StatusOK, onAPI.status)
 	assert.NotContains(t, onAPI.body, "tx_indexer_")
+}
+
+// testChainID is the chain the test node serves
+const testChainID = "metrics-test"
+
+// startNode serves a chain of empty blocks up to height, over as much of a
+// node's JSON-RPC as the indexer reads, until the test ends. It returns the
+// node's URL.
+func startNode(t *testing.T, height int64) string {
+	t.Helper()
+
+	routes := map[string]*rpcserver.RPCFunc{
+		"status": rpcserver.NewRPCFunc(
+			func(_ *rpctypes.Context, _ *int64) (*ctypes.ResultStatus, error) {
+				return &ctypes.ResultStatus{
+					NodeInfo: p2pTypes.NodeInfo{Network: testChainID},
+					SyncInfo: ctypes.SyncInfo{LatestBlockHeight: height},
+				}, nil
+			},
+			"heightGte",
+		),
+		"genesis": rpcserver.NewRPCFunc(
+			func(_ *rpctypes.Context) (*ctypes.ResultGenesis, error) {
+				return &ctypes.ResultGenesis{
+					Genesis: &bftTypes.GenesisDoc{ChainID: testChainID, AppState: gnoland.GnoGenesisState{}},
+				}, nil
+			},
+			"",
+		),
+		"block": rpcserver.NewRPCFunc(
+			func(_ *rpctypes.Context, height *int64) (*ctypes.ResultBlock, error) {
+				return &ctypes.ResultBlock{
+					Block: &bftTypes.Block{Header: bftTypes.Header{ChainID: testChainID, Height: *height}},
+				}, nil
+			},
+			"height",
+		),
+		"block_results": rpcserver.NewRPCFunc(
+			func(_ *rpctypes.Context, height *int64) (*ctypes.ResultBlockResults, error) {
+				return &ctypes.ResultBlockResults{Height: *height, Results: &state.ABCIResponses{}}, nil
+			},
+			"height",
+		),
+	}
+
+	mux := http.NewServeMux()
+	rpcserver.RegisterRPCFuncs(mux, routes, slog.New(slog.DiscardHandler))
+
+	node := httptest.NewServer(mux)
+	t.Cleanup(node.Close)
+
+	return node.URL
+}
+
+// The metrics carry the height the fetcher read from the node and the height
+// it indexed up to, so the lag behind the chain is their difference
+func TestStartCfg_ServesTheFetchHeights(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, true, "--remote", startNode(t, 3))
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		scrape := get(c, "http://"+started.metricsAddress+"/metrics")
+		require.NotNil(c, scrape)
+
+		assert.Equal(c, "tx_indexer_chain_height 3", sample(scrape.body, "tx_indexer_chain_height"))
+		assert.Equal(c, "tx_indexer_indexed_height 3", sample(scrape.body, "tx_indexer_indexed_height"))
+	}, 5*time.Second, 10*time.Millisecond)
 }

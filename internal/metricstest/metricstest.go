@@ -1,10 +1,9 @@
 // Package metricstest reads single samples out of a Prometheus gatherer, so a
-// test can assert what one served request or fetch recorded.
+// test can assert what one served request or fetch recorded. Its functions
+// take a *testing.T, or the *assert.CollectT of an EventuallyWithT condition.
 package metricstest
 
 import (
-	"testing"
-
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
@@ -12,8 +11,10 @@ import (
 
 // Find returns the sample of the metric name whose labels are exactly labels,
 // or nil if g holds none
-func Find(t *testing.T, g prometheus.Gatherer, name string, labels map[string]string) *dto.Metric {
-	t.Helper()
+func Find(t require.TestingT, g prometheus.Gatherer, name string, labels map[string]string) *dto.Metric {
+	if h, ok := t.(interface{ Helper() }); ok {
+		h.Helper()
+	}
 
 	families, err := g.Gather()
 	require.NoError(t, err)
@@ -35,8 +36,10 @@ func Find(t *testing.T, g prometheus.Gatherer, name string, labels map[string]st
 
 // Value returns the value of a counter or gauge sample, or the sample count of
 // a histogram one. It fails the test if g holds no such sample.
-func Value(t *testing.T, g prometheus.Gatherer, name string, labels map[string]string) float64 {
-	t.Helper()
+func Value(t require.TestingT, g prometheus.Gatherer, name string, labels map[string]string) float64 {
+	if h, ok := t.(interface{ Helper() }); ok {
+		h.Helper()
+	}
 
 	sample := Find(t, g, name, labels)
 	require.NotNilf(t, sample, "no sample %s%v", name, labels)

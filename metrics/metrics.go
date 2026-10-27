@@ -1,5 +1,5 @@
 // Package metrics holds the indexer's Prometheus metrics: those of the
-// requests it serves.
+// requests it serves and of its fetch of the chain.
 package metrics
 
 import (
@@ -32,6 +32,15 @@ const (
 
 	// StatusDeadline is a request stopped by the query deadline
 	StatusDeadline = "deadline"
+)
+
+// The steps of the fetch that can fail, the values of the stage label
+const (
+	// FetchStageChainHeight is the read of the chain's latest height
+	FetchStageChainHeight = "chain_height"
+
+	// FetchStageRange is the fetch of a range of blocks and their results
+	FetchStageRange = "range"
 )
 
 // durationBuckets span a point read to a scan of the whole chain, which runs
@@ -76,9 +85,15 @@ type Metrics struct {
 	rowsScanned  *prometheus.CounterVec
 	rowsReturned *prometheus.CounterVec
 	inFlight     *prometheus.GaugeVec
+
+	indexedHeight prometheus.Gauge
+	chainHeight   prometheus.Gauge
+	fetchErrors   *prometheus.CounterVec
+	fetchRetries  prometheus.Counter
 }
 
-// New creates the indexer's metrics, with the Go runtime's and the process's
+// New creates the indexer's metrics, with the Go runtime's and the process's.
+// The fetch errors start at zero for every stage.
 func New() *Metrics {
 	operationLabels := []string{"api", "operation"}
 
@@ -125,6 +140,33 @@ func New() *Metrics {
 			},
 			operationLabels,
 		),
+		indexedHeight: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "indexed_height",
+			Help:      "The latest block height written to the database.",
+		}),
+		chainHeight: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "chain_height",
+			Help:      "The chain's latest block height, as last read from the node.",
+		}),
+		fetchErrors: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "fetch_errors_total",
+				Help:      "Failed reads from the node, by stage (chain_height, range).",
+			},
+			[]string{"stage"},
+		),
+		fetchRetries: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "fetch_retries_total",
+			Help:      "Block ranges fetched again after their fetch failed.",
+		}),
+	}
+
+	for _, stage := range []string{FetchStageChainHeight, FetchStageRange} {
+		m.fetchErrors.WithLabelValues(stage)
 	}
 
 	m.registry.MustRegister(
@@ -135,6 +177,10 @@ func New() *Metrics {
 		m.rowsScanned,
 		m.rowsReturned,
 		m.inFlight,
+		m.indexedHeight,
+		m.chainHeight,
+		m.fetchErrors,
+		m.fetchRetries,
 	)
 
 	return m
@@ -171,4 +217,42 @@ func (m *Metrics) RequestEnded(r Request) {
 	m.duration.WithLabelValues(r.API, r.Operation).Observe(r.Duration.Seconds())
 	m.rowsScanned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsScanned))
 	m.rowsReturned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsReturned))
+}
+
+// SetIndexedHeight records the latest block height written to the database
+func (m *Metrics) SetIndexedHeight(height uint64) {
+	if m == nil {
+		return
+	}
+
+	m.indexedHeight.Set(float64(height))
+}
+
+// SetChainHeight records the chain's latest block height, as just read from
+// the node
+func (m *Metrics) SetChainHeight(height uint64) {
+	if m == nil {
+		return
+	}
+
+	m.chainHeight.Set(float64(height))
+}
+
+// CountFetchError counts a failed read from the node at stage,
+// FetchStageChainHeight or FetchStageRange
+func (m *Metrics) CountFetchError(stage string) {
+	if m == nil {
+		return
+	}
+
+	m.fetchErrors.WithLabelValues(stage).Inc()
+}
+
+// CountFetchRetry counts a block range fetched again after its fetch failed
+func (m *Metrics) CountFetchRetry() {
+	if m == nil {
+		return
+	}
+
+	m.fetchRetries.Inc()
 }
