@@ -598,8 +598,9 @@ const ipv6ClientBits = 64
 // read as the request log reads it, from --client-ip-header as far as the
 // trusted proxies reach, or the address the request came from with no header
 // trusted. A header a client sets itself is never read. An IPv6 client is
-// counted under its /64, as httprate's own key functions count one, and an
-// IPv4 address in IPv6 form as the IPv4 address.
+// counted under its /64, as httprate's own key functions count one. An IPv4
+// address in IPv6 form is counted as the IPv4 address it names, where those
+// functions count every such address under one key, "::".
 func (c *startCfg) rateLimitKey(r *http.Request) string {
 	client := observe.ClientAddress(r, c.clientIPHeader, c.clientIPTrustedHops)
 
