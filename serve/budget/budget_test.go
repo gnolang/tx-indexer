@@ -406,3 +406,24 @@ func TestBudget_BoundsRetryAfter(t *testing.T) {
 	_, err = b.Reserve(testClient)
 	assert.Equal(t, time.Duration(math.MaxInt64).Truncate(time.Second), retryAfter(t, err))
 }
+
+// The deadline the requests in flight hold is summed without overflowing,
+// however long the deadline: no wrapped sum admits a request past the budget
+func TestBudget_HoldsDeadlinesWithoutOverflow(t *testing.T) {
+	t.Parallel()
+
+	// Two requests of a deadline over half the longest duration fit in the
+	// longest budget, a third does not: three such deadlines are longer than
+	// a duration holds
+	b := New(Config{Limit: math.MaxInt64, Refill: time.Second, Deadline: math.MaxInt64/2 + 1})
+
+	for range 2 {
+		end, err := b.Reserve(testClient)
+		require.NoError(t, err)
+
+		t.Cleanup(end)
+	}
+
+	_, err := b.Reserve(testClient)
+	require.Error(t, err, "a third request was admitted")
+}

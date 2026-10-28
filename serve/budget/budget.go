@@ -175,7 +175,7 @@ func (b *Budget) Reserve(client string) (func(), error) {
 
 	b.refillTo(a, now)
 
-	available := a.balance - float64(time.Duration(a.inFlight)*b.deadline)
+	available := a.balance - float64(a.inFlight)*float64(b.deadline)
 	if available <= 0 {
 		return nil, &ExhaustedError{RetryAfter: b.retryAfter(available)}
 	}
