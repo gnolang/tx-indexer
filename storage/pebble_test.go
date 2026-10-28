@@ -765,7 +765,7 @@ func TestPebble_LogsThroughTheLogger(t *testing.T) {
 }
 
 // A store reopened replays its write-ahead log, and pebble reports the replay
-// through the logger the store was opened with
+// through the logger the store was opened with, under pebble's own caller
 func TestPebble_ReportsThroughItsLogger(t *testing.T) {
 	t.Parallel()
 
@@ -781,12 +781,16 @@ func TestPebble_ReportsThroughItsLogger(t *testing.T) {
 
 	core, logs := observer.New(zap.InfoLevel)
 
-	s, err = NewPebble(path, zap.New(core))
+	s, err = NewPebble(path, zap.New(core, zap.AddCaller()))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		assert.NoError(t, s.Close())
 	})
 
-	assert.Equal(t, 1, logs.FilterMessageSnippet("replayed 1 keys").Len(), "%v", logs.All())
+	replayed := logs.FilterMessageSnippet("replayed 1 keys").All()
+	require.Len(t, replayed, 1, "%v", logs.All())
+
+	// The line names pebble's own caller, not the adapter that writes it
+	assert.Contains(t, replayed[0].Caller.File, "cockroachdb/pebble")
 }
