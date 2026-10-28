@@ -663,11 +663,11 @@ func TestStartCfg_RateLimitCountsThePeerByDefault(t *testing.T) {
 	)
 }
 
-// The rate limit counts an IPv6 client under its /64, the block one end site
+// The client limits count an IPv6 client under its /64, the block one end site
 // is given, so a client moving across its block's addresses stays one client.
 // An IPv4 address written in IPv6 form is the IPv4 client it names. An address
 // that is no IP is a client of its own.
-func TestStartCfg_RateLimitKey(t *testing.T) {
+func TestStartCfg_ClientKey(t *testing.T) {
 	t.Parallel()
 
 	cfg := &startCfg{clientIPTrustedHops: 1}
@@ -676,7 +676,7 @@ func TestStartCfg_RateLimitKey(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 		r.RemoteAddr = peer
 
-		return cfg.rateLimitKey(r)
+		return cfg.clientKey(r)
 	}
 
 	testTable := []struct {
