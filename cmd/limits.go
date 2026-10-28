@@ -136,7 +136,7 @@ func (c *startCfg) refuseOverBudget(
 
 	observer.Refused(c.clientAddress(r), api, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
 
-	w.Header().Set("Retry-After", strconv.Itoa(int(exhausted.RetryAfter/time.Second)))
+	w.Header().Set("Retry-After", strconv.FormatInt(exhausted.RetryAfterSeconds(), 10))
 
 	if api == metrics.APIJSONRPC {
 		j.WriteRefusal(w, r, err)

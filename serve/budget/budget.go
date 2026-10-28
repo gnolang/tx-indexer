@@ -24,13 +24,18 @@ func (e *ExhaustedError) Error() string {
 	return fmt.Sprintf("client time budget exhausted; retry in %s", e.RetryAfter)
 }
 
+// RetryAfterSeconds is RetryAfter in whole seconds, as Retry-After carries it
+func (e *ExhaustedError) RetryAfterSeconds() int64 {
+	return int64(e.RetryAfter / time.Second)
+}
+
 // Details are the error's machine-readable fields, carried beside the message
 // in the GraphQL error's extensions and the JSON-RPC error's data, as the
 // query deadline's are. Clients read them rather than the message text.
 func (e *ExhaustedError) Details() map[string]any {
 	return map[string]any{
 		"code":              "CLIENT_TIME_BUDGET_EXHAUSTED",
-		"retryAfterSeconds": int(e.RetryAfter / time.Second),
+		"retryAfterSeconds": e.RetryAfterSeconds(),
 	}
 }
 

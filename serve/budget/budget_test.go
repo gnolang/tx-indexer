@@ -353,7 +353,7 @@ func TestExhaustedError(t *testing.T) {
 
 	assert.Equal(t, map[string]any{
 		"code":              "CLIENT_TIME_BUDGET_EXHAUSTED",
-		"retryAfterSeconds": 5,
+		"retryAfterSeconds": int64(5),
 	}, exhausted.Details())
 }
 
