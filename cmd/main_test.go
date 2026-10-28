@@ -225,9 +225,9 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 
 		ts, ok := entry["ts"].(string)
 		require.True(t, ok, "no ts in %s", line)
-		assert.Regexp(t, `T\d{2}:\d{2}:\d{2}\.\d+Z$`, ts, "ts is not to the nanosecond in UTC")
+		assert.Regexp(t, `T\d{2}:\d{2}:\d{2}\.\d{9}Z$`, ts, "ts is not to the nanosecond in UTC, in nine digits")
 
-		_, err := time.Parse(time.RFC3339Nano, ts)
+		_, err := time.Parse(time.RFC3339, ts)
 		require.NoError(t, err)
 
 		assert.Contains(t, []any{"debug", "info", "warn", "error"}, entry["level"], line)

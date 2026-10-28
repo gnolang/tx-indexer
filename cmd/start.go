@@ -506,9 +506,13 @@ func jsonEncoderConfig() zapcore.EncoderConfig {
 	return encoder
 }
 
+// utcTimeLayout is RFC 3339 with all nine digits of nanoseconds, so every
+// line's time has one width, a whole second included
+const utcTimeLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
 // encodeUTCTime writes t in RFC 3339 with nanoseconds, in UTC
 func encodeUTCTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(t.UTC().Format(time.RFC3339Nano))
+	enc.AppendString(t.UTC().Format(utcTimeLayout))
 }
 
 // newObserver creates the observer of the served requests: it records them

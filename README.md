@@ -218,7 +218,7 @@ and in UTC, then `level`, `logger`, `caller` and `msg`, and each field as a key 
 carries its stack trace under `stacktrace`.
 
 ```json
-{"level":"info","ts":"2026-10-28T09:01:26.422663Z","logger":"requests","caller":"observe/observe.go:148","msg":"served request","api":"jsonrpc","operation":"getBlock","status":"ok","duration":"24.625µs","rows-scanned":1,"rows-returned":0,"client":"127.0.0.1"}
+{"level":"info","ts":"2026-10-28T10:41:26.526435000Z","logger":"requests","caller":"observe/observe.go:148","msg":"served request","api":"jsonrpc","operation":"getBlock","status":"ok","duration":"29.791µs","rows-scanned":1,"rows-returned":0,"client":"127.0.0.1"}
 ```
 
 Each line names the logger it came from: a service's (`fetcher`, `http-server`, `requests`, ...), or `start` for the
