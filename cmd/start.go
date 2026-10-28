@@ -434,7 +434,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	if c.rateLimit != 0 {
 		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
-		mux.Use(onAPIRoutes(c.newRateLimit(observer, logger)))
+		mux.Use(onAPIRoutes(c.newRateLimit(observer, startLogger)))
 	}
 
 	// The time budget admits what the count limit let through: a request the
@@ -442,14 +442,14 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 	var timeBudget *budget.Budget
 
 	if c.clientTimeBudget != 0 {
-		logger.Named("start").Info(
+		startLogger.Info(
 			"client time budget set",
 			zap.Duration("client-time-budget", c.clientTimeBudget),
 			zap.Duration("client-time-budget-refill", c.clientTimeBudgetRefill),
 		)
 
 		timeBudget = budget.New(c.clientTimeBudget, c.clientTimeBudgetRefill, c.queryDeadline)
-		mux.Use(onAPIRoutes(c.newTimeBudget(timeBudget, j, observer, logger)))
+		mux.Use(onAPIRoutes(c.newTimeBudget(timeBudget, j, observer, startLogger)))
 	}
 
 	if c.queryDeadline != 0 {

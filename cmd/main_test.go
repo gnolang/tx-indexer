@@ -496,3 +496,35 @@ func TestStartCfg_PrintsAnErrorBeforeTheLogger(t *testing.T) {
 
 	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, printed.String())
 }
+
+// With both client limits on, at debug, every JSON line names its logger, the
+// limits' own lines included: the time budget's line at start, and the line
+// the rate limit writes for each request it refuses
+func TestStartCfg_LogsJSONLinesWithBothLimits(t *testing.T) {
+	t.Parallel()
+
+	p := startProcess(
+		t,
+		"--log-format", "json",
+		"--log-level", "debug",
+		"--http-rate-limit", "1",
+		"--client-time-budget", "60s",
+		"--client-time-budget-refill", "30s",
+		"--query-deadline", "30s",
+	)
+
+	address := startedAddress.FindStringSubmatch(p.started)
+	require.Len(t, address, 2, "no address in %q", p.started)
+
+	assert.Equal(t, http.StatusOK, postTo(t, address[1], "/", jsonrpcCall).status)
+	assert.Equal(t, http.StatusTooManyRequests, postTo(t, address[1], "/", jsonrpcCall).status)
+
+	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
+
+	byMessage := jsonLines(t, p.output.String(), "debug", "info", "warn", "error")
+
+	for _, msg := range []string{"rate-limit set", "client time budget set", "too many requests"} {
+		require.Len(t, byMessage[msg], 1, msg)
+		assert.Equal(t, "start", byMessage[msg][0]["logger"], msg)
+	}
+}
