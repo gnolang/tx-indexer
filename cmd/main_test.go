@@ -320,18 +320,48 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 		for _, key := range []string{"api", "operation", "status", "duration", "rows-scanned", "rows-returned", "client"} {
 			assert.Contains(t, entry, key)
 		}
+
+		// A duration is text, as the console format writes it
+		duration, ok := entry["duration"].(string)
+		require.True(t, ok, "duration %v is no text", entry["duration"])
+
+		_, err := time.ParseDuration(duration)
+		assert.NoError(t, err)
 	}
 
 	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
 }
 
+// webSocketHandshake is the header of a WebSocket upgrade gorilla accepts
+// from a client of the indexer's own origin
+func webSocketHandshake() http.Header {
+	return http.Header{
+		"Connection":            {"Upgrade"},
+		"Upgrade":               {"websocket"},
+		"Sec-Websocket-Version": {"13"},
+		"Sec-Websocket-Key":     {"dGhlIHNhbXBsZSBub25jZQ=="},
+	}
+}
+
+// crossOrigin is a WebSocket handshake from another origin, which gorilla
+// refuses
+func crossOrigin() http.Header {
+	header := webSocketHandshake()
+	header.Set("Origin", "http://elsewhere.example")
+
+	return header
+}
+
 // failedUpgrades are requests gqlgen's WebSocket transport takes, by their
-// Upgrade header, and fails to upgrade, which any client may send: curl
-// --http2's h2c upgrade, and a query posted with a WebSocket's header
+// Upgrade header, and fails to upgrade, which any client may send, with the
+// status gorilla refuses each with: curl --http2's h2c upgrade, a query
+// posted with a WebSocket's header, a handshake from another origin, and one
+// posted
 var failedUpgrades = []struct {
 	header http.Header
 	method string
 	body   string
+	status int
 }{
 	{
 		http.Header{
@@ -341,34 +371,16 @@ var failedUpgrades = []struct {
 		},
 		http.MethodGet,
 		"",
+		http.StatusBadRequest,
 	},
 	{
 		http.Header{"Upgrade": {"websocket"}, "Content-Type": {"application/json"}},
 		http.MethodPost,
 		`{"query": "{ latestBlockHeight }"}`,
+		http.StatusBadRequest,
 	},
-}
-
-// sendWithHeader sends one request with header and returns its answer
-func sendWithHeader(t *testing.T, method, url, body string, header http.Header) httpResponse {
-	t.Helper()
-
-	req, err := http.NewRequestWithContext(t.Context(), method, url, strings.NewReader(body))
-	require.NoError(t, err)
-
-	req.Header = header
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() {
-		assert.NoError(t, resp.Body.Close())
-	}()
-
-	read, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	return httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
+	{crossOrigin(), http.MethodGet, "", http.StatusForbidden},
+	{webSocketHandshake(), http.MethodPost, "", http.StatusMethodNotAllowed},
 }
 
 // gorillaEarlyData is the text of gorilla's error for an upgrade whose client
@@ -387,11 +399,11 @@ func upgradeWithTrailingByte(host string) string {
 }
 
 // A request gqlgen's WebSocket transport fails to upgrade is answered gqlgen's
-// 400 alone, naming the WebSocket version it speaks, or nothing once gorilla
-// has taken the connection, and writes its line, through the standard log
-// package, as a line of the logger at warn under stdlib: with --log-format
-// json, every line is still one JSON object, and none is at error, as no
-// client alone causes one
+// body under gorilla's status, naming the WebSocket version it speaks, or
+// nothing once gorilla has taken the connection, and writes its line, through
+// the standard log package, as a line of the logger at warn under stdlib:
+// with --log-format json, every line is still one JSON object, with no stack
+// trace, and none is at error, as no client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -401,8 +413,9 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	require.Len(t, address, 2, "no address in %q", p.started)
 
 	for _, upgrade := range failedUpgrades {
-		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
-		assert.Equal(t, http.StatusBadRequest, response.status, response.body)
+		response := fetchURL(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.header, upgrade.body)
+		require.NotNil(t, response, "nothing answers at %s", address[1])
+		assert.Equal(t, upgrade.status, response.status, response.body)
 		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
 		// The version a WebSocket client is to retry with, as RFC 6455 §4.4 has
 		// a server name it
@@ -443,6 +456,8 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 		assert.Equal(t, "warn", entry["level"])
 		assert.Contains(t, entry["msg"], "unable to upgrade")
 		assert.Contains(t, entry["caller"], "transport/websocket.go")
+		// Any client causes one: its stack would be a page of log per request
+		assert.NotContains(t, entry, "stacktrace")
 	}
 }
 
@@ -486,15 +501,43 @@ func TestStartCfg_PrintsAnErrorBeforeTheLogger(t *testing.T) {
 	require.ErrorAs(t, err, &exited)
 	assert.Equal(t, 1, exited.ExitCode())
 
-	var printed strings.Builder
+	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, withoutForkNotice(stderr))
+}
+
+// withoutForkNotice is stderr without libmdbx's fork notice
+func withoutForkNotice(stderr string) string {
+	var kept strings.Builder
 
 	for line := range strings.Lines(stderr) {
 		if !mdbxForkNotice.MatchString(strings.TrimSuffix(line, "\n")) {
-			printed.WriteString(line)
+			kept.WriteString(line)
 		}
 	}
 
-	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, printed.String())
+	return kept.String()
+}
+
+// At a level above error, the error that ends a run is not logged: it is
+// printed plain on stderr, on a line of its own, as an error before the
+// logger exists is
+func TestStartCfg_PrintsTheErrorThatEndsARunAboveTheErrorLevel(t *testing.T) {
+	t.Parallel()
+
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, taken.Close())
+	})
+
+	stderr, err := runProcess(t, "--log-level", "fatal", "--listen-address", taken.Addr().String())
+
+	var exited *exec.ExitError
+
+	require.ErrorAs(t, err, &exited)
+	assert.Equal(t, 1, exited.ExitCode())
+
+	assert.Regexp(t, `^[^\n]*address already in use[^\n]*\n$`, withoutForkNotice(stderr))
 }
 
 // With both client limits on, at debug, every JSON line names its logger, the

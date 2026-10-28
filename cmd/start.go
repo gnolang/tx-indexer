@@ -330,8 +330,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	// A dependency's line through the standard log package, as gqlgen writes
 	// a failed WebSocket upgrade, is a line of the logger, at warn: no format
-	// has a plain line any client can cause
-	restoreStdLog, err := zap.RedirectStdLogAt(logger.Named("stdlib"), zap.WarnLevel)
+	// has a plain line any client can cause. It carries a stack only from
+	// error up, as a stack per request would fill the log.
+	stdLogger := logger.Named("stdlib").WithOptions(zap.AddStacktrace(zap.ErrorLevel))
+
+	restoreStdLog, err := zap.RedirectStdLogAt(stdLogger, zap.WarnLevel)
 	if err != nil {
 		return fmt.Errorf("unable to redirect the standard logger, %w", err)
 	}
@@ -342,21 +345,35 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// writes under its own: every line names the logger it came from
 	startLogger := logger.Named("start")
 
-	runErr := c.run(ctx, logger, startLogger)
+	return stopped(c.run(ctx, logger, startLogger), logger, startLogger, os.Stderr)
+}
+
+// stopped is the error a run ends on, once it has returned runErr: runErr
+// is logged at error under startLogger, then logger is synced to out, its
+// output. An error the log holds is a loggedError, which main does not print
+// again; one the level leaves out of the log is returned as it is, for main
+// to print. A failed sync, which the logger cannot log, is returned with the
+// run's error when the log does not hold that, and alone when it does.
+func stopped(runErr error, logger, startLogger *zap.Logger, out *os.File) error {
 	if runErr != nil {
-		startLogger.Error("stopped on an error", zap.Error(runErr))
+		if entry := startLogger.Check(zap.ErrorLevel, "stopped on an error"); entry != nil {
+			entry.Write(zap.Error(runErr))
+
+			runErr = &loggedError{err: runErr}
+		}
 	}
 
-	// A failed sync cannot be logged: it is the logger's own
-	if err := syncLogger(logger, os.Stderr); err != nil {
-		return err
+	syncErr := syncLogger(logger, out)
+	if syncErr == nil {
+		return runErr
 	}
 
-	if runErr != nil {
-		return &loggedError{err: runErr}
+	var logged *loggedError
+	if errors.As(runErr, &logged) {
+		return syncErr
 	}
 
-	return nil
+	return errors.Join(runErr, syncErr)
 }
 
 // loggedError is an error the start command has logged already, so main does
@@ -615,20 +632,13 @@ func newLogger(format string, level zap.AtomicLevel) (*zap.Logger, error) {
 
 // jsonEncoderConfig encodes each line as one JSON object, its fields at the
 // top level beside ts, level, logger, caller and msg, and a stack trace under
-// stacktrace. It keeps the development encoders' values, durations as text
-// among them, but for the level, in lowercase, and the time, in RFC 3339 with
-// nanoseconds, in UTC.
+// stacktrace. It is zap's production encoder config, but for durations, as
+// text, and the time, in RFC 3339 with nanoseconds, in UTC.
 func jsonEncoderConfig() zapcore.EncoderConfig {
-	encoder := zap.NewDevelopmentEncoderConfig()
+	encoder := zap.NewProductionEncoderConfig()
 
-	encoder.TimeKey = "ts"
-	encoder.LevelKey = "level"
-	encoder.NameKey = "logger"
-	encoder.CallerKey = "caller"
-	encoder.MessageKey = "msg"
-	encoder.StacktraceKey = "stacktrace"
-	encoder.EncodeLevel = zapcore.LowercaseLevelEncoder
 	encoder.EncodeTime = encodeUTCTime
+	encoder.EncodeDuration = zapcore.StringDurationEncoder
 
 	return encoder
 }
