@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/netip"
 
+	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve/observe"
 )
 
@@ -39,4 +40,36 @@ func (c *startCfg) clientKey(r *http.Request) string {
 	}
 
 	return netip.PrefixFrom(address, ipv6ClientBits).Masked().String()
+}
+
+// apiOf names the API a request path serves: JSON-RPC's POST endpoint and its
+// WebSocket, and GraphQL's endpoint. It is "" for any other path: /health,
+// /ready and the playground.
+func apiOf(path string) string {
+	switch path {
+	case "/", "/ws":
+		return metrics.APIJSONRPC
+	case "/graphql/query":
+		return metrics.APIGraphQL
+	default:
+		return ""
+	}
+}
+
+// onAPIRoutes applies limit to the requests of the API routes, and passes the
+// others on as they are, so a load balancer's health checks are never refused
+func onAPIRoutes(limit func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		limited := limit(next)
+
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if apiOf(r.URL.Path) == "" {
+				next.ServeHTTP(w, r)
+
+				return
+			}
+
+			limited.ServeHTTP(w, r)
+		})
+	}
 }

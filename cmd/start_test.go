@@ -575,15 +575,23 @@ func TestStartCfg_InvalidTrustedHops(t *testing.T) {
 	require.ErrorContains(t, cfg.exec(ctx), "--client-ip-trusted-hops")
 }
 
-// statuses sends url one GET per header, in turn, and returns the status each
-// is answered with
-func statuses(t *testing.T, url string, headers ...http.Header) []int {
+// jsonrpcCall is a JSON-RPC call any indexer answers, the block it names
+// stored or not
+const jsonrpcCall = `{"jsonrpc": "2.0", "id": 1, "method": "getBlock", "params": ["1"]}`
+
+// statuses sends jsonrpcCall to the JSON-RPC endpoint at address once per
+// header, in turn, and returns the status each is answered with
+func statuses(t *testing.T, address string, headers ...http.Header) []int {
 	t.Helper()
 
+	url := "http://" + address + "/"
 	answered := make([]int, 0, len(headers))
 
 	for _, header := range headers {
-		response := fetchURL(t, http.MethodGet, url, header, "")
+		header = header.Clone()
+		header.Set("Content-Type", "application/json")
+
+		response := fetchURL(t, http.MethodPost, url, header, jsonrpcCall)
 		require.NotNil(t, response, "nothing answers at %s", url)
 
 		answered = append(answered, response.status)
@@ -612,7 +620,7 @@ func TestStartCfg_RateLimitIgnoresForgedAddresses(t *testing.T) {
 		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
 		statuses(
 			t,
-			"http://"+started.apiAddress+"/health",
+			started.apiAddress,
 			http.Header{"X-Forwarded-For": {"6.6.6.1, 203.0.113.9, 198.51.100.4"}},
 			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.5"}, "X-Real-Ip": {"6.6.6.2"}},
 			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.6"}, "True-Client-Ip": {"6.6.6.3"}},
@@ -632,7 +640,7 @@ func TestStartCfg_RateLimitCountsClientsApart(t *testing.T) {
 		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests, http.StatusOK},
 		statuses(
 			t,
-			"http://"+started.apiAddress+"/health",
+			started.apiAddress,
 			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
 			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
 			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
@@ -648,14 +656,12 @@ func TestStartCfg_RateLimitCountsThePeerByDefault(t *testing.T) {
 
 	started := startIndexer(t, false, "--http-rate-limit", "2")
 
-	// startIndexer's readiness probe, sent from the same address, is the
-	// first request the limit counts
 	assert.Equal(
 		t,
-		[]int{http.StatusOK, http.StatusTooManyRequests, http.StatusTooManyRequests},
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
 		statuses(
 			t,
-			"http://"+started.apiAddress+"/health",
+			started.apiAddress,
 			http.Header{"X-Forwarded-For": {"6.6.6.1"}},
 			http.Header{"X-Real-Ip": {"6.6.6.2"}},
 			http.Header{"True-Client-Ip": {"6.6.6.3"}},

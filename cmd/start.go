@@ -398,7 +398,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	if c.rateLimit != 0 {
 		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
-		mux.Use(httprate.Limit(
+		mux.Use(onAPIRoutes(httprate.Limit(
 			c.rateLimit,
 			1*time.Minute,
 			httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
@@ -410,7 +410,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 				// send a json response to give more info when using the graphQL explorer
 				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
 			}),
-		))
+		)))
 	}
 
 	if c.queryDeadline != 0 {
