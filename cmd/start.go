@@ -264,8 +264,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	// A dependency's line through the standard log package, as gqlgen writes
 	// a failed WebSocket upgrade, is a line of the logger, at warn: no format
-	// has a plain line any client can cause
-	restoreStdLog, err := zap.RedirectStdLogAt(logger.Named("stdlib"), zap.WarnLevel)
+	// has a plain line any client can cause. It carries a stack only from
+	// error up, as a stack per request would fill the log.
+	stdLogger := logger.Named("stdlib").WithOptions(zap.AddStacktrace(zap.ErrorLevel))
+
+	restoreStdLog, err := zap.RedirectStdLogAt(stdLogger, zap.WarnLevel)
 	if err != nil {
 		return fmt.Errorf("unable to redirect the standard logger, %w", err)
 	}

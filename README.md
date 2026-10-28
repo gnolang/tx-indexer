@@ -215,7 +215,8 @@ for people to read: the time, the level, the logger, the caller and the message,
 
 `json` writes one JSON object per line, for a log pipeline to parse: its `level`, its time under `ts`, in RFC 3339 with
 all nine digits of nanoseconds and in UTC, its `logger`, `caller` and `msg`, then each field as a key of its own. A line
-at warn or above carries its stack trace under `stacktrace`.
+at warn or above carries its stack trace under `stacktrace`, but a `stdlib` line, which carries one from error up: any
+client can cause a `stdlib` warning.
 
 ```json
 {"level":"info","ts":"2026-10-28T10:41:26.526435000Z","logger":"requests","caller":"observe/observe.go:148","msg":"served request","api":"jsonrpc","operation":"getBlock","status":"ok","duration":"29.791µs","rows-scanned":1,"rows-returned":0,"client":"127.0.0.1"}

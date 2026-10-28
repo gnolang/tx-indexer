@@ -417,8 +417,8 @@ func upgradeWithTrailingByte(host string) string {
 // body under gorilla's status, naming the WebSocket version it speaks, or
 // nothing once gorilla has taken the connection, and writes its line, through
 // the standard log package, as a line of the logger at warn under stdlib:
-// with --log-format json, every line is still one JSON object, and none is
-// at error, as no client alone causes one
+// with --log-format json, every line is still one JSON object, with no stack
+// trace, and none is at error, as no client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -470,6 +470,8 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 		assert.Equal(t, "warn", entry["level"])
 		assert.Contains(t, entry["msg"], "unable to upgrade")
 		assert.Contains(t, entry["caller"], "transport/websocket.go")
+		// Any client causes one: its stack would be a page of log per request
+		assert.NotContains(t, entry, "stacktrace")
 	}
 }
 
