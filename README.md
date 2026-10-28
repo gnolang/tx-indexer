@@ -213,16 +213,23 @@ for people to read: the time, the level, the logger, the caller and the message,
 2026-10-28T10:01:28.290+0100	INFO	requests	observe/observe.go:148	served request	{"api": "jsonrpc", "operation": "getBlock", "status": "ok", "duration": "25.791µs", "rows-scanned": 1, "rows-returned": 0, "client": "127.0.0.1"}
 ```
 
-`json` writes one JSON object per line, for a log pipeline to parse: the time under `ts`, in RFC 3339 with nanoseconds
-and in UTC, then `level`, `logger`, `caller` and `msg`, and each field as a key of its own. A line at warn or above
-carries its stack trace under `stacktrace`.
+`json` writes one JSON object per line, for a log pipeline to parse: its `level`, its time under `ts`, in RFC 3339 with
+all nine digits of nanoseconds and in UTC, its `logger`, `caller` and `msg`, then each field as a key of its own. A line
+at warn or above carries its stack trace under `stacktrace`.
 
 ```json
 {"level":"info","ts":"2026-10-28T10:41:26.526435000Z","logger":"requests","caller":"observe/observe.go:148","msg":"served request","api":"jsonrpc","operation":"getBlock","status":"ok","duration":"29.791µs","rows-scanned":1,"rows-returned":0,"client":"127.0.0.1"}
 ```
 
-Each line names the logger it came from: a service's (`fetcher`, `http-server`, `requests`, ...), or `start` for the
-start command's own lines.
+Each line names the logger it came from: a service's (`fetcher`, `http-server`, `graphql`, `pebble`, `requests`, ...),
+or `start` for the start command's own lines, the error that ends a run among them. The HTTP servers' own errors, a
+GraphQL resolver's panic and pebble's messages go through the logger too, at error for the errors.
+
+Three kinds of line stay outside the logger, as plain text on stderr:
+
+- an error raised before the logger exists: a flag that does not parse, a log level or format the indexer does not know;
+- a Go runtime crash outside any recover;
+- on macOS, the fork notice of libmdbx, a library gno links in: `rthc_afterfork:… drown … rthc entries`.
 
 ### Request log
 
