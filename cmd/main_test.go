@@ -147,18 +147,26 @@ func startProcess(t *testing.T, args ...string) *indexerProcess {
 		t.Logf("the indexer, killed on the test's failure, stopped: %v", cmd.Wait())
 	})
 
-	for p.started == "" && p.lines.Scan() {
-		p.output.WriteString(p.lines.Text() + "\n")
-
-		if strings.Contains(p.lines.Text(), startedLine) {
-			p.started = p.lines.Text()
-		}
-	}
+	p.started = p.waitFor(startedLine)
 
 	require.NoError(t, p.lines.Err())
 	require.NotEmpty(t, p.started, "the indexer never served:\n%s", p.output.String())
 
 	return p
+}
+
+// waitFor reads stderr up to the first line holding needle and returns it,
+// or returns "" once stderr ends without one
+func (p *indexerProcess) waitFor(needle string) string {
+	for p.lines.Scan() {
+		p.output.WriteString(p.lines.Text() + "\n")
+
+		if strings.Contains(p.lines.Text(), needle) {
+			return p.lines.Text()
+		}
+	}
+
+	return ""
 }
 
 // stop sends the process SIGTERM, as Docker and systemd stop it, reads its
@@ -363,10 +371,21 @@ func sendWithHeader(t *testing.T, method, url, body string, header http.Header) 
 	return httpResponse{status: resp.StatusCode, body: string(read)}
 }
 
+// upgradeWithTrailingByte is a valid GraphQL WebSocket upgrade to host with
+// one byte after it in the same write, which any client may send: gorilla
+// fails it once it has taken the connection from the HTTP server, and closes
+// the connection unanswered
+func upgradeWithTrailingByte(host string) string {
+	return "GET /graphql/query HTTP/1.1\r\nHost: " + host + "\r\n" +
+		"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Protocol: graphql-transport-ws\r\n\r\nX"
+}
+
 // A request gqlgen's WebSocket transport fails to upgrade is answered gqlgen's
-// 400 alone, and writes its line, through the standard log package, as a line
-// of the logger at warn under stdlib: with --log-format json, every line is
-// still one JSON object, and none is at error, as no client alone causes one
+// 400 alone, or nothing once gorilla has taken the connection, and writes its
+// line, through the standard log package, as a line of the logger at warn
+// under stdlib: with --log-format json, every line is still one JSON object,
+// and none is at error, as no client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -381,6 +400,22 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
 	}
 
+	conn, err := net.Dial("tcp", address[1])
+	require.NoError(t, err)
+
+	_, err = io.WriteString(conn, upgradeWithTrailingByte(address[1]))
+	require.NoError(t, err)
+
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(10*time.Second)))
+
+	answer, err := io.ReadAll(conn)
+	require.NoError(t, err)
+	assert.Empty(t, answer)
+	require.NoError(t, conn.Close())
+
+	// gqlgen logs the failure once gorilla has closed the connection
+	require.NotEmpty(t, p.waitFor("client sent data before handshake is complete"), p.output.String())
+
 	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 
 	var stdlib []map[string]any
@@ -393,7 +428,7 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 		}
 	}
 
-	require.Len(t, stdlib, len(failedUpgrades), p.output.String())
+	require.Len(t, stdlib, len(failedUpgrades)+1, p.output.String())
 
 	for _, entry := range stdlib {
 		assert.Equal(t, "warn", entry["level"])
