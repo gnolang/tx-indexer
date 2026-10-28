@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -12,6 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gnolang/tx-indexer/storage"
 )
 
 // countingChecker is a node that is ready, counting the checks it answers
@@ -88,4 +91,66 @@ func TestReady_ChecksTheNodeBeyondTheRequest(t *testing.T) {
 	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ready", http.NoBody).WithContext(ctx))
 
 	requireReady(t, mux)
+}
+
+// notReadyChecker is a node that is not ready
+type notReadyChecker struct{}
+
+// IsReady answers not ready, with the reason
+func (notReadyChecker) IsReady(context.Context) (bool, error) {
+	return false, errors.New("node down")
+}
+
+// heightStorage is a store that answers its latest height, or its error. It
+// holds the Storage interface for the methods /health never calls.
+type heightStorage struct {
+	storage.Storage
+
+	err    error
+	height uint64
+}
+
+// GetLatestHeight answers the store's height, or its error
+func (s heightStorage) GetLatestHeight() (uint64, error) {
+	return s.height, s.err
+}
+
+// get answers mux's response to a GET of path
+func get(mux http.Handler, path string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, http.NoBody))
+
+	return rec
+}
+
+// /ready answers 500 when the node is not ready, so a load balancer or a
+// probe reading the status sees it, and 200 when it is
+func TestReady_AnswersTheNodesState(t *testing.T) {
+	t.Parallel()
+
+	notReady := get(Setup(nil, notReadyChecker{}, chi.NewMux()), "/ready")
+
+	assert.Equal(t, http.StatusInternalServerError, notReady.Code)
+	assert.Contains(t, notReady.Body.String(), "node not ready: node down")
+
+	ready := get(Setup(nil, &countingChecker{}, chi.NewMux()), "/ready")
+
+	assert.Equal(t, http.StatusOK, ready.Code)
+	assert.Contains(t, ready.Body.String(), "node is ready")
+}
+
+// /health answers 500 when the store cannot answer its height, and 200 with
+// the height when it can
+func TestHealth_AnswersTheStoresState(t *testing.T) {
+	t.Parallel()
+
+	failing := get(Setup(heightStorage{err: errors.New("closed")}, nil, chi.NewMux()), "/health")
+
+	assert.Equal(t, http.StatusInternalServerError, failing.Code)
+	assert.Contains(t, failing.Body.String(), "storage is not reachable: closed")
+
+	healthy := get(Setup(heightStorage{height: 42}, nil, chi.NewMux()), "/health")
+
+	assert.Equal(t, http.StatusOK, healthy.Code)
+	assert.Contains(t, healthy.Body.String(), `"height":42`)
 }

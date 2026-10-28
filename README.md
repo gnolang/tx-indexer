@@ -272,7 +272,8 @@ writes the header it likes.
 Two limits, each off by default, keep one client from holding the indexer from the others. Both apply to the API
 endpoints alone, JSON-RPC's `/` and `/ws` and GraphQL's `/graphql/query`: `/health`, `/ready` and the playground are
 never refused, so a load balancer's health checks always reach the indexer. `/ready` answers from a check of the node
-made at most once a second, so however many requests it gets, it costs the node one `status` call a second.
+made at most once a second, so however many requests it gets, it costs the node one `status` call a second. `/ready`
+answers 500 while the node is not ready, and `/health` while the store cannot answer its height.
 
 Both count each client under its client address, the one the request log names: the address the request came from, or
 the one `--client-ip-header` reads behind `--client-ip-trusted-hops` trusted proxies. A header the client sets itself,

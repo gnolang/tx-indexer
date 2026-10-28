@@ -22,14 +22,14 @@ func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		h, err := s.GetLatestHeight()
 		if err != nil {
+			// The status goes before the body: render.JSON writes the header
+			render.Status(r, http.StatusInternalServerError)
 			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("storage is not reachable: %s", err.Error()),
 				Info: map[string]any{
 					"time": time.Now().String(),
 				},
 			})
-
-			render.Status(r, http.StatusInternalServerError)
 
 			return
 		}
@@ -46,13 +46,14 @@ func Setup(s storage.Storage, rc ReadyChecker, m *chi.Mux) *chi.Mux {
 	m.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		ok, err := ready.IsReady(r.Context())
 		if !ok {
+			// The status goes before the body: render.JSON writes the header
+			render.Status(r, http.StatusInternalServerError)
 			render.JSON(w, r, &response{
 				Message: fmt.Sprintf("node not ready: %s", err.Error()),
 				Info: map[string]any{
 					"time": time.Now().String(),
 				},
 			})
-			render.Status(r, http.StatusInternalServerError)
 
 			return
 		}
