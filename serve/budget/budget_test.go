@@ -158,8 +158,8 @@ func TestBudget_CapsTheRefillAtTheBudget(t *testing.T) {
 	end()
 }
 
-// A refusal names the whole seconds until the balance, less what the
-// requests in flight hold, is back above zero: rounded up, and at least one
+// A refusal names the whole seconds until the balance is back above zero:
+// rounded up, and at least one
 func TestBudget_RetryAfterRoundsUpToWholeSeconds(t *testing.T) {
 	t.Parallel()
 
@@ -205,6 +205,40 @@ func TestBudget_RetryAfterRoundsUpToWholeSeconds(t *testing.T) {
 			end()
 		})
 	}
+}
+
+// A refusal from the requests in flight, while the balance is above zero,
+// names one second: only a request ending admits the client, and the budget
+// cannot know when one will. With a 60 s budget regained at 1 s a minute and a
+// 30 s deadline, a client with 59 s left and two requests in flight is told to
+// retry in a second, not in the minute the refill would take to cover both
+// deadlines, and is served once one of the two has ended.
+func TestBudget_RetryAfterOfARefusalFromTheRequestsInFlight(t *testing.T) {
+	t.Parallel()
+
+	clock := &fakeClock{now: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)}
+	b := New(Config{Limit: 60 * time.Second, Refill: time.Second, Deadline: 30 * time.Second}, WithClock(clock.Now))
+
+	serve(t, b, clock, time.Second)
+
+	endFirst, err := b.Reserve(testClient)
+	require.NoError(t, err)
+
+	endSecond, err := b.Reserve(testClient)
+	require.NoError(t, err)
+
+	clock.advance(200 * time.Millisecond)
+
+	_, err = b.Reserve(testClient)
+	assert.Equal(t, time.Second, retryAfter(t, err))
+
+	endFirst()
+
+	endThird, err := b.Reserve(testClient)
+	require.NoError(t, err, "refused once a request in flight ended")
+
+	endSecond()
+	endThird()
 }
 
 // Each request in flight holds one query deadline of its client's balance
@@ -391,20 +425,19 @@ func TestBudget_KeepsFractionsOfANanosecond(t *testing.T) {
 }
 
 // A wait too long for a duration, from a refill too slow for what the client
-// holds, is answered with the longest Retry-After a duration holds, never one
-// that wrapped around below zero
+// overdrew, is answered with the longest Retry-After a duration holds, never
+// one that wrapped around below zero
 func TestBudget_BoundsRetryAfter(t *testing.T) {
 	t.Parallel()
 
-	// 1 ns regained a minute, against 30 s held by a request in flight
-	b := New(Config{Limit: 1, Refill: 1, Deadline: 30 * time.Second})
+	clock := &fakeClock{now: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)}
 
-	end, err := b.Reserve(testClient)
-	require.NoError(t, err)
+	// 1 ns regained a minute, against 30 s overdrawn
+	b := New(Config{Limit: 1, Refill: 1, Deadline: 1}, WithClock(clock.Now))
 
-	defer end()
+	serve(t, b, clock, 30*time.Second)
 
-	_, err = b.Reserve(testClient)
+	_, err := b.Reserve(testClient)
 	assert.Equal(t, time.Duration(math.MaxInt64).Truncate(time.Second), retryAfter(t, err))
 }
 

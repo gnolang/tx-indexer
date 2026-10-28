@@ -303,7 +303,8 @@ start is admitted and charged so too; once started, its stream holds nothing. A 
 neither charged nor refused. The upgrade itself is never refused.
 
 A request the budget refuses is answered 429, with `Retry-After`, the whole seconds until its client's balance is back
-above zero, and its API's error, in the shape of the query deadline's:
+above zero, or 1 when the balance is above zero and its requests in flight alone refuse it, since only one of them
+ending admits it, and its API's error, in the shape of the query deadline's:
 
 ```json
 {

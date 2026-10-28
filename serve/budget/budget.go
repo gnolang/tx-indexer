@@ -169,7 +169,10 @@ func New(config Config, opts ...Option) *Budget {
 // query deadline for each of its requests in flight, is above zero. It returns
 // the function that ends the request, to call once when it has been served:
 // the request is then charged the time since its admission. A request it
-// does not admit is refused with an *ExhaustedError.
+// does not admit is refused with an *ExhaustedError, whose Retry-After is the
+// time until the balance is back above zero: one second when it is above
+// zero already, and the requests in flight alone refuse the client, since
+// only one of them ending admits it, and nothing tells when one will.
 func (b *Budget) Reserve(client string) (func(), error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -185,7 +188,7 @@ func (b *Budget) Reserve(client string) (func(), error) {
 
 	available := a.balance - float64(a.inFlight)*float64(b.deadline)
 	if available <= 0 {
-		return nil, &ExhaustedError{RetryAfter: b.retryAfter(available)}
+		return nil, &ExhaustedError{RetryAfter: b.retryAfter(min(a.balance, 0))}
 	}
 
 	a.inFlight++
@@ -265,12 +268,12 @@ func (b *Budget) forgetIfFull(client string, a *account) {
 // seconds
 const maxRetryAfterSeconds = math.MaxInt64 / int64(time.Second)
 
-// retryAfter is the whole seconds until available, the balance less what the
-// requests in flight hold, in nanoseconds, refills above zero: at least one,
-// since a balance at zero is above it only a moment later, and at most what a
-// duration holds, which a refill too slow for what the client holds exceeds
-func (b *Budget) retryAfter(available float64) time.Duration {
-	wait := -available / b.refillRate()
+// retryAfter is the whole seconds until balance, in nanoseconds, refills above
+// zero: at least one, since a balance at zero is above it only a moment later,
+// and at most what a duration holds, which a refill too slow for what the
+// client overdrew exceeds
+func (b *Budget) retryAfter(balance float64) time.Duration {
+	wait := -balance / b.refillRate()
 	seconds := min(math.Floor(wait/float64(time.Second))+1, float64(maxRetryAfterSeconds))
 
 	return time.Duration(seconds) * time.Second
