@@ -320,6 +320,13 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 		for _, key := range []string{"api", "operation", "status", "duration", "rows-scanned", "rows-returned", "client"} {
 			assert.Contains(t, entry, key)
 		}
+
+		// A duration is text, as the console format writes it
+		duration, ok := entry["duration"].(string)
+		require.True(t, ok, "duration %v is no text", entry["duration"])
+
+		_, err := time.ParseDuration(duration)
+		assert.NoError(t, err)
 	}
 
 	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
