@@ -232,7 +232,8 @@ upgrade, a WebSocket closed before its answer.
 
 Three kinds of line stay outside the logger, as plain text on stderr:
 
-- an error raised before the logger exists: a flag value the indexer refuses, an unknown log level or format among them;
+- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, or a
+  `--query-deadline` or `--client-ip-trusted-hops` out of range;
 - a Go runtime crash outside any recover;
 - on macOS, the fork notice of libmdbx, a library gno links in: `rthc_afterfork:… drown … rthc entries`.
 
