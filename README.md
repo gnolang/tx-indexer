@@ -236,8 +236,9 @@ upgrade, a WebSocket closed before its answer.
 
 Four kinds of line stay outside the logger, as plain text on stderr:
 
-- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, or a
-  `--query-deadline` or `--client-ip-trusted-hops` out of range;
+- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, a
+  `--query-deadline`, `--client-ip-trusted-hops` or `--graphql-token-limit` out of range, or a time budget set
+  inconsistently;
 - the error that ends a run when `--log-level` is above error, which leaves it out of the log, and a failed sync of
   the log at the stop;
 - a Go runtime crash outside any recover;
