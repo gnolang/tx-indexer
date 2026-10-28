@@ -304,10 +304,11 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// handleWSRequest handles incoming WS requests
+// handleWSRequest handles incoming WS requests. A failed upgrade is logged
+// at warn: any client causes one, and error marks the indexer's own failure.
 func (j *JSONRPC) handleWSRequest(w http.ResponseWriter, r *http.Request) {
 	if err := j.ws.HandleRequest(w, r); err != nil {
-		j.logger.Error(
+		j.logger.Warn(
 			"unable to initialize WS connection",
 			zap.Error(err),
 		)

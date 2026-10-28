@@ -34,8 +34,10 @@ func (w ResponseWriter) WriteResponse(response any) {
 		return
 	}
 
+	// melody refuses a write to a session that is closed, as one is once its
+	// client goes: the client alone causes it, so it is logged at warn
 	if err := w.s.Write(jsonRaw); err != nil {
-		w.logger.Error(
+		w.logger.Warn(
 			"unable to write WS response",
 			zap.Error(err),
 		)
