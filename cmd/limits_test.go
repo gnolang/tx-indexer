@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -540,6 +542,43 @@ func TestStartCfg_RefusesAGraphQLDocumentOverTheTokenLimit(t *testing.T) {
 	refused := postTo(t, started.apiAddress, "/graphql/query", `{"query": "{ getBlocks(where: {}) { height } }"}`)
 	assert.Equal(t, http.StatusUnprocessableEntity, refused.status)
 	assert.Contains(t, refused.body, "exceeded token limit of 10")
+}
+
+// aliasedTypenames is a document of n fields, each __typename under an alias
+// of its own: 3n + 2 tokens, valid, and cheap to validate
+func aliasedTypenames(n int) string {
+	var b strings.Builder
+
+	b.WriteString("{ ")
+
+	for i := range n {
+		fmt.Fprintf(&b, "a%d: __typename ", i)
+	}
+
+	b.WriteString("}")
+
+	return b.String()
+}
+
+// A token limit of 0 lifts it: a document of 4202 tokens, over the default,
+// is served with the limit lifted, and refused under the default
+func TestStartCfg_GraphQLTokenLimitZeroLiftsIt(t *testing.T) {
+	t.Parallel()
+
+	document, err := json.Marshal(map[string]string{"query": aliasedTypenames(1400)})
+	require.NoError(t, err)
+
+	lifted := startIndexer(t, false, "--graphql-token-limit", "0")
+
+	served := postTo(t, lifted.apiAddress, "/graphql/query", string(document))
+	assert.Equal(t, http.StatusOK, served.status, served.body)
+	assert.NotContains(t, served.body, "errors")
+
+	held := startIndexer(t, false)
+
+	refused := postTo(t, held.apiAddress, "/graphql/query", string(document))
+	assert.Equal(t, http.StatusUnprocessableEntity, refused.status)
+	assert.Contains(t, refused.body, "exceeded token limit of 4000")
 }
 
 // Every example query of the playground parses under the default token limit
