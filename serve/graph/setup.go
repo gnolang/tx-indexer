@@ -87,6 +87,8 @@ func Setup(
 		srv.SetParserTokenLimit(opts.TokenLimit)
 	}
 
+	srv.SetValidationRulesFn(cappedRules)
+
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
 		// gqlgen answers a failed upgrade with its own 400: the upgrader's,
