@@ -635,9 +635,19 @@ func (failingSync) Sync() error {
 	return errSyncFailed
 }
 
+// failingSyncLogger is a logger whose every sync fails with errSyncFailed
+func failingSyncLogger() *zap.Logger {
+	return zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		failingSync{io.Discard},
+		zap.InfoLevel,
+	))
+}
+
 // The logger is synced, and the sync's error returned, when the stderr it
-// writes to is a regular file. A pipe, a socket or a character device takes no
-// sync, and is not synced. A stderr whose kind cannot be told is an error.
+// writes to is a regular file. A pipe or a character device takes no sync, and
+// is not synced, as a socket is not (start_unix_test.go). A stderr whose kind
+// cannot be told is an error.
 func TestSyncLogger(t *testing.T) {
 	t.Parallel()
 
@@ -660,17 +670,6 @@ func TestSyncLogger(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, closed.Close())
 
-	// A socket, as systemd hands the indexer its journal's
-	sockets, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
-	require.NoError(t, err)
-
-	socket, peer := os.NewFile(uintptr(sockets[0]), "socket"), os.NewFile(uintptr(sockets[1]), "peer")
-
-	t.Cleanup(func() {
-		assert.NoError(t, socket.Close())
-		assert.NoError(t, peer.Close())
-	})
-
 	// A character device
 	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	require.NoError(t, err)
@@ -679,12 +678,6 @@ func TestSyncLogger(t *testing.T) {
 		assert.NoError(t, devNull.Close())
 	})
 
-	logger := zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
-		failingSync{io.Discard},
-		zap.InfoLevel,
-	))
-
 	testTable := []struct {
 		want error
 		out  *os.File
@@ -692,7 +685,6 @@ func TestSyncLogger(t *testing.T) {
 	}{
 		{errSyncFailed, file, "a regular file"},
 		{nil, writer, "a pipe"},
-		{nil, socket, "a socket"},
 		{nil, devNull, "/dev/null"},
 		{os.ErrClosed, closed, "a closed file"},
 	}
@@ -701,7 +693,7 @@ func TestSyncLogger(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.ErrorIs(t, syncLogger(logger, testCase.out), testCase.want)
+			assert.ErrorIs(t, syncLogger(failingSyncLogger(), testCase.out), testCase.want)
 		})
 	}
 }
