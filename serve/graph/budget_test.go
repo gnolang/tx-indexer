@@ -76,14 +76,7 @@ func TestBudgetExtension_ReleasesAPanickingOperation(t *testing.T) {
 	require.NoError(t, operation.Close())
 
 	assert.Eventually(t, func() bool {
-		end, err := b.Reserve(charged.Key)
-		if err != nil {
-			return false
-		}
-
-		end()
-
-		return true
+		return admitted(charged)
 	}, 5*time.Second, 10*time.Millisecond, "the client's reservation was never released")
 }
 
