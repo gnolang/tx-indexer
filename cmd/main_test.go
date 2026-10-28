@@ -362,9 +362,10 @@ func sendWithHeader(t *testing.T, method, url, body string, header http.Header) 
 	return httpResponse{status: resp.StatusCode, body: string(read)}
 }
 
-// A request gqlgen's WebSocket transport fails to upgrade writes its line,
-// through the standard log package, as a line of the logger at warn under
-// stdlib: with --log-format json, every line is still one JSON object
+// A request gqlgen's WebSocket transport fails to upgrade is answered gqlgen's
+// 400 alone, and writes its line, through the standard log package, as a line
+// of the logger at warn under stdlib: with --log-format json, every line is
+// still one JSON object, and none is at error, as no client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -376,13 +377,14 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	for _, upgrade := range failedUpgrades {
 		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
 		assert.Equal(t, http.StatusBadRequest, response.status, response.body)
+		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
 	}
 
 	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 
 	var stdlib []map[string]any
 
-	for _, entries := range jsonLines(t, p.output.String(), infoAndAbove...) {
+	for _, entries := range jsonLines(t, p.output.String(), "info", "warn") {
 		for _, entry := range entries {
 			if entry["logger"] == "stdlib" {
 				stdlib = append(stdlib, entry)

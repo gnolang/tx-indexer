@@ -4,6 +4,7 @@ import (
 	"context"
 	embed "embed"
 	"io/fs"
+	"net/http"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -12,6 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/websocket"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 	"go.uber.org/zap"
@@ -78,6 +80,13 @@ func Setup(
 
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
+		// gqlgen answers a failed upgrade with its own 400: the upgrader's,
+		// written first, would make gqlgen's a superfluous WriteHeader, which
+		// the HTTP server logs at error for any client that sends an Upgrade
+		// header
+		Upgrader: websocket.Upgrader{
+			Error: func(http.ResponseWriter, *http.Request, int, error) {},
+		},
 	})
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
