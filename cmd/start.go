@@ -552,20 +552,13 @@ func newLogger(format string, level zap.AtomicLevel) (*zap.Logger, error) {
 
 // jsonEncoderConfig encodes each line as one JSON object, its fields at the
 // top level beside ts, level, logger, caller and msg, and a stack trace under
-// stacktrace. It keeps the development encoders' values, durations as text
-// among them, but for the level, in lowercase, and the time, in RFC 3339 with
-// nanoseconds, in UTC.
+// stacktrace. It is zap's production encoder config, but for durations, as
+// text, and the time, in RFC 3339 with nanoseconds, in UTC.
 func jsonEncoderConfig() zapcore.EncoderConfig {
-	encoder := zap.NewDevelopmentEncoderConfig()
+	encoder := zap.NewProductionEncoderConfig()
 
-	encoder.TimeKey = "ts"
-	encoder.LevelKey = "level"
-	encoder.NameKey = "logger"
-	encoder.CallerKey = "caller"
-	encoder.MessageKey = "msg"
-	encoder.StacktraceKey = "stacktrace"
-	encoder.EncodeLevel = zapcore.LowercaseLevelEncoder
 	encoder.EncodeTime = encodeUTCTime
+	encoder.EncodeDuration = zapcore.StringDurationEncoder
 
 	return encoder
 }
