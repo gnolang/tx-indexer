@@ -6,12 +6,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/validator/rules"
 
 	"github.com/gnolang/tx-indexer/events"
 )
@@ -112,6 +114,40 @@ func TestValidation_CapsTheErrorsOfEachRule(t *testing.T) {
 	for range 2 {
 		requireCapped(t, mux, conflicts(41), "OverlappingFieldsCanBeMerged", conflictMessage)
 	}
+}
+
+// Every rule the endpoint validates with is capped: the rules are gqlparser's
+// defaults, once gqlgen has swapped FieldsOnCorrectType in, as it does at each
+// validation, and each one is capErrors' wrapper, none gqlparser's own
+// function
+func TestValidation_WrapsEveryRule(t *testing.T) {
+	t.Parallel()
+
+	validated := cappedRules()
+
+	// gqlgen's swap, with suggestions, the endpoint's setting
+	validated.RemoveRule(rules.FieldsOnCorrectTypeRuleWithoutSuggestions.Name)
+	validated.AddRule(rules.FieldsOnCorrectTypeRule.Name, rules.FieldsOnCorrectTypeRule.RuleFunc)
+
+	defaults := rules.NewDefaultRules().GetInner()
+	wrapped := validated.GetInner()
+
+	require.Len(t, wrapped, len(defaults))
+
+	// The closures cappedRules' one call of capErrors returns share the code
+	// of its function literal, which no rule of gqlparser's has
+	code := make(map[uintptr][]string)
+
+	for name, rule := range wrapped {
+		require.Contains(t, defaults, name)
+
+		pointer := reflect.ValueOf(rule).Pointer()
+		assert.NotEqual(t, reflect.ValueOf(defaults[name]).Pointer(), pointer, "%s is gqlparser's own", name)
+
+		code[pointer] = append(code[pointer], name)
+	}
+
+	assert.Len(t, code, 1, "the rules run %d functions: %v", len(code), code)
 }
 
 // FieldsOnCorrectType, the rule gqlgen swaps for its variant with or without
