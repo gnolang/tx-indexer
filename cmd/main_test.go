@@ -79,7 +79,9 @@ func startProcess(t *testing.T, args ...string) *indexerProcess {
 		}, args...)...,
 	)
 
-	cmd.Env = append(os.Environ(), runMainEnv+"=1")
+	// The local zone is one away from UTC on every machine, so a time
+	// written in UTC is one converted to it
+	cmd.Env = append(os.Environ(), runMainEnv+"=1", "TZ=Asia/Kolkata")
 
 	// stdout, which the logger never writes to, is a file: the stop is judged
 	// on the kind of stderr alone
@@ -222,7 +224,7 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 
 		ts, ok := entry["ts"].(string)
 		require.True(t, ok, "no ts in %s", line)
-		assert.True(t, strings.HasSuffix(ts, "Z"), "ts %q is not in UTC", ts)
+		assert.Regexp(t, `T\d{2}:\d{2}:\d{2}\.\d+Z$`, ts, "ts is not to the nanosecond in UTC")
 
 		_, err := time.Parse(time.RFC3339Nano, ts)
 		require.NoError(t, err)
