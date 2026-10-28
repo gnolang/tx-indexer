@@ -348,12 +348,7 @@ func refusalResponses(requests spec.BaseJSONRequests, err error) any {
 	responses := make(spec.BaseJSONResponses, len(requests))
 
 	for i, request := range requests {
-		var id uint
-		if request != nil {
-			id = request.ID
-		}
-
-		responses[i] = spec.NewJSONResponse(id, nil, refusal)
+		responses[i] = spec.NewJSONResponse(idOf(request), nil, refusal)
 	}
 
 	if len(responses) == 1 {
@@ -451,7 +446,7 @@ func (j *JSONRPC) handleRequest(
 		if !isValidBaseRequest(baseRequest) {
 			// Marshal the JSON-RPC error
 			responses[i] = spec.NewJSONResponse(
-				baseRequest.ID,
+				idOf(baseRequest),
 				nil,
 				spec.NewJSONError(
 					"invalid JSON-RPC 2.0 request",
@@ -557,13 +552,23 @@ func runHandler(
 	return handler(ctx, metadata, params)
 }
 
-// isValidBaseRequest validates that the base JSON request is valid
+// isValidBaseRequest validates that the base JSON request is valid. A call that
+// is null, as a batch can hold, is not.
 func isValidBaseRequest(baseRequest *spec.BaseJSONRequest) bool {
-	if baseRequest.Method == "" {
+	if baseRequest == nil || baseRequest.Method == "" {
 		return false
 	}
 
 	return baseRequest.JSONRPC == spec.JSONRPCVersion
+}
+
+// idOf is the ID of request, 0 for a call that is null
+func idOf(request *spec.BaseJSONRequest) uint {
+	if request == nil {
+		return 0
+	}
+
+	return request.ID
 }
 
 // extractBaseRequests extracts the base JSON-RPC request from the
