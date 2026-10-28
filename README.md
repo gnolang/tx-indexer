@@ -333,7 +333,10 @@ on, log each.
 alike, and refuses a longer one before validating it: validating a document takes time that grows faster than the
 document, and the limit bounds it. It is 4000 by default, four times the 860 tokens of the widest legitimate query, one
 naming every filter field and every returned field of `getTransactions` once; `0` lifts it. A refused document is
-answered as any document that does not parse: `exceeded token limit of 4000`.
+answered as any document that does not parse: `exceeded token limit of 4000`. Whatever the limit, an invalid document is
+answered at most the first 100 errors of each validation rule, then one saying the rest of that rule's are left out, as
+`more than 100 OverlappingFieldsCanBeMerged errors; the rest are left out`: the errors of a document can grow with the
+square of its fields, the answer does not.
 
 ## GraphQL Endpoint
 
