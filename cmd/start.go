@@ -453,7 +453,8 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 			Refill:   c.clientTimeBudgetRefill,
 			Deadline: c.queryDeadline,
 		})
-		mux.Use(onAPIRoutes(c.newTimeBudget(timeBudget, j, observer, startLogger)))
+		gate := &timeBudgetGate{cfg: c, budget: timeBudget, jsonrpc: j, observer: observer, logger: startLogger}
+		mux.Use(onAPIRoutes(gate.wrap))
 	}
 
 	if c.queryDeadline != 0 {

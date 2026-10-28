@@ -78,53 +78,56 @@ func (c *startCfg) newRateLimit(observer *observe.Observer, logger *zap.Logger) 
 	)
 }
 
-// newTimeBudget is the time budget's admission of the requests of the API
-// routes, each client charged under its key in b. A request over HTTP is
-// admitted, then charged its wall time once served; one refused is recorded
-// by observer, under the API its path serves, and answered 429 with
-// Retry-After and its API's error. A WebSocket upgrade is neither charged nor
-// refused: it carries its client to the connection, which charges each query
-// or call it serves.
-func (c *startCfg) newTimeBudget(
-	b *budget.Budget,
-	j *serve.JSONRPC,
-	observer *observe.Observer,
-	logger *zap.Logger,
-) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if overWebSocket(r) {
-				client := budget.Client{Budget: b, Key: c.clientKey(r), Address: c.clientAddress(r)}
+// timeBudgetGate admits the requests of the API routes to the time budget,
+// each client charged under its key. A request over HTTP is admitted, then
+// charged its wall time once served; one refused is recorded by the observer,
+// under the API its path serves, and answered 429 with Retry-After and its
+// API's error. A WebSocket upgrade is neither charged nor refused: it carries
+// its client to the connection, which charges each query or call it serves.
+type timeBudgetGate struct {
+	// cfg reads each request's client key and address
+	cfg *startCfg
 
-				next.ServeHTTP(w, r.WithContext(budget.NewContext(r.Context(), client)))
+	// budget is the budget the clients are charged in
+	budget *budget.Budget
 
-				return
-			}
+	// jsonrpc writes a refused JSON-RPC request's answer
+	jsonrpc *serve.JSONRPC
 
-			end, err := b.Reserve(c.clientKey(r))
-			if err != nil {
-				c.refuseOverBudget(w, r, err, j, observer, logger)
+	// observer records each refusal
+	observer *observe.Observer
 
-				return
-			}
-
-			defer end()
-
-			next.ServeHTTP(w, r)
-		})
-	}
+	// logger logs what goes wrong writing a refusal
+	logger *zap.Logger
 }
 
-// refuseOverBudget answers r, refused by the time budget with err, with a 429,
-// Retry-After and its API's error, and records the refusal by observer
-func (c *startCfg) refuseOverBudget(
-	w http.ResponseWriter,
-	r *http.Request,
-	err error,
-	j *serve.JSONRPC,
-	observer *observe.Observer,
-	logger *zap.Logger,
-) {
+// wrap admits the requests next serves to the budget
+func (g *timeBudgetGate) wrap(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if overWebSocket(r) {
+			client := budget.Client{Budget: g.budget, Key: g.cfg.clientKey(r), Address: g.cfg.clientAddress(r)}
+
+			next.ServeHTTP(w, r.WithContext(budget.NewContext(r.Context(), client)))
+
+			return
+		}
+
+		end, err := g.budget.Reserve(g.cfg.clientKey(r))
+		if err != nil {
+			g.refuse(w, r, err)
+
+			return
+		}
+
+		defer end()
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// refuse answers r, refused by the budget with err, with a 429, Retry-After
+// and its API's error, and records the refusal
+func (g *timeBudgetGate) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	var exhausted *budget.ExhaustedError
 	if !errors.As(err, &exhausted) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -134,18 +137,18 @@ func (c *startCfg) refuseOverBudget(
 
 	api := apiOf(r.URL.Path)
 
-	observer.Refused(c.clientAddress(r), api, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
+	g.observer.Refused(g.cfg.clientAddress(r), api, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
 
 	w.Header().Set("Retry-After", strconv.FormatInt(exhausted.RetryAfterSeconds(), 10))
 
 	if api == metrics.APIJSONRPC {
-		j.WriteRefusal(w, r, err)
+		g.jsonrpc.WriteRefusal(w, r, err)
 
 		return
 	}
 
 	if writeErr := graph.WriteRefusal(w, err); writeErr != nil {
-		logger.Debug("unable to write a refusal", zap.Error(writeErr))
+		g.logger.Debug("unable to write a refusal", zap.Error(writeErr))
 	}
 }
 
