@@ -244,6 +244,12 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 		assert.Equal(t, "start", byMessage[msg][0]["logger"], msg)
 	}
 
+	// The genesis bootstrap warns on its first read of the node, which is down,
+	// and a warning carries its stack trace
+	warnings := byMessage["unable to bootstrap genesis, retrying"]
+	require.NotEmpty(t, warnings)
+	assert.Contains(t, warnings[0], "stacktrace")
+
 	served := byMessage["served request"]
 	require.Len(t, served, 2)
 
