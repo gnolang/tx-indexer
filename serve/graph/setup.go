@@ -107,8 +107,6 @@ func Setup(
 
 	srv.Use(deadlineExtension{deadline: opts.QueryDeadline})
 
-	// Used after the deadline, the budget wraps it: gqlgen runs the
-	// interceptor used last outermost
 	srv.Use(budgetExtension{observer: opts.Observer})
 
 	// With nothing to record, every field is spared the extension

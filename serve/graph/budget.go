@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -26,8 +27,8 @@ type budgetExtension struct {
 }
 
 var (
-	_ graphql.HandlerExtension    = budgetExtension{}
-	_ graphql.ResponseInterceptor = budgetExtension{}
+	_ graphql.HandlerExtension     = budgetExtension{}
+	_ graphql.OperationInterceptor = budgetExtension{}
 )
 
 // ExtensionName names the extension in gqlgen's stats and logs
@@ -40,12 +41,14 @@ func (budgetExtension) Validate(graphql.ExecutableSchema) error {
 	return nil
 }
 
-// InterceptResponse charges the making of a query's response, the step in
-// which its resolvers run, to the client of its connection
-func (e budgetExtension) InterceptResponse(
+// InterceptOperation charges an operation to the client of its connection,
+// from its admission until its last response has been sent: the transport
+// asks for responses until one is nil. A refused operation answers the
+// budget's error once.
+func (e budgetExtension) InterceptOperation(
 	ctx context.Context,
-	next graphql.ResponseHandler,
-) *graphql.Response {
+	next graphql.OperationHandler,
+) graphql.ResponseHandler {
 	if isSubscription(ctx) {
 		return next(ctx)
 	}
@@ -62,12 +65,21 @@ func (e budgetExtension) InterceptResponse(
 			e.observer.Refused(client.Address, metrics.APIGraphQL, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
 		}
 
-		return &graphql.Response{Errors: gqlerror.List{refusalError(err)}}
+		return graphql.OneShot(&graphql.Response{Errors: gqlerror.List{refusalError(err)}})
 	}
 
-	defer end()
+	responses := next(ctx)
 
-	return next(ctx)
+	var ended sync.Once
+
+	return func(ctx context.Context) *graphql.Response {
+		response := responses(ctx)
+		if response == nil {
+			ended.Do(end)
+		}
+
+		return response
+	}
 }
 
 // WriteRefusal answers a GraphQL request refused before it was served with a

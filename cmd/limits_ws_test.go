@@ -131,25 +131,36 @@ func subscribeGraphQL(t *testing.T, conn *websocket.Conn, id, query string) {
 	require.NoError(t, conn.WriteJSON(graphqlMessage{ID: id, Type: "subscribe", Payload: payload}))
 }
 
-// graphqlResult is the first result of operation id over conn, read past
-// every other message
+// graphqlResult is the one result of operation id over conn, which must
+// complete after it, read past every other operation's messages
 func graphqlResult(t *testing.T, conn *websocket.Conn, id string) map[string]any {
 	t.Helper()
+
+	var results []map[string]any
 
 	for {
 		var message graphqlMessage
 
 		require.NoError(t, conn.ReadJSON(&message))
 
-		if message.ID != id || message.Type != "next" {
+		if message.ID != id {
 			continue
 		}
+
+		if message.Type == "complete" {
+			require.Len(t, results, 1, "operation %s answered %d results", id, len(results))
+
+			return results[0]
+		}
+
+		require.Equal(t, "next", message.Type, string(message.Payload))
+		require.Empty(t, results, "operation %s answered a second result", id)
 
 		var result map[string]any
 
 		require.NoError(t, json.Unmarshal(message.Payload, &result))
 
-		return result
+		results = append(results, result)
 	}
 }
 
