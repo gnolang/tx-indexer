@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -24,6 +23,7 @@ import (
 	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve"
+	"github.com/gnolang/tx-indexer/serve/budget"
 	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
@@ -65,8 +65,14 @@ const requestLogHelp = "log one line per GraphQL root field or JSON-RPC call ser
 
 // clientIPHeaderHelp is built up over multiple lines so each stays under the
 // linter's line-length limit.
-const clientIPHeaderHelp = "the header trusted to carry the client address the request log names, " +
-	"such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from"
+const clientIPHeaderHelp = "the header trusted to carry the client address the request log names " +
+	"and the client limits count by, such as CF-Connecting-IP or X-Forwarded-For; " +
+	"unset, the address the request came from"
+
+// rateLimitHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const rateLimitHelp = "the maximum HTTP requests allowed per minute per client address, " +
+	"as --client-ip-header reads it, an IPv6 one by its /64, unlimited by default"
 
 // clientIPTrustedHopsHelp is built up over multiple lines so each stays under
 // the linter's line-length limit.
@@ -84,23 +90,46 @@ const (
 const logFormatHelp = "the format of the log lines: console, columns for people to read, " +
 	"or json, one object per line for log pipelines to parse"
 
+// defaultGraphQLTokenLimit is the most tokens a GraphQL document may hold by
+// default: four times the 860 of the widest legitimate query, one naming every
+// filter field and every returned field of getTransactions once
+const defaultGraphQLTokenLimit = 4000
+
+// graphqlTokenLimitHelp is built up over multiple lines so each stays under
+// the linter's line-length limit.
+const graphqlTokenLimitHelp = "the most tokens a GraphQL document may hold, refused before it is validated, " +
+	"over HTTP and WebSocket alike; 0 for no limit"
+
+// clientTimeBudgetHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const clientTimeBudgetHelp = "the most indexer time a client may hold, the wall time its GraphQL and " +
+	"JSON-RPC requests take, off at 0, the default; set with --client-time-budget-refill and --query-deadline"
+
+// clientTimeBudgetRefillHelp is built up over multiple lines so each stays
+// under the linter's line-length limit.
+const clientTimeBudgetRefillHelp = "the indexer time a client regains per minute, " +
+	"above 0 with --client-time-budget"
+
 type startCfg struct {
-	listenAddress        string
-	metricsListenAddress string
-	remote               string
-	dbPath               string
-	logLevel             string
-	logFormat            string
-	corsAllowedOrigins   string
-	supplyDenoms         string
-	clientIPHeader       string
-	maxSlots             int
-	maxChunkSize         int64
-	rateLimit            int
-	clientIPTrustedHops  int
-	queryDeadline        time.Duration
-	disableIntrospection bool
-	requestLog           bool
+	listenAddress          string
+	metricsListenAddress   string
+	remote                 string
+	dbPath                 string
+	logLevel               string
+	logFormat              string
+	corsAllowedOrigins     string
+	supplyDenoms           string
+	clientIPHeader         string
+	maxSlots               int
+	maxChunkSize           int64
+	rateLimit              int
+	clientIPTrustedHops    int
+	graphqlTokenLimit      int
+	queryDeadline          time.Duration
+	clientTimeBudget       time.Duration
+	clientTimeBudgetRefill time.Duration
+	disableIntrospection   bool
+	requestLog             bool
 }
 
 // newStartCmd creates the indexer start command
@@ -184,7 +213,7 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		&c.rateLimit,
 		"http-rate-limit",
 		0,
-		"the maximum HTTP requests allowed per minute per IP, unlimited by default",
+		rateLimitHelp,
 	)
 
 	fs.DurationVar(
@@ -235,6 +264,27 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		1,
 		clientIPTrustedHopsHelp,
 	)
+
+	fs.IntVar(
+		&c.graphqlTokenLimit,
+		"graphql-token-limit",
+		defaultGraphQLTokenLimit,
+		graphqlTokenLimitHelp,
+	)
+
+	fs.DurationVar(
+		&c.clientTimeBudget,
+		"client-time-budget",
+		0,
+		clientTimeBudgetHelp,
+	)
+
+	fs.DurationVar(
+		&c.clientTimeBudgetRefill,
+		"client-time-budget-refill",
+		0,
+		clientTimeBudgetRefillHelp,
+	)
 }
 
 // exec executes the indexer start command
@@ -248,6 +298,16 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// No trusted proxy would leave every entry of the header the client's own
 	if c.clientIPTrustedHops < 1 {
 		return fmt.Errorf("invalid --client-ip-trusted-hops %d: it must be 1 or more", c.clientIPTrustedHops)
+	}
+
+	// A negative limit is a typo rather than a setting: refuse it instead of
+	// serving with no limit
+	if c.graphqlTokenLimit < 0 {
+		return fmt.Errorf("invalid --graphql-token-limit %d: it must be 0 (off) or positive", c.graphqlTokenLimit)
+	}
+
+	if err := c.checkTimeBudget(); err != nil {
+		return err
 	}
 
 	// Parse the log level
@@ -409,19 +469,27 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	if c.rateLimit != 0 {
 		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
-		mux.Use(httprate.Limit(
-			c.rateLimit,
-			1*time.Minute,
-			httprate.WithKeyFuncs(httprate.KeyByRealIP),
-			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
-				//nolint:errcheck // no need to handle error here, it had been checked before
-				ip, _ := httprate.KeyByRealIP(r)
-				startLogger.Debug("too many requests", zap.String("from", ip))
+		mux.Use(onAPIRoutes(c.newRateLimit(observer, startLogger)))
+	}
 
-				// send a json response to give more info when using the graphQL explorer
-				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
-			}),
-		))
+	// The time budget admits what the count limit let through: a request the
+	// count refuses is never charged
+	var timeBudget *budget.Budget
+
+	if c.clientTimeBudget != 0 {
+		startLogger.Info(
+			"client time budget set",
+			zap.Duration("client-time-budget", c.clientTimeBudget),
+			zap.Duration("client-time-budget-refill", c.clientTimeBudgetRefill),
+		)
+
+		timeBudget = budget.New(budget.Config{
+			Limit:    c.clientTimeBudget,
+			Refill:   c.clientTimeBudgetRefill,
+			Deadline: c.queryDeadline,
+		})
+		gate := &timeBudgetGate{cfg: c, budget: timeBudget, jsonrpc: j, observer: observer, logger: startLogger}
+		mux.Use(onAPIRoutes(gate.wrap))
 	}
 
 	if c.queryDeadline != 0 {
@@ -441,6 +509,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 		Observer:             observer,
 		Logger:               logger.Named("graphql"),
 		QueryDeadline:        c.queryDeadline,
+		TokenLimit:           c.graphqlTokenLimit,
 		DisableIntrospection: c.disableIntrospection,
 	})
 	mux = health.Setup(db, f, mux)
@@ -488,6 +557,11 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
+
+	// Add the time budget's sweep of the clients that left
+	if timeBudget != nil {
+		w.add(timeBudget.Run)
+	}
 
 	// Add the metrics server. It listens apart from the public endpoints, so
 	// the operator decides who reaches it

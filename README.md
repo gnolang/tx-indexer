@@ -92,12 +92,15 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
-  -client-ip-header string        the header trusted to carry the client address the request log names, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
+  -client-ip-header string        the header trusted to carry the client address the request log names and the client limits count by, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
   -client-ip-trusted-hops 1       the number of trusted proxies appending to --client-ip-header: the client address is that many entries from the right of its list
+  -client-time-budget 0s          the most indexer time a client may hold, the wall time its GraphQL and JSON-RPC requests take, off at 0, the default; set with --client-time-budget-refill and --query-deadline
+  -client-time-budget-refill 0s   the indexer time a client regains per minute, above 0 with --client-time-budget
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
-  -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
+  -graphql-token-limit 4000       the most tokens a GraphQL document may hold, refused before it is validated, over HTTP and WebSocket alike; 0 for no limit
+  -http-rate-limit 0              the maximum HTTP requests allowed per minute per client address, as --client-ip-header reads it, an IPv6 one by its /64, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-format console             the format of the log lines: console, columns for people to read, or json, one object per line for log pipelines to parse
   -log-level info                 the log level for the CLI output
@@ -174,6 +177,7 @@ request's arguments.
 | Metric                                | Type      | Labels                       | Value                                                                                                        |
 | ------------------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `tx_indexer_requests_total`           | counter   | `api`, `operation`, `status` | requests served; `status` is `ok` (partial answers included), `error`, or `deadline` (`--query-deadline`)    |
+| `tx_indexer_requests_refused_total`   | counter   | `api`, `reason`              | requests the client limits refused, by `reason`: `client_time_budget` or `http_rate_limit`; never served     |
 | `tx_indexer_request_duration_seconds` | histogram | `api`, `operation`           | the time a request takes, the fields of the rows it answers included                                         |
 | `tx_indexer_rows_scanned_total`       | counter   | `api`, `operation`           | the blocks and transactions read from the database, the ones a filter or an index window then drops included |
 | `tx_indexer_rows_returned_total`      | counter   | `api`, `operation`           | the blocks and transactions answered                                                                         |
@@ -232,8 +236,9 @@ upgrade, a WebSocket closed before its answer.
 
 Four kinds of line stay outside the logger, as plain text on stderr:
 
-- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, or a
-  `--query-deadline` or `--client-ip-trusted-hops` out of range;
+- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, a
+  `--query-deadline`, `--client-ip-trusted-hops` or `--graphql-token-limit` out of range, or a time budget set
+  inconsistently;
 - the error that ends a run when `--log-level` is above error, which leaves it out of the log, and a failed sync of
   the log at the stop;
 - a Go runtime crash outside any recover;
@@ -245,6 +250,9 @@ Four kinds of line stay outside the logger, as plain text on stderr:
 and `status`, its `duration`, its `rows-scanned` and `rows-returned`, and the `client` address. It never logs a
 request's arguments: a GraphQL query's variables or a JSON-RPC call's params. It is off by default, as it adds a line
 per call of every client and their addresses to the log.
+
+Each request a client limit refuses adds one line at info too, `refused request`: its `client` and `api`, the `reason`
+(`client_time_budget` or `http_rate_limit`), its `retry-after`, and the `status` `refused`.
 
 The client address is the address the request came from, which behind a proxy is the proxy's. `--client-ip-header`
 names a header the proxies in front of the indexer fill with the client's address instead:
@@ -258,6 +266,88 @@ A header that is missing, holds fewer entries, or holds no IP address there leav
 An entry's port, which some proxies append (`203.0.113.7:51234`, `[2001:db8::1]:443`), is dropped.
 Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
 writes the header it likes.
+
+### Client limits
+
+Two limits, each off by default, keep one client from holding the indexer from the others. Both apply to the API
+endpoints alone, JSON-RPC's `/` and `/ws` and GraphQL's `/graphql/query`: `/health`, `/ready` and the playground are
+never refused, so a load balancer's health checks always reach the indexer. `/ready` answers from a check of the node
+made at most once a second, so however many requests it gets, it costs the node one `status` call a second. `/ready`
+answers 500 while the node is not ready, and `/health` while the store cannot answer its height.
+
+Both count each client under its client address, the one the request log names: the address the request came from, or
+the one `--client-ip-header` reads behind `--client-ip-trusted-hops` trusted proxies. A header the client sets itself,
+such as `X-Real-IP` or `X-Forwarded-For` when no proxy is trusted, never names a client. An IPv6 client is counted under
+its /64, the block one end site is given, so moving across its addresses leaves it one client. Behind a proxy, set
+`--client-ip-header`: without it, every client is the proxy, and shares the proxy's limits.
+
+**The count limit**, `--http-rate-limit`, caps the requests a client sends per minute. One past it is answered 429, with
+`Retry-After: 60` and `{"error": "too many requests"}`. It counts HTTP requests: a WebSocket connection counts once, at
+its upgrade.
+
+**The time budget**, `--client-time-budget` with `--client-time-budget-refill`, caps the indexer time a client holds: the
+wall time its requests take, its body's upload, its parsing and its validation included, from the moment the indexer
+starts serving one until its answer is written; over a WebSocket, a document that fails validation until its errors are
+made, just before they are written. A client starts with the whole budget and regains the refill each minute, never past
+the budget. A request is admitted while the client's balance is above zero, and charged its wall time once served.
+
+Each request in flight also holds one `--query-deadline` of its client's balance while it runs: a client holds at most
+⌈budget ÷ deadline⌉ requests in flight, however many it sends at once. Size the budget for the parallelism a client may
+have. The deadline bounds a query's execution, not its upload, its parsing, its validation or the writing of its answer,
+so what a request overdraws its client's balance by is what those take beyond the deadline; the token limit below
+bounds the parsing and the validation. The budget needs `--query-deadline`, and the start refuses one without it, as it
+refuses a budget with a refill of `0`, which would leave a client that spent its budget refused for good, and a refill
+without a budget. Either flag at `0s`, its default, is off. The budget counts wall time, not CPU, as the deadline does.
+
+Over a WebSocket, each GraphQL operation or JSON-RPC call is charged to the client that opened the connection, and holds
+its share of the balance while it runs. A GraphQL operation is admitted before its document is parsed: a client over its
+budget has nothing parsed, and parsing and validating a document are charged, an invalid one included. A subscription's
+start is admitted and charged so too; once started, its stream holds nothing. A JSON-RPC message holding only
+`subscribe` and `unsubscribe` calls is neither charged nor refused. The upgrade itself is never refused.
+
+A request the budget refuses is answered 429, with `Retry-After`, the whole seconds until its client's balance is back
+above zero, or 1 when the balance is above zero and its requests in flight alone refuse it, since only one of them
+ending admits it, and its API's error, in the shape of the query deadline's:
+
+```json
+{
+  "errors": [
+    {
+      "message": "client time budget exhausted; retry in 12s",
+      "extensions": { "code": "CLIENT_TIME_BUDGET_EXHAUSTED", "retryAfterSeconds": 12 }
+    }
+  ],
+  "data": null
+}
+```
+
+Over JSON-RPC, a refused request is answered one error with code `-32005`, and the same `code` and `retryAfterSeconds`
+in the error's `data`, naming no call: its body is left unread, so a refusal costs the same whatever the client sent.
+A query refused over a WebSocket answers the same error. A message refused over JSON-RPC's WebSocket is answered under
+each call's ID, a batch as a batch: the connection caps a message at 512 bytes, and a client that multiplexes calls
+over it needs their IDs.
+
+The indexer remembers a client only while its balance is below the budget or a request of its is in flight: the
+clients active within one refill of the budget.
+
+To size the budget, read the request log: the sum of a client's `duration` over a minute is about the indexer time it
+used, though a GraphQL query's root fields run in parallel and can add up to more than the request took. For example,
+`--query-deadline 30s --client-time-budget 60s --client-time-budget-refill 30s` lets a client run two 30 s queries at
+once, and once it has spent its budget, regain 30 s a minute: one 30 s query a minute, or thirty of one second.
+
+Both limits count their refusals in `tx_indexer_requests_refused_total`, by `api` and `reason`, and with `--request-log`
+on, log each.
+
+**The GraphQL token limit**, `--graphql-token-limit`, caps the tokens a GraphQL document may hold, over HTTP and WebSocket
+alike, and refuses a longer one before validating it: validating a document takes time that grows faster than the
+document, and the limit bounds it. It is 4000 by default, four times the 860 tokens of the widest legitimate query, one
+naming every filter field and every returned field of `getTransactions` once; `0` lifts it. The limit counts the
+document alone, not its variables: a client that filters on a long list, such as an `_or` of many entries, passes the
+list as a variable. A refused document is answered as any document that does not parse: `exceeded token limit of 4000`.
+Whatever the limit, an invalid document is answered at most the first 100 errors of each validation rule, then one
+saying the rest of that rule's are left out, as
+`more than 100 OverlappingFieldsCanBeMerged errors; the rest are left out`: the errors of a document can grow with the
+square of its fields, the answer does not.
 
 ## GraphQL Endpoint
 

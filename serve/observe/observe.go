@@ -75,7 +75,7 @@ func (o *Observer) Middleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		client := clientAddress(r, o.clientHeader, o.trustedHops)
+		client := ClientAddress(r, o.clientHeader, o.trustedHops)
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientKey{}, client)))
 	})
@@ -154,6 +154,32 @@ func (c *Call) End(ctx context.Context, err error) {
 		zap.Int64("rows-scanned", request.RowsScanned),
 		zap.Int64("rows-returned", request.RowsReturned),
 		zap.String("client", client),
+	)
+}
+
+// Refused records a request over api, from client, refused for reason before
+// it was served, its client told to retry after retryAfter: it counts it, and
+// with the request log on logs it in one line at info, under the status
+// refused. A refused request has no operation: it was refused before it was
+// read.
+func (o *Observer) Refused(client, api string, reason metrics.Refusal, retryAfter time.Duration) {
+	if o == nil {
+		return
+	}
+
+	o.metrics.RequestRefused(api, reason)
+
+	if o.log == nil {
+		return
+	}
+
+	o.log.Info(
+		"refused request",
+		zap.String("client", client),
+		zap.String("api", api),
+		zap.String("reason", reason.String()),
+		zap.Duration("retry-after", retryAfter),
+		zap.String("status", "refused"),
 	)
 }
 

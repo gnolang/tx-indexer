@@ -88,6 +88,7 @@ func TestMetrics_NilRecordsNothing(t *testing.T) {
 		m.SetChainHeight(1)
 		m.CountFetchError(FetchStageRange)
 		m.CountFetchRetry()
+		m.RequestRefused(APIJSONRPC, RefusalClientTimeBudget)
 	})
 }
 
@@ -138,4 +139,48 @@ func TestMetrics_RecordsTheFetch(t *testing.T) {
 
 	m.CountFetchError(FetchStageChainHeight)
 	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_fetch_errors_total", chainHeightErrors), 0)
+}
+
+// A refused request is counted by API and reason alone, every pair starting at
+// zero, and never among the requests served
+func TestMetrics_CountsARefusal(t *testing.T) {
+	t.Parallel()
+
+	m := New()
+
+	for _, api := range []string{APIGraphQL, APIJSONRPC} {
+		for _, reason := range []string{"client_time_budget", "http_rate_limit"} {
+			refused := map[string]string{"api": api, "reason": reason}
+			assert.InDelta(t, 0, metricstest.Value(t, m, "tx_indexer_requests_refused_total", refused), 0, refused)
+		}
+	}
+
+	m.RequestRefused(APIJSONRPC, RefusalClientTimeBudget)
+	m.RequestRefused(APIJSONRPC, RefusalClientTimeBudget)
+	m.RequestRefused(APIGraphQL, RefusalHTTPRateLimit)
+
+	for refused, want := range map[[2]string]float64{
+		{APIJSONRPC, "client_time_budget"}: 2,
+		{APIJSONRPC, "http_rate_limit"}:    0,
+		{APIGraphQL, "client_time_budget"}: 0,
+		{APIGraphQL, "http_rate_limit"}:    1,
+	} {
+		labels := map[string]string{"api": refused[0], "reason": refused[1]}
+		assert.InDelta(t, want, metricstest.Value(t, m, "tx_indexer_requests_refused_total", labels), 0, labels)
+	}
+
+	assert.Nil(t, metricstest.Find(t, m, "tx_indexer_requests_total", map[string]string{
+		"api":       "jsonrpc",
+		"operation": "",
+		"status":    "refused",
+	}))
+}
+
+// Each refusal reason is the reason label's value
+func TestRefusal_String(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "client_time_budget", RefusalClientTimeBudget.String())
+	assert.Equal(t, "http_rate_limit", RefusalHTTPRateLimit.String())
+	assert.Equal(t, "Refusal(9)", Refusal(9).String())
 }

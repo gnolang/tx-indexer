@@ -3,6 +3,7 @@ package serve
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/metrics"
+	"github.com/gnolang/tx-indexer/serve/budget"
 	"github.com/gnolang/tx-indexer/serve/conns"
 	"github.com/gnolang/tx-indexer/serve/conns/wsconn"
 	"github.com/gnolang/tx-indexer/serve/deadline"
@@ -256,15 +258,31 @@ func (j *JSONRPC) setupWSListeners() {
 		wsIDRaw, _ := s.Get(wsIDKey)
 		wsConnID := wsIDRaw.(string)
 
-		// Handle the request. The upgrade request's context lasts as long as
-		// the connection does
+		// The upgrade request's context lasts as long as the connection does
+		ctx := s.Request.Context()
+		writer := wsWriter.New(j.logger, s)
+
+		// A refused message is answered under each call's ID, unlike a refused
+		// HTTP request: melody caps a message at 512 bytes, so the answer stays
+		// small, and a client multiplexing calls over the connection needs
+		// their IDs
+		end, err := j.chargeMessage(ctx, requests)
+		if err != nil {
+			writer.WriteResponse(refusalResponses(requests, err))
+
+			return
+		}
+
+		defer end()
+
+		// Handle the request
 		j.handleRequest(
-			s.Request.Context(),
+			ctx,
 			metadata.NewMetadata(
 				s.RemoteAddr().String(),
 				metadata.WithWebSocketID(wsConnID),
 			),
-			wsWriter.New(j.logger, s),
+			writer,
 			requests,
 		)
 	})
@@ -302,6 +320,85 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 		httpWriter.New(j.logger, w),
 		requests,
 	)
+}
+
+// WriteRefusal answers a request refused before it was served with a 429 and
+// one error, err, naming no call. Its body is left unread, so a refusal costs
+// the same whatever the client sent: a batch of a megabyte would otherwise be
+// read, parsed and answered one error per call, uncharged.
+func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", jsonMimeType)
+	w.WriteHeader(http.StatusTooManyRequests)
+
+	httpWriter.New(j.logger, w).WriteResponse(refusalResponses(nil, err))
+}
+
+// refusalResponses answer requests, refused with err, with err in place of
+// each call's result, under each call's ID: a batch as a batch, as
+// handleRequest answers one, and no request at all with one error and no ID
+func refusalResponses(requests spec.BaseJSONRequests, err error) any {
+	if len(requests) == 0 {
+		requests = spec.BaseJSONRequests{nil}
+	}
+
+	refusal := spec.GenerateResponseError(err)
+	responses := make(spec.BaseJSONResponses, len(requests))
+
+	for i, request := range requests {
+		responses[i] = spec.NewJSONResponse(idOf(request), nil, refusal)
+	}
+
+	if len(responses) == 1 {
+		return responses[0]
+	}
+
+	return responses
+}
+
+// chargeMessage charges the calls of a message sent over a WebSocket
+// connection, carrying ctx, to the client that opened it, when a time budget
+// admitted the connection. It returns the function that ends them, or the
+// error that refuses them. A message of subscriptions alone is neither
+// charged nor refused: a subscription lives as long as its connection.
+func (j *JSONRPC) chargeMessage(ctx context.Context, requests spec.BaseJSONRequests) (func(), error) {
+	client, ok := budget.FromContext(ctx)
+	if !ok || subscriptionsOnly(requests) {
+		return func() {}, nil
+	}
+
+	end, err := client.Reserve()
+	if err != nil {
+		var exhausted *budget.ExhaustedError
+		if errors.As(err, &exhausted) {
+			j.observer.Refused(client.Address, metrics.APIJSONRPC, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
+		}
+
+		return nil, err
+	}
+
+	return end, nil
+}
+
+// isSubscriptionMethod reports whether method opens or closes a subscription
+func isSubscriptionMethod(method string) bool {
+	switch method {
+	case "subscribe", "unsubscribe":
+		return true
+	default:
+		return false
+	}
+}
+
+// subscriptionsOnly reports whether requests open or close subscriptions and
+// nothing else
+func subscriptionsOnly(requests spec.BaseJSONRequests) bool {
+	for _, request := range requests {
+		if request == nil || !isSubscriptionMethod(request.Method) {
+			return false
+		}
+	}
+
+	return len(requests) > 0
 }
 
 // handleWSRequest handles incoming WS requests. A failed upgrade is logged
@@ -342,7 +439,7 @@ func (j *JSONRPC) handleRequest(
 		if !isValidBaseRequest(baseRequest) {
 			// Marshal the JSON-RPC error
 			responses[i] = spec.NewJSONResponse(
-				baseRequest.ID,
+				idOf(baseRequest),
 				nil,
 				spec.NewJSONError(
 					"invalid JSON-RPC 2.0 request",
@@ -448,13 +545,23 @@ func runHandler(
 	return handler(ctx, metadata, params)
 }
 
-// isValidBaseRequest validates that the base JSON request is valid
+// isValidBaseRequest validates that the base JSON request is valid. A call that
+// is null, as a batch can hold, is not.
 func isValidBaseRequest(baseRequest *spec.BaseJSONRequest) bool {
-	if baseRequest.Method == "" {
+	if baseRequest == nil || baseRequest.Method == "" {
 		return false
 	}
 
 	return baseRequest.JSONRPC == spec.JSONRPCVersion
+}
+
+// idOf is the ID of request, 0 for a call that is null
+func idOf(request *spec.BaseJSONRequest) uint {
+	if request == nil {
+		return 0
+	}
+
+	return request.ID
 }
 
 // extractBaseRequests extracts the base JSON-RPC request from the

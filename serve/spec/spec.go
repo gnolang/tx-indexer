@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gnolang/tx-indexer/serve/budget"
 	"github.com/gnolang/tx-indexer/serve/deadline"
 )
 
@@ -133,14 +134,24 @@ func NewJSONSubscribeResponse(id string, result any) *BaseJSONSubscribeResponse 
 }
 
 // GenerateResponseError generates the JSON-RPC server error response. An
-// error past the query deadline carries its machine-readable details in Data.
+// error past the query deadline carries its machine-readable details in Data,
+// and so does a refusal of a client that spent its time budget, under a code
+// of its own.
 func GenerateResponseError(err error) *BaseJSONError {
 	jsonErr := NewJSONError(err.Error(), ServerErrorCode)
 	jsonErr.cause = err
 
-	var exceeded *deadline.ExceededError
-	if errors.As(err, &exceeded) {
+	var (
+		exceeded  *deadline.ExceededError
+		exhausted *budget.ExhaustedError
+	)
+
+	switch {
+	case errors.As(err, &exceeded):
 		jsonErr.Data = exceeded.Details()
+	case errors.As(err, &exhausted):
+		jsonErr.Code = ClientTimeBudgetErrorCode
+		jsonErr.Data = exhausted.Details()
 	}
 
 	return jsonErr

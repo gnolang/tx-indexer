@@ -576,6 +576,141 @@ func TestStartCfg_InvalidTrustedHops(t *testing.T) {
 	require.ErrorContains(t, cfg.exec(ctx), "--client-ip-trusted-hops")
 }
 
+// jsonrpcCall is a JSON-RPC call any indexer answers, the block it names
+// stored or not
+const jsonrpcCall = `{"jsonrpc": "2.0", "id": 1, "method": "getBlock", "params": ["1"]}`
+
+// statuses sends jsonrpcCall to the JSON-RPC endpoint at address once per
+// header, in turn, and returns the status each is answered with
+func statuses(t *testing.T, address string, headers ...http.Header) []int {
+	t.Helper()
+
+	url := "http://" + address + "/"
+	answered := make([]int, 0, len(headers))
+
+	for _, header := range headers {
+		header = header.Clone()
+		header.Set("Content-Type", "application/json")
+
+		response := fetchURL(t, http.MethodPost, url, header, jsonrpcCall)
+		require.NotNil(t, response, "nothing answers at %s", url)
+
+		answered = append(answered, response.status)
+	}
+
+	return answered
+}
+
+// The rate limit counts a client behind two trusted proxies under the address
+// the first appended to X-Forwarded-For, whichever node of the second serves
+// it: what the client writes itself, left of those entries or in another
+// header, never makes it a new client
+func TestStartCfg_RateLimitIgnoresForgedAddresses(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(
+		t,
+		false,
+		"--http-rate-limit", "2",
+		"--client-ip-header", "X-Forwarded-For",
+		"--client-ip-trusted-hops", "2",
+	)
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
+		statuses(
+			t,
+			started.apiAddress,
+			http.Header{"X-Forwarded-For": {"6.6.6.1, 203.0.113.9, 198.51.100.4"}},
+			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.5"}, "X-Real-Ip": {"6.6.6.2"}},
+			http.Header{"X-Forwarded-For": {"203.0.113.9, 198.51.100.6"}, "True-Client-Ip": {"6.6.6.3"}},
+		),
+	)
+}
+
+// Two clients behind the trusted proxy are counted apart, each under the
+// address the proxy names: one past the limit leaves the other served
+func TestStartCfg_RateLimitCountsClientsApart(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--http-rate-limit", "2", "--client-ip-header", "CF-Connecting-IP")
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests, http.StatusOK},
+		statuses(
+			t,
+			started.apiAddress,
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.9"}},
+			http.Header{"Cf-Connecting-Ip": {"203.0.113.10"}},
+		),
+	)
+}
+
+// With no header trusted, the rate limit counts every request from one
+// address as one client's, whatever addresses its headers name
+func TestStartCfg_RateLimitCountsThePeerByDefault(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--http-rate-limit", "2")
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
+		statuses(
+			t,
+			started.apiAddress,
+			http.Header{"X-Forwarded-For": {"6.6.6.1"}},
+			http.Header{"X-Real-Ip": {"6.6.6.2"}},
+			http.Header{"True-Client-Ip": {"6.6.6.3"}},
+		),
+	)
+}
+
+// The client limits count an IPv6 client under its /64, the block one end site
+// is given, so a client moving across its block's addresses stays one client.
+// An IPv4 address written in IPv6 form is the IPv4 client it names. An address
+// that is no IP is a client of its own.
+func TestStartCfg_ClientKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &startCfg{clientIPTrustedHops: 1}
+
+	keyOf := func(peer string) string {
+		r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+		r.RemoteAddr = peer
+
+		return cfg.clientKey(r)
+	}
+
+	testTable := []struct {
+		name  string
+		one   string
+		other string
+		same  bool
+	}{
+		{"two addresses of one IPv6 /64", "[2001:db8::1]:1", "[2001:db8::ffff:ffff:ffff:ffff]:2", true},
+		{"two IPv6 /64s", "[2001:db8::1]:1", "[2001:db8:0:1::1]:2", false},
+		{"an IPv4 address and its IPv6 form", "203.0.113.9:1", "[::ffff:203.0.113.9]:2", true},
+		{"two IPv4 addresses", "203.0.113.9:1", "203.0.113.10:2", false},
+		{"two IPv4 addresses in IPv6 form", "[::ffff:203.0.113.9]:1", "[::ffff:203.0.113.10]:2", false},
+		{"two addresses that are no IP", "pipe-1", "pipe-2", false},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			one, other := keyOf(testCase.one), keyOf(testCase.other)
+
+			assert.Equal(t, testCase.same, one == other, "keys %q and %q", one, other)
+		})
+	}
+}
+
 // serveCall serves one getBlock call through o, from a client behind two
 // proxies appending to X-Forwarded-For
 func serveCall(o *observe.Observer) {

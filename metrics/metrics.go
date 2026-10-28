@@ -53,6 +53,33 @@ func (s Status) String() string {
 	}
 }
 
+// Refusal is the reason a request was refused before it was served, named by
+// the reason label. It is a type of its own for the same reason as Status.
+type Refusal int
+
+// The reasons a request is refused
+const (
+	// RefusalClientTimeBudget is a request whose client has spent its
+	// budget of indexer time (--client-time-budget)
+	RefusalClientTimeBudget Refusal = iota
+
+	// RefusalHTTPRateLimit is a request past its client's count of requests
+	// per minute (--http-rate-limit)
+	RefusalHTTPRateLimit
+)
+
+// String is the reason label's value for r
+func (r Refusal) String() string {
+	switch r {
+	case RefusalClientTimeBudget:
+		return "client_time_budget"
+	case RefusalHTTPRateLimit:
+		return "http_rate_limit"
+	default:
+		return "Refusal(" + strconv.Itoa(int(r)) + ")"
+	}
+}
+
 // FetchStage is a step of the fetch that can fail, named by the stage label.
 // It is a type of its own for the same reason as Status.
 type FetchStage int
@@ -115,6 +142,7 @@ type Metrics struct {
 	registry *prometheus.Registry
 
 	requests     *prometheus.CounterVec
+	refused      *prometheus.CounterVec
 	duration     *prometheus.HistogramVec
 	rowsScanned  *prometheus.CounterVec
 	rowsReturned *prometheus.CounterVec
@@ -127,7 +155,8 @@ type Metrics struct {
 }
 
 // New creates the indexer's metrics, with the Go runtime's and the process's.
-// The fetch errors start at zero for every stage.
+// The fetch errors start at zero for every stage, and the refusals for every
+// API and reason.
 func New() *Metrics {
 	operationLabels := []string{"api", "operation"}
 
@@ -140,6 +169,15 @@ func New() *Metrics {
 				Help:      "Requests served, by API, operation and status (ok, error, deadline).",
 			},
 			[]string{"api", "operation", "status"},
+		),
+		refused: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "requests_refused_total",
+				Help: "Requests refused before they were served, by API and reason (client_time_budget, " +
+					"http_rate_limit). A refused request is counted here alone, never in requests_total.",
+			},
+			[]string{"api", "reason"},
 		),
 		duration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -203,10 +241,17 @@ func New() *Metrics {
 		m.fetchErrors.WithLabelValues(stage.String())
 	}
 
+	for _, api := range []string{APIGraphQL, APIJSONRPC} {
+		for _, reason := range []Refusal{RefusalClientTimeBudget, RefusalHTTPRateLimit} {
+			m.refused.WithLabelValues(api, reason.String())
+		}
+	}
+
 	m.registry.MustRegister(
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		m.requests,
+		m.refused,
 		m.duration,
 		m.rowsScanned,
 		m.rowsReturned,
@@ -251,6 +296,16 @@ func (m *Metrics) RequestEnded(r Request) {
 	m.duration.WithLabelValues(r.API, r.Operation).Observe(r.Duration.Seconds())
 	m.rowsScanned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsScanned))
 	m.rowsReturned.WithLabelValues(r.API, r.Operation).Add(float64(r.RowsReturned))
+}
+
+// RequestRefused counts a request over api refused for reason, before it was
+// served
+func (m *Metrics) RequestRefused(api string, reason Refusal) {
+	if m == nil {
+		return
+	}
+
+	m.refused.WithLabelValues(api, reason.String()).Inc()
 }
 
 // SetIndexedHeight records the latest block height written to the database

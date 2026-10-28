@@ -43,6 +43,11 @@ type Options struct {
 	// QueryDeadline bounds each query; zero leaves queries unbounded
 	QueryDeadline time.Duration
 
+	// TokenLimit is the most tokens a document may hold, refused before it
+	// is validated, whose cost grows with the document; zero leaves documents
+	// unbounded
+	TokenLimit int
+
 	// DisableIntrospection refuses introspection queries
 	DisableIntrospection bool
 }
@@ -78,6 +83,12 @@ func Setup(
 
 	srv.SetRecoverFunc(recoverFunc(logger))
 
+	if opts.TokenLimit > 0 {
+		srv.SetParserTokenLimit(opts.TokenLimit)
+	}
+
+	srv.SetValidationRulesFn(cappedRules)
+
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
 		// A failed upgrade is answered gorilla's status, 403 for a refused
@@ -98,6 +109,12 @@ func Setup(
 	srv.AddTransport(transport.MultipartForm{})
 
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+
+	// gqlgen runs the parameter mutators in the order they are added, and
+	// stops at the first error: the budget admits an operation before any
+	// other reads it, a persisted query's included
+	srv.Use(budgetExtension{observer: opts.Observer})
+
 	srv.Use(extension.AutomaticPersistedQuery{
 		Cache: lru.New[string](100),
 	})
