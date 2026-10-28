@@ -111,10 +111,6 @@ const clientTimeBudgetRefillHelp = "the indexer time a client regains per minute
 	"above 0 with --client-time-budget"
 
 type startCfg struct {
-	// flags is the flag set the configuration was parsed from, read to tell
-	// a flag left out from one set to its default
-	flags *flag.FlagSet
-
 	listenAddress          string
 	metricsListenAddress   string
 	remote                 string
@@ -157,8 +153,6 @@ func newStartCmd() *ffcli.Command {
 
 // registerFlags registers the indexer start command flags
 func (c *startCfg) registerFlags(fs *flag.FlagSet) {
-	c.flags = fs
-
 	fs.StringVar(
 		&c.listenAddress,
 		"listen-address",

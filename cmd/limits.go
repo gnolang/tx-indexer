@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"net/netip"
@@ -167,13 +166,17 @@ func overWebSocket(r *http.Request) bool {
 	}
 }
 
-// checkTimeBudget refuses a time budget set inconsistently: one of its two
-// flags without the other, a negative value, a refill of 0, which would leave a
-// client that spent its budget refused for good and remembered forever, or a
-// budget without the query deadline, which bounds each query's execution
+// checkTimeBudget refuses a time budget set inconsistently: a refill without
+// a budget, a negative value, a budget without a refill above 0, which would
+// leave a client that spent its budget refused for good and remembered
+// forever, or a budget without the query deadline, which bounds each query's
+// execution. Either flag at 0s, its default, is off, written out or not.
 func (c *startCfg) checkTimeBudget() error {
-	if c.isSet("client-time-budget") != c.isSet("client-time-budget-refill") {
-		return errors.New("--client-time-budget and --client-time-budget-refill must be set together")
+	if c.clientTimeBudget == 0 && c.clientTimeBudgetRefill != 0 {
+		return fmt.Errorf(
+			"--client-time-budget-refill %s needs --client-time-budget above 0: a refill alone limits nothing",
+			c.clientTimeBudgetRefill,
+		)
 	}
 
 	if c.clientTimeBudget < 0 || c.clientTimeBudgetRefill < 0 {
@@ -203,19 +206,6 @@ func (c *startCfg) checkTimeBudget() error {
 	}
 
 	return nil
-}
-
-// isSet reports whether the flag named name was set, to its default or not
-func (c *startCfg) isSet(name string) bool {
-	set := false
-
-	if c.flags != nil {
-		c.flags.Visit(func(f *flag.Flag) {
-			set = set || f.Name == name
-		})
-	}
-
-	return set
 }
 
 // apiOf names the API a request path serves: JSON-RPC's POST endpoint and its

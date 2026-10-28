@@ -294,8 +294,8 @@ Each request in flight also holds one `--query-deadline` of its client's balance
 have. The deadline bounds a query's execution, not its upload, its parsing, its validation or the writing of its answer,
 so what a request overdraws its client's balance by is what those take beyond the deadline; the token limit below
 bounds the parsing and the validation. The budget needs `--query-deadline`, and the start refuses one without it, as it
-refuses a refill of `0`, which would leave a client that spent its budget refused for good, and either flag without the
-other. The budget counts wall time, not CPU, as the deadline does.
+refuses a budget with a refill of `0`, which would leave a client that spent its budget refused for good, and a refill
+without a budget. Either flag at `0s`, its default, is off. The budget counts wall time, not CPU, as the deadline does.
 
 Over a WebSocket, each GraphQL operation or JSON-RPC call is charged to the client that opened the connection, and holds
 its share of the balance while it runs. A GraphQL operation is admitted before its document is parsed: a client over its

@@ -106,7 +106,7 @@ func TestStartCfg_TimeBudgetFlags(t *testing.T) {
 }
 
 // A time budget set inconsistently fails at startup, naming the flags at
-// fault: one of its two flags without the other, a negative value, a refill
+// fault: a refill without a budget, a negative value, a budget with a refill
 // of 0, which would leave a client that spent its budget refused for good,
 // and a budget without the query deadline each request in flight holds of
 // it
@@ -163,12 +163,15 @@ func TestStartCfg_InconsistentTimeBudgetRefusesToStart(t *testing.T) {
 }
 
 // A time budget set with both its flags, a refill and a query deadline
-// serves, and so does one turned off with both its flags
+// serves, and so does one turned off with both its flags, or either alone:
+// 0s, their default, written out
 func TestStartCfg_ConsistentTimeBudgetServes(t *testing.T) {
 	t.Parallel()
 
 	startIndexer(t, false, "--client-time-budget", "60s", "--client-time-budget-refill", "30s", "--query-deadline", "30s")
 	startIndexer(t, false, "--client-time-budget", "0s", "--client-time-budget-refill", "0s")
+	startIndexer(t, false, "--client-time-budget=0s")
+	startIndexer(t, false, "--client-time-budget-refill=0s")
 }
 
 // spendingBudget are the flags of a time budget the first request of any
