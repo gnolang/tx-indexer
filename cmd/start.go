@@ -283,7 +283,8 @@ func (c *startCfg) exec(ctx context.Context) error {
 // is logged at error under startLogger, then logger is synced to out, its
 // output. An error the log holds is a loggedError, which main does not print
 // again; one the level leaves out of the log is returned as it is, for main
-// to print.
+// to print. A failed sync, which the logger cannot log, is returned with the
+// run's error when the log does not hold that, and alone when it does.
 func stopped(runErr error, logger, startLogger *zap.Logger, out *os.File) error {
 	if runErr != nil {
 		if entry := startLogger.Check(zap.ErrorLevel, "stopped on an error"); entry != nil {
@@ -293,12 +294,17 @@ func stopped(runErr error, logger, startLogger *zap.Logger, out *os.File) error 
 		}
 	}
 
-	// A failed sync cannot be logged: it is the logger's own
-	if err := syncLogger(logger, out); err != nil {
-		return err
+	syncErr := syncLogger(logger, out)
+	if syncErr == nil {
+		return runErr
 	}
 
-	return runErr
+	var logged *loggedError
+	if errors.As(runErr, &logged) {
+		return syncErr
+	}
+
+	return errors.Join(runErr, syncErr)
 }
 
 // loggedError is an error the start command has logged already, so main does

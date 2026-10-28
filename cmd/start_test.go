@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -639,10 +640,16 @@ func (failingSync) Sync() error {
 
 // failingSyncLogger is a logger whose every sync fails with errSyncFailed
 func failingSyncLogger() *zap.Logger {
+	return failingSyncLoggerAt(zap.InfoLevel)
+}
+
+// failingSyncLoggerAt is a logger at level whose every sync fails with
+// errSyncFailed
+func failingSyncLoggerAt(level zapcore.Level) *zap.Logger {
 	return zap.New(zapcore.NewCore(
 		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 		failingSync{io.Discard},
-		zap.InfoLevel,
+		level,
 	))
 }
 
@@ -747,4 +754,36 @@ func TestStartCfg_RestoresTheStandardLogger(t *testing.T) {
 	require.ErrorIs(t, testCfg(t, "--listen-address", taken.Addr().String()).exec(t.Context()), syscall.EADDRINUSE)
 
 	assert.Equal(t, io.Writer(os.Stderr), log.Writer())
+}
+
+// A failed sync at the stop, which the logger cannot log, is returned beside
+// the error that ended the run: with it, for main to print both, when the
+// level left that error out of the log; alone when the log holds that error,
+// so main never prints it twice
+func TestStopped_ReturnsAFailedSyncBesideTheRunsError(t *testing.T) {
+	t.Parallel()
+
+	stderr, err := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, stderr.Close())
+	})
+
+	runErr := fmt.Errorf("unable to listen, %w", syscall.EADDRINUSE)
+
+	var logged *loggedError
+
+	unlogged := failingSyncLoggerAt(zap.FatalLevel)
+	ended := stopped(runErr, unlogged, unlogged.Named("start"), stderr)
+
+	assert.ErrorIs(t, ended, syscall.EADDRINUSE)
+	assert.ErrorIs(t, ended, errSyncFailed)
+	assert.False(t, errors.As(ended, &logged), "main would print nothing")
+
+	inTheLog := failingSyncLoggerAt(zap.InfoLevel)
+	ended = stopped(runErr, inTheLog, inTheLog.Named("start"), stderr)
+
+	assert.ErrorIs(t, ended, errSyncFailed)
+	assert.NotErrorIs(t, ended, syscall.EADDRINUSE, "main would print the logged error again")
 }
