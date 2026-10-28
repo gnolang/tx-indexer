@@ -13,6 +13,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/go-chi/chi/v5"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/graph/model"
@@ -25,11 +27,16 @@ import (
 var examples embed.FS
 
 // Options configure the GraphQL endpoint Setup mounts. The zero value is an
-// endpoint with introspection, no query deadline and nothing recorded.
+// endpoint with introspection, no query deadline and nothing recorded or
+// logged.
 type Options struct {
 	// Observer records each root query field served; nil records none, at no
 	// cost to them
 	Observer *observe.Observer
+
+	// Logger logs what goes wrong in the endpoint, a resolver's panic among
+	// it; nil logs nothing
+	Logger *zap.Logger
 
 	// QueryDeadline bounds each query; zero leaves queries unbounded
 	QueryDeadline time.Duration
@@ -61,6 +68,13 @@ func Setup(
 			},
 		},
 	))
+
+	logger := opts.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	srv.SetRecoverFunc(recoverFunc(logger))
 
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
@@ -97,6 +111,18 @@ func Setup(
 	m.Handle("/graphql/query", opts.Observer.Middleware(srv))
 
 	return m
+}
+
+// recoverFunc answers a resolver's panic with "internal system error", as
+// gqlgen's own recover function does, and logs it at error through logger,
+// where gqlgen's prints it and its stack on stderr. The indexer's logger
+// records the stack of an error line.
+func recoverFunc(logger *zap.Logger) graphql.RecoverFunc {
+	return func(_ context.Context, recovered any) error {
+		logger.Error("resolver panicked", zap.Any("panic", recovered))
+
+		return gqlerror.Errorf("internal system error")
+	}
 }
 
 func examplesToSlice() ([]string, error) {

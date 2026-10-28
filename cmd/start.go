@@ -412,6 +412,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 	mux = j.SetupRoutes(mux)
 	mux = graph.Setup(db, em, supplyHandler, mux, graph.Options{
 		Observer:             observer,
+		Logger:               logger.Named("graphql"),
 		QueryDeadline:        c.queryDeadline,
 		DisableIntrospection: c.disableIntrospection,
 	})
