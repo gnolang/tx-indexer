@@ -108,8 +108,8 @@ func TestStartCfg_TimeBudgetFlags(t *testing.T) {
 // A time budget set inconsistently fails at startup, naming the flags at
 // fault: one of its two flags without the other, a negative value, a refill
 // of 0, which would leave a client that spent its budget refused for good,
-// and a budget without the query deadline that bounds each request's
-// overdraw
+// and a budget without the query deadline each request in flight holds of
+// it
 func TestStartCfg_InconsistentTimeBudgetRefusesToStart(t *testing.T) {
 	t.Parallel()
 
@@ -454,8 +454,8 @@ func TestStartCfg_TimeBudgetRefillsASlowClient(t *testing.T) {
 }
 
 // Each request in flight holds one query deadline of its client's budget, so a
-// client overdraws one deadline at most: with a 60 s budget and a 30 s
-// deadline, a third request is refused while two run
+// client holds at most ⌈budget ÷ deadline⌉ requests in flight: with a 60 s
+// budget and a 30 s deadline, a third request is refused while two run
 func TestStartCfg_TimeBudgetReservesTheDeadlineInFlight(t *testing.T) {
 	t.Parallel()
 

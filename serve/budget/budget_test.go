@@ -208,8 +208,9 @@ func TestBudget_RetryAfterRoundsUpToWholeSeconds(t *testing.T) {
 }
 
 // Each request in flight holds one query deadline of its client's balance
-// until it ends, so the client overdraws one deadline at most: with a 60 s
-// budget and a 30 s deadline, a third request is refused while two run
+// until it ends, so the client holds at most ⌈budget ÷ deadline⌉ requests in
+// flight: with a 60 s budget and a 30 s deadline, a third request is refused
+// while two run
 func TestBudget_ReservesTheDeadlineOfEachRequestInFlight(t *testing.T) {
 	t.Parallel()
 
