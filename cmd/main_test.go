@@ -371,6 +371,11 @@ func sendWithHeader(t *testing.T, method, url, body string, header http.Header) 
 	return httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
 }
 
+// gorillaEarlyData is the text of gorilla's error for an upgrade whose client
+// sent data before the handshake completed, which gqlgen's line of the failed
+// upgrade holds
+const gorillaEarlyData = "client sent data before handshake is complete"
+
 // upgradeWithTrailingByte is a valid GraphQL WebSocket upgrade to host with
 // one byte after it in the same write, which any client may send: gorilla
 // fails it once it has taken the connection from the HTTP server, and closes
@@ -418,7 +423,7 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	require.NoError(t, conn.Close())
 
 	// gqlgen logs the failure once gorilla has closed the connection
-	require.NotEmpty(t, p.waitFor("client sent data before handshake is complete"), p.output.String())
+	require.NotEmpty(t, p.waitFor(gorillaEarlyData), p.output.String())
 
 	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 
