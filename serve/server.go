@@ -25,12 +25,19 @@ func NewHTTPServer(h http.Handler, addr string, logger *zap.Logger) *HTTPServer 
 	return &HTTPServer{h: h, addr: addr, logger: logger}
 }
 
-// Serve serves the JSON-RPC server
+// Serve serves the JSON-RPC server. The server's own errors, a handler's
+// panic among them, are logged at error through its logger.
 func (s *HTTPServer) Serve(ctx context.Context) error {
+	errorLog, err := zap.NewStdLogAt(s.logger, zap.ErrorLevel)
+	if err != nil {
+		return err
+	}
+
 	faucet := &http.Server{
 		Addr:              s.addr,
 		Handler:           s.h,
 		ReadHeaderTimeout: 60 * time.Second,
+		ErrorLog:          errorLog,
 	}
 
 	group, gCtx := errgroup.WithContext(ctx)
