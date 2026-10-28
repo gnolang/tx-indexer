@@ -94,31 +94,14 @@ func NewPebble(path string, logger *zap.Logger) (*Pebble, error) {
 // logger does
 func pebbleOptions(logger *zap.Logger) *pebble.Options {
 	return &pebble.Options{
-		// The call site named is pebble's, not the adapter's
-		Logger: pebbleLogger{logger: logger.WithOptions(zap.AddCallerSkip(1)).Sugar()},
+		// A sugared logger is a pebble.Logger, its call site pebble's
+		Logger: logger.Sugar(),
 		EventListener: &pebble.EventListener{
 			BackgroundError: func(err error) {
 				logger.Error("background error", zap.Error(err))
 			},
 		},
 	}
-}
-
-// pebbleLogger writes pebble's messages through a zap logger
-type pebbleLogger struct {
-	logger *zap.SugaredLogger
-}
-
-var _ pebble.Logger = pebbleLogger{}
-
-// Infof writes an information of pebble's at info
-func (l pebbleLogger) Infof(format string, args ...any) {
-	l.logger.Infof(format, args...)
-}
-
-// Fatalf writes a fatal error of pebble's at fatal, which ends the process
-func (l pebbleLogger) Fatalf(format string, args ...any) {
-	l.logger.Fatalf(format, args...)
 }
 
 // GetLatestHeight fetches the latest saved height from storage
