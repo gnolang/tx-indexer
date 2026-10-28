@@ -230,10 +230,12 @@ fatal ones. A dependency's line through Go's standard `log` package is logged un
 A line at error marks the indexer's own failure. What a client alone causes is at warn or below: a failed WebSocket
 upgrade, a WebSocket closed before its answer.
 
-Three kinds of line stay outside the logger, as plain text on stderr:
+Four kinds of line stay outside the logger, as plain text on stderr:
 
 - an error raised before the logger exists: a flag that does not parse, an unknown log level or format, or a
   `--query-deadline` or `--client-ip-trusted-hops` out of range;
+- the error that ends a run when `--log-level` is above error, which leaves it out of the log, and a failed sync of
+  the log at the stop;
 - a Go runtime crash outside any recover;
 - on macOS, the fork notice of libmdbx, a library gno links in: `rthc_afterfork:… drown … rthc entries`.
 
