@@ -13,14 +13,14 @@ import (
 	"github.com/gnolang/tx-indexer/serve/spec"
 )
 
-// dialWS opens a WebSocket connection to url in subprotocol, if any, and
-// closes it when the test ends
-func dialWS(t *testing.T, url string, subprotocols ...string) *websocket.Conn {
+// dialWS opens a WebSocket connection to url, its upgrade request carrying
+// header, in subprotocol, if any, and closes it when the test ends
+func dialWS(t *testing.T, url string, header http.Header, subprotocols ...string) *websocket.Conn {
 	t.Helper()
 
 	dialer := websocket.Dialer{Subprotocols: subprotocols, HandshakeTimeout: 5 * time.Second}
 
-	conn, resp, err := dialer.DialContext(t.Context(), url, nil)
+	conn, resp, err := dialer.DialContext(t.Context(), url, header)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -69,7 +69,7 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	started := startIndexer(t, false, spendingBudget...)
 	url := "ws://" + started.apiAddress + "/ws"
 
-	conn := dialWS(t, url)
+	conn := dialWS(t, url, nil)
 
 	// Not charged: the budget is whole for the call after it
 	subscribed := callWS(t, conn, 1, "subscribe", "newHeads")
@@ -92,7 +92,7 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	require.Nil(t, callWS(t, conn, 4, "subscribe", "newHeads").Error)
 	require.Nil(t, callWS(t, conn, 6, "unsubscribe", subscribed.Result).Error)
 
-	again := callWS(t, dialWS(t, url), 5, "getBlock", "1")
+	again := callWS(t, dialWS(t, url, nil), 5, "getBlock", "1")
 	require.NotNil(t, again.Error)
 	assert.Equal(t, spec.ClientTimeBudgetErrorCode, again.Error.Code)
 }
@@ -104,12 +104,13 @@ type graphqlMessage struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-// dialGraphQLWS opens a GraphQL connection over WebSocket at address, in the
-// graphql-transport-ws protocol, and returns once the indexer acknowledges it
-func dialGraphQLWS(t *testing.T, address string) *websocket.Conn {
+// dialGraphQLWS opens a GraphQL connection over WebSocket at address, its
+// upgrade request carrying header, in the graphql-transport-ws protocol, and
+// returns once the indexer acknowledges it
+func dialGraphQLWS(t *testing.T, address string, header http.Header) *websocket.Conn {
 	t.Helper()
 
-	conn := dialWS(t, "ws://"+address+"/graphql/query", "graphql-transport-ws")
+	conn := dialWS(t, "ws://"+address+"/graphql/query", header, "graphql-transport-ws")
 
 	require.NoError(t, conn.WriteJSON(graphqlMessage{Type: "connection_init"}))
 
@@ -189,7 +190,7 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 	t.Parallel()
 
 	started := startIndexer(t, false, spendingBudget...)
-	conn := dialGraphQLWS(t, started.apiAddress)
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
 	query := `{ getBlocks(where: {}) { height } }`
 
@@ -201,7 +202,7 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 	subscribeGraphQL(t, conn, "refused", query)
 	requireGraphQLRefusal(t, graphqlResult(t, conn, "refused"))
 
-	again := dialGraphQLWS(t, started.apiAddress)
+	again := dialGraphQLWS(t, started.apiAddress, nil)
 
 	subscribeGraphQL(t, again, "again", query)
 	requireGraphQLRefusal(t, graphqlResult(t, again, "again"))
@@ -220,7 +221,7 @@ func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
 		"--client-time-budget-refill", "30s",
 		"--query-deadline", "30s",
 	)
-	conn := dialGraphQLWS(t, started.apiAddress)
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
 	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
 
@@ -239,13 +240,13 @@ func TestStartCfg_CountsATimeBudgetRefusalOverWebSocket(t *testing.T) {
 
 	started := startIndexer(t, true, spendingBudget...)
 
-	conn := dialWS(t, "ws://"+started.apiAddress+"/ws")
+	conn := dialWS(t, "ws://"+started.apiAddress+"/ws", nil)
 
 	for id := range uint(2) {
 		callWS(t, conn, id+1, "getBlock", "1")
 	}
 
-	graphql := dialGraphQLWS(t, started.apiAddress)
+	graphql := dialGraphQLWS(t, started.apiAddress, nil)
 
 	subscribeGraphQL(t, graphql, "refused", `{ getBlocks(where: {}) { height } }`)
 	requireGraphQLRefusal(t, graphqlResult(t, graphql, "refused"))
@@ -257,4 +258,44 @@ func TestStartCfg_CountsATimeBudgetRefusalOverWebSocket(t *testing.T) {
 		series := refusedSeries(api, "client_time_budget")
 		assert.Equal(t, series+" 1", sample(scrape.body, series))
 	}
+}
+
+// Two clients behind the trusted proxy are charged apart over a WebSocket too,
+// each under the address the proxy names in its connection's upgrade
+func TestStartCfg_TimeBudgetChargesWebSocketClientsApart(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, append(spendingBudget, "--client-ip-header", "CF-Connecting-IP")...)
+	client := func(address string) http.Header {
+		return http.Header{"Cf-Connecting-Ip": {address}}
+	}
+
+	url := "ws://" + started.apiAddress + "/ws"
+
+	spent := dialWS(t, url, client("203.0.113.9"))
+	callWS(t, spent, 1, "getBlock", "1")
+
+	refused := callWS(t, spent, 2, "getBlock", "1")
+	require.NotNil(t, refused.Error)
+	assert.Equal(t, spec.ClientTimeBudgetErrorCode, refused.Error.Code)
+
+	served := callWS(t, dialWS(t, url, client("203.0.113.10")), 3, "getBlock", "1")
+	if served.Error != nil {
+		assert.NotEqual(t, spec.ClientTimeBudgetErrorCode, served.Error.Code)
+	}
+
+	query := `{ getBlocks(where: {}) { height } }`
+
+	spentGraphQL := dialGraphQLWS(t, started.apiAddress, client("203.0.113.11"))
+
+	subscribeGraphQL(t, spentGraphQL, "served", query)
+	assert.NotContains(t, graphqlResult(t, spentGraphQL, "served"), "errors")
+
+	subscribeGraphQL(t, spentGraphQL, "refused", query)
+	requireGraphQLRefusal(t, graphqlResult(t, spentGraphQL, "refused"))
+
+	other := dialGraphQLWS(t, started.apiAddress, client("203.0.113.12"))
+
+	subscribeGraphQL(t, other, "other", query)
+	assert.NotContains(t, graphqlResult(t, other, "other"), "errors")
 }
