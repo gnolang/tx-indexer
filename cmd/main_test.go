@@ -79,8 +79,9 @@ func startProcess(t *testing.T, args ...string) *indexerProcess {
 		}, args...)...,
 	)
 
-	// The local zone is one away from UTC on every machine, so a time
-	// written in UTC is one converted to it
+	// The local zone is UTC+05:30 on every machine, so a time written in UTC
+	// is one converted to it. A zone that fails to load would leave UTC: the
+	// console test pins the offset, so it fails then.
 	cmd.Env = append(os.Environ(), runMainEnv+"=1", "TZ=Asia/Kolkata")
 
 	// stdout, which the logger never writes to, is a file: the stop is judged
@@ -155,8 +156,8 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 }
 
 // consoleTime matches the console format's time column: ISO 8601 to the
-// millisecond, in the local zone
-const consoleTime = `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(Z|[+-]\d{4})`
+// millisecond, in the local zone, the one startProcess runs the indexer in
+const consoleTime = `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+0530`
 
 // The console format, the default, writes the columns it always has: time,
 // level, logger, caller and message, then the fields as one JSON object. The
