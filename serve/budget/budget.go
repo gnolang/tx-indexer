@@ -72,9 +72,11 @@ type account struct {
 	// updated is when balance was last brought up to date
 	updated time.Time
 
-	// balance is the indexer time left to the client, below zero once its
-	// requests overdrew it
-	balance time.Duration
+	// balance is the indexer time left to the client, in nanoseconds, below
+	// zero once its requests overdrew it. It counts fractions of a nanosecond,
+	// so a refill too slow to add a whole one between two requests is not
+	// lost.
+	balance float64
 
 	// inFlight counts the client's requests admitted and not yet ended
 	inFlight int
@@ -122,12 +124,12 @@ func (b *Budget) Reserve(client string) (func(), error) {
 
 	a, ok := b.clients[client]
 	if !ok {
-		a = &account{updated: now, balance: b.limit}
+		a = &account{updated: now, balance: float64(b.limit)}
 	}
 
 	b.refillTo(a, now)
 
-	available := a.balance - time.Duration(a.inFlight)*b.deadline
+	available := a.balance - float64(time.Duration(a.inFlight)*b.deadline)
 	if available <= 0 {
 		return nil, &ExhaustedError{RetryAfter: b.retryAfter(available)}
 	}
@@ -150,7 +152,7 @@ func (b *Budget) end(client string, a *account, admitted time.Time) {
 
 	b.refillTo(a, now)
 
-	a.balance -= now.Sub(admitted)
+	a.balance -= float64(now.Sub(admitted))
 	a.inFlight--
 
 	b.forgetIfFull(client, a)
@@ -193,25 +195,23 @@ func (b *Budget) refillTo(a *account, now time.Time) {
 		return
 	}
 
-	balance := float64(a.balance) + float64(elapsed)*b.refillRate()
-
-	a.balance = time.Duration(min(balance, float64(b.limit)))
+	a.balance = min(a.balance+float64(elapsed)*b.refillRate(), float64(b.limit))
 	a.updated = now
 }
 
 // forgetIfFull forgets client, holding a, if its balance is full and nothing
 // of it is in flight: it is then a client the budget has never seen
 func (b *Budget) forgetIfFull(client string, a *account) {
-	if a.inFlight == 0 && a.balance >= b.limit {
+	if a.inFlight == 0 && a.balance >= float64(b.limit) {
 		delete(b.clients, client)
 	}
 }
 
 // retryAfter is the whole seconds until available, the balance less what the
-// requests in flight hold, refills above zero: at least one, since a balance
-// at zero is above it only a moment later
-func (b *Budget) retryAfter(available time.Duration) time.Duration {
-	wait := float64(-available) / b.refillRate()
+// requests in flight hold, in nanoseconds, refills above zero: at least one,
+// since a balance at zero is above it only a moment later
+func (b *Budget) retryAfter(available float64) time.Duration {
+	wait := -available / b.refillRate()
 
 	return time.Duration(math.Floor(wait/float64(time.Second))+1) * time.Second
 }

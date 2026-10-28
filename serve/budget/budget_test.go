@@ -59,7 +59,7 @@ func balanceOf(t *testing.T, b *Budget) time.Duration {
 
 	b.refillTo(a, b.now())
 
-	return a.balance
+	return time.Duration(a.balance)
 }
 
 // clientCount is how many clients the budget holds
@@ -351,4 +351,36 @@ func TestExhaustedError(t *testing.T) {
 		"code":              "CLIENT_TIME_BUDGET_EXHAUSTED",
 		"retryAfterSeconds": 5,
 	}, exhausted.Details())
+}
+
+// A refill too slow to add a whole nanosecond between two reads of a balance
+// is not lost, and a balance overdrawn gains nothing by being read: a client
+// asking every second for a minute is refused no sooner than one that asks
+// once
+func TestBudget_KeepsFractionsOfANanosecond(t *testing.T) {
+	t.Parallel()
+
+	clock := &fakeClock{now: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)}
+
+	// 60 ns of indexer time, regained at 1 ns a minute
+	b := New(60, 1, 60, WithClock(clock.Now))
+
+	end, err := b.Reserve(testClient)
+	require.NoError(t, err)
+
+	clock.advance(100)
+	end()
+
+	// 40 ns overdrawn regain in 40 minutes
+	_, err = b.Reserve(testClient)
+	assert.Equal(t, 40*time.Minute+time.Second, retryAfter(t, err))
+
+	for range 60 {
+		clock.advance(time.Second)
+
+		_, err = b.Reserve(testClient)
+		require.Error(t, err)
+	}
+
+	assert.Equal(t, 39*time.Minute+time.Second, retryAfter(t, err))
 }
