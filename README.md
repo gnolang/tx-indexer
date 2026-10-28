@@ -300,8 +300,8 @@ without a budget. Either flag at `0s`, its default, is off. The budget counts wa
 Over a WebSocket, each GraphQL operation or JSON-RPC call is charged to the client that opened the connection, and holds
 its share of the balance while it runs. A GraphQL operation is admitted before its document is parsed: a client over its
 budget has nothing parsed, and parsing and validating a document are charged, an invalid one included. A subscription's
-start is admitted and charged so too; once started, its stream holds nothing. A JSON-RPC `subscribe` or `unsubscribe` is
-neither charged nor refused. The upgrade itself is never refused.
+start is admitted and charged so too; once started, its stream holds nothing. A JSON-RPC message holding only
+`subscribe` and `unsubscribe` calls is neither charged nor refused. The upgrade itself is never refused.
 
 A request the budget refuses is answered 429, with `Retry-After`, the whole seconds until its client's balance is back
 above zero, or 1 when the balance is above zero and its requests in flight alone refuse it, since only one of them
