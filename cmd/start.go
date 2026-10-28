@@ -266,6 +266,41 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// writes under its own: every line names the logger it came from
 	startLogger := logger.Named("start")
 
+	runErr := c.run(ctx, logger, startLogger)
+	if runErr != nil {
+		startLogger.Error("stopped on an error", zap.Error(runErr))
+	}
+
+	// A failed sync cannot be logged: it is the logger's own
+	if err := syncLogger(logger, os.Stderr); err != nil {
+		return err
+	}
+
+	if runErr != nil {
+		return &loggedError{err: runErr}
+	}
+
+	return nil
+}
+
+// loggedError is an error the start command has logged already, so main does
+// not print it again
+type loggedError struct {
+	err error
+}
+
+func (e *loggedError) Error() string {
+	return e.err.Error()
+}
+
+// Unwrap is the error that was logged
+func (e *loggedError) Unwrap() error {
+	return e.err
+}
+
+// run runs the indexer's services until ctx ends or one of them fails,
+// writing through logger, the command's own lines through startLogger
+func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) error {
 	// Create a DB instance
 	db, err := storage.NewPebble(c.dbPath)
 	if err != nil {
@@ -442,10 +477,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	w.add(afterGenesis(genesisReady, supplyHandler.Start))
 
 	// Wait for the services to stop
-	return errors.Join(
-		w.wait(),
-		syncLogger(logger, os.Stderr),
-	)
+	return w.wait()
 }
 
 // syncLogger flushes logger to storage when out, the stderr it writes to, is a

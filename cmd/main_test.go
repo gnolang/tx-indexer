@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,17 +55,11 @@ type indexerProcess struct {
 	reaped bool
 }
 
-// startProcess runs the start command as a process of its own, with args
-// after its test defaults, stdout a regular file and stderr a pipe, and
-// returns once the HTTP server listens. The process is killed and reaped when
-// the test ends, unless stop has reaped it.
-func startProcess(t *testing.T, args ...string) *indexerProcess {
+// newCommand is the start command as a process of its own, with args after
+// its test defaults and stdout a regular file. It is killed once it has run
+// for 30 s, or once ctx ends.
+func newCommand(t *testing.T, ctx context.Context, args ...string) *exec.Cmd {
 	t.Helper()
-
-	// A command that never stops is killed, so the test ends on a failure
-	// instead of hanging
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	t.Cleanup(cancel)
 
 	cmd := exec.CommandContext(
 		ctx,
@@ -94,6 +89,43 @@ func startProcess(t *testing.T, args ...string) *indexerProcess {
 	})
 
 	cmd.Stdout = stdout
+
+	return cmd
+}
+
+// runProcess runs the start command as a process of its own, with args after
+// its test defaults, to its end, and returns its stderr as it wrote it and how
+// it exited
+func runProcess(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	cmd := newCommand(t, ctx, args...)
+
+	var stderr strings.Builder
+
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	return stderr.String(), err
+}
+
+// startProcess runs the start command as a process of its own, with args
+// after its test defaults, stdout a regular file and stderr a pipe, and
+// returns once the HTTP server listens. The process is killed and reaped when
+// the test ends, unless stop has reaped it.
+func startProcess(t *testing.T, args ...string) *indexerProcess {
+	t.Helper()
+
+	// A command that never stops is killed, so the test ends on a failure
+	// instead of hanging
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	t.Cleanup(cancel)
+
+	cmd := newCommand(t, ctx, args...)
 
 	stderr, err := cmd.StderrPipe()
 	require.NoError(t, err)
@@ -191,6 +223,48 @@ var mdbxForkNotice = regexp.MustCompile(`^rthc_afterfork:\d+ drown \d+ rthc entr
 // it logged once it listened, in either format
 var startedAddress = regexp.MustCompile(`"address": ?"([^"]+)"`)
 
+// infoAndAbove are the levels a run at info, the default, writes
+var infoAndAbove = []string{"info", "warn", "error"}
+
+// jsonLines reads output, the stderr of an indexer logging in JSON, by
+// message. Each line must be one JSON object at one of levels, with its time
+// in RFC 3339 with nine digits of nanoseconds, in UTC, under ts, and a logger,
+// a caller and a msg.
+func jsonLines(t *testing.T, output string, levels ...string) map[string][]map[string]any {
+	t.Helper()
+
+	byMessage := make(map[string][]map[string]any)
+
+	for line := range strings.Lines(output) {
+		line = strings.TrimSuffix(line, "\n")
+		if mdbxForkNotice.MatchString(line) {
+			continue
+		}
+
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry), "a line that is no JSON object: %s", line)
+
+		ts, ok := entry["ts"].(string)
+		require.True(t, ok, "no ts in %s", line)
+		assert.Regexp(t, `T\d{2}:\d{2}:\d{2}\.\d{9}Z$`, ts, "ts is not to the nanosecond in UTC, in nine digits")
+
+		_, err := time.Parse(time.RFC3339, ts)
+		require.NoError(t, err)
+
+		level, _ := entry["level"].(string)
+		assert.Contains(t, levels, level, line)
+
+		for _, key := range []string{"logger", "caller", "msg"} {
+			assert.NotEmpty(t, entry[key], "no %s in %s", key, line)
+		}
+
+		msg, _ := entry["msg"].(string)
+		byMessage[msg] = append(byMessage[msg], entry)
+	}
+
+	return byMessage
+}
+
 // With --log-format json, every line is one JSON object: its time in RFC 3339
 // with nanoseconds, in UTC, under ts, then level, logger, caller and msg, and
 // each field at the top level, the request log's included
@@ -213,34 +287,7 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 
 	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 
-	byMessage := make(map[string][]map[string]any)
-
-	for line := range strings.Lines(p.output.String()) {
-		line = strings.TrimSuffix(line, "\n")
-		if mdbxForkNotice.MatchString(line) {
-			continue
-		}
-
-		var entry map[string]any
-		require.NoError(t, json.Unmarshal([]byte(line), &entry), "a line that is no JSON object: %s", line)
-
-		ts, ok := entry["ts"].(string)
-		require.True(t, ok, "no ts in %s", line)
-		assert.Regexp(t, `T\d{2}:\d{2}:\d{2}\.\d{9}Z$`, ts, "ts is not to the nanosecond in UTC, in nine digits")
-
-		_, err := time.Parse(time.RFC3339, ts)
-		require.NoError(t, err)
-
-		// The run is at info, the default level
-		assert.Contains(t, []any{"info", "warn", "error"}, entry["level"], line)
-
-		for _, key := range []string{"logger", "caller", "msg"} {
-			assert.NotEmpty(t, entry[key], "no %s in %s", key, line)
-		}
-
-		msg, _ := entry["msg"].(string)
-		byMessage[msg] = append(byMessage[msg], entry)
-	}
+	byMessage := jsonLines(t, p.output.String(), infoAndAbove...)
 
 	for _, msg := range []string{"rate-limit set", "query deadline set", "request log set"} {
 		require.Len(t, byMessage[msg], 1, msg)
@@ -265,4 +312,55 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
+}
+
+// The error that ends a run once the logger exists is logged, at error, under
+// the start logger, in the run's format, and printed nowhere else: here, an
+// address another listener holds
+func TestStartCfg_LogsTheErrorThatEndsARun(t *testing.T) {
+	t.Parallel()
+
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, taken.Close())
+	})
+
+	stderr, err := runProcess(t, "--log-format", "json", "--listen-address", taken.Addr().String())
+
+	var exited *exec.ExitError
+
+	require.ErrorAs(t, err, &exited)
+	assert.Equal(t, 1, exited.ExitCode())
+
+	stopped := jsonLines(t, stderr, infoAndAbove...)["stopped on an error"]
+	require.Len(t, stopped, 1, stderr)
+
+	assert.Equal(t, "error", stopped[0]["level"])
+	assert.Equal(t, "start", stopped[0]["logger"])
+	assert.Contains(t, stopped[0]["error"], "address already in use")
+}
+
+// An error before the logger exists is printed plain on stderr, on a line of
+// its own: here, a log level that does not parse
+func TestStartCfg_PrintsAnErrorBeforeTheLogger(t *testing.T) {
+	t.Parallel()
+
+	stderr, err := runProcess(t, "--log-level", "nonsense")
+
+	var exited *exec.ExitError
+
+	require.ErrorAs(t, err, &exited)
+	assert.Equal(t, 1, exited.ExitCode())
+
+	var printed strings.Builder
+
+	for line := range strings.Lines(stderr) {
+		if !mdbxForkNotice.MatchString(strings.TrimSuffix(line, "\n")) {
+			printed.WriteString(line)
+		}
+	}
+
+	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, printed.String())
 }
