@@ -83,7 +83,8 @@ func (c *startCfg) newRateLimit(observer *observe.Observer, logger *zap.Logger) 
 // admitted, then charged its wall time once served; one refused is recorded
 // by observer, under the API its path serves, and answered 429 with
 // Retry-After and its API's error. A WebSocket upgrade is neither charged nor
-// refused.
+// refused: it carries its client to the connection, which charges each query
+// or call it serves.
 func (c *startCfg) newTimeBudget(
 	b *budget.Budget,
 	j *serve.JSONRPC,
@@ -93,7 +94,9 @@ func (c *startCfg) newTimeBudget(
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if overWebSocket(r) {
-				next.ServeHTTP(w, r)
+				client := budget.Client{Budget: b, Key: c.clientKey(r), Address: c.clientAddress(r)}
+
+				next.ServeHTTP(w, r.WithContext(budget.NewContext(r.Context(), client)))
 
 				return
 			}

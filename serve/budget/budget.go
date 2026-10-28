@@ -34,6 +34,40 @@ func (e *ExhaustedError) Details() map[string]any {
 	}
 }
 
+// Client is the client that opened a WebSocket connection, as a budget
+// charges it: each query or call the connection carries is charged to it
+type Client struct {
+	// Budget is the budget the client is charged in
+	Budget *Budget
+
+	// Key is the key the client is charged under
+	Key string
+
+	// Address is the client's address, the one the request log names
+	Address string
+}
+
+// clientKey is the context key a connection's Client is carried under
+type clientKey struct{}
+
+// NewContext carries client in ctx, the context of the requests a
+// connection carries
+func NewContext(ctx context.Context, client Client) context.Context {
+	return context.WithValue(ctx, clientKey{}, client)
+}
+
+// FromContext is the Client ctx carries, and whether it carries one
+func FromContext(ctx context.Context) (Client, bool) {
+	client, ok := ctx.Value(clientKey{}).(Client)
+
+	return client, ok && client.Budget != nil
+}
+
+// Reserve admits a request of the client, as Budget.Reserve does
+func (c Client) Reserve() (func(), error) {
+	return c.Budget.Reserve(c.Key)
+}
+
 // sweepInterval is how often Run forgets the clients whose balance is full
 const sweepInterval = time.Minute
 
