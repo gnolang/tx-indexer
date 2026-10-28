@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -71,7 +72,8 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	conn := dialWS(t, url)
 
 	// Not charged: the budget is whole for the call after it
-	require.Nil(t, callWS(t, conn, 1, "subscribe", "newHeads").Error)
+	subscribed := callWS(t, conn, 1, "subscribe", "newHeads")
+	require.Nil(t, subscribed.Error)
 
 	served := callWS(t, conn, 2, "getBlock", "1")
 	if served.Error != nil {
@@ -86,8 +88,9 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	require.True(t, ok, "%+v", refused.Error)
 	requireBudgetRefusal(t, details)
 
-	// Never refused, not even past the budget
+	// Never refused, not even past the budget, nor is the call that ends one
 	require.Nil(t, callWS(t, conn, 4, "subscribe", "newHeads").Error)
+	require.Nil(t, callWS(t, conn, 6, "unsubscribe", subscribed.Result).Error)
 
 	again := callWS(t, dialWS(t, url), 5, "getBlock", "1")
 	require.NotNil(t, again.Error)
@@ -191,6 +194,31 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 
 	subscribeGraphQL(t, again, "again", query)
 	requireGraphQLRefusal(t, graphqlResult(t, again, "again"))
+}
+
+// A GraphQL subscription holds none of its client's budget while it waits for
+// blocks: with room for one request in flight, the client's queries are
+// served beside it
+func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(
+		t,
+		false,
+		"--client-time-budget", "30s",
+		"--client-time-budget-refill", "30s",
+		"--query-deadline", "30s",
+	)
+	conn := dialGraphQLWS(t, started.apiAddress)
+
+	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
+
+	// The subscription starts beside the queries, so they are sent for a
+	// while: a subscription charged would take the one place in flight once
+	// it started
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+		require.Equal(t, http.StatusOK, statuses(t, started.apiAddress, http.Header{})[0])
+	}
 }
 
 // A request the time budget refuses over a WebSocket is counted as refused,

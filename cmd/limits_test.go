@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -60,11 +61,17 @@ func TestStartCfg_CountsARateLimitRefusal(t *testing.T) {
 	require.NotNil(t, graphql)
 	assert.Equal(t, http.StatusTooManyRequests, graphql.status)
 
+	// The upgrade to JSON-RPC's WebSocket is the API's too
+	_, upgrade, err := websocket.DefaultDialer.DialContext(t.Context(), "ws://"+started.apiAddress+"/ws", nil)
+	require.ErrorIs(t, err, websocket.ErrBadHandshake)
+	assert.Equal(t, http.StatusTooManyRequests, upgrade.StatusCode)
+	assert.NoError(t, upgrade.Body.Close())
+
 	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
 	require.NotNil(t, scrape)
 
 	for series, want := range map[string]string{
-		refusedSeries("jsonrpc", "http_rate_limit"):    "1",
+		refusedSeries("jsonrpc", "http_rate_limit"):    "2",
 		refusedSeries("graphql", "http_rate_limit"):    "1",
 		refusedSeries("jsonrpc", "client_time_budget"): "0",
 		refusedSeries("graphql", "client_time_budget"): "0",
