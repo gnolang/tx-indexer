@@ -215,3 +215,55 @@ func TestObserver_NilMiddlewarePassesRequestsOn(t *testing.T) {
 
 	assert.True(t, served)
 }
+
+// A refused request is counted by API and reason, and with the request log on
+// logged in one line at info, in the shape of a served request's: its client,
+// API, reason and Retry-After, under the status refused
+func TestObserver_RecordsARefusal(t *testing.T) {
+	t.Parallel()
+
+	m := metrics.New()
+	logger, logs := observedLog()
+	o := New(m, WithRequestLog(logger))
+
+	o.Refused("203.0.113.9", metrics.APIGraphQL, metrics.RefusalClientTimeBudget, 3*time.Second)
+
+	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_refused_total", map[string]string{
+		"api":    "graphql",
+		"reason": "client_time_budget",
+	}), 0)
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+
+	assert.Equal(t, zap.InfoLevel, entries[0].Level)
+	assert.Equal(t, "refused request", entries[0].Message)
+	assert.Equal(t, map[string]any{
+		"client":      "203.0.113.9",
+		"api":         "graphql",
+		"reason":      "client_time_budget",
+		"retry-after": 3 * time.Second,
+		"status":      "refused",
+	}, entries[0].ContextMap())
+}
+
+// With the request log off, a refused request is counted and logged nowhere,
+// and a nil Observer records nothing
+func TestObserver_CountsARefusalWithTheLogOff(t *testing.T) {
+	t.Parallel()
+
+	m := metrics.New()
+
+	New(m).Refused("203.0.113.9", metrics.APIJSONRPC, metrics.RefusalHTTPRateLimit, time.Minute)
+
+	assert.InDelta(t, 1, metricstest.Value(t, m, "tx_indexer_requests_refused_total", map[string]string{
+		"api":    "jsonrpc",
+		"reason": "http_rate_limit",
+	}), 0)
+
+	var o *Observer
+
+	assert.NotPanics(t, func() {
+		o.Refused("203.0.113.9", metrics.APIJSONRPC, metrics.RefusalHTTPRateLimit, time.Minute)
+	})
+}

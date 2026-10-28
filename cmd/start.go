@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -398,19 +397,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	if c.rateLimit != 0 {
 		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
-		mux.Use(onAPIRoutes(httprate.Limit(
-			c.rateLimit,
-			1*time.Minute,
-			httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-				return c.clientKey(r), nil
-			}),
-			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
-				logger.Debug("too many requests", zap.String("from", c.clientKey(r)))
-
-				// send a json response to give more info when using the graphQL explorer
-				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
-			}),
-		)))
+		mux.Use(onAPIRoutes(c.newRateLimit(observer, logger)))
 	}
 
 	if c.queryDeadline != 0 {

@@ -3,10 +3,18 @@ package main
 import (
 	"net/http"
 	"net/netip"
+	"time"
+
+	"github.com/go-chi/httprate"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve/observe"
 )
+
+// rateLimitWindow is the window --http-rate-limit counts a client's requests
+// over, and the Retry-After httprate answers a refusal with
+const rateLimitWindow = time.Minute
 
 // ipv6ClientBits is the length of the prefix an IPv6 client is counted under:
 // one end site is given a /64 or wider, so its host picks any address in it
@@ -40,6 +48,27 @@ func (c *startCfg) clientKey(r *http.Request) string {
 	}
 
 	return netip.PrefixFrom(address, ipv6ClientBits).Masked().String()
+}
+
+// newRateLimit is the count limit, --http-rate-limit requests per minute for
+// each client key. A refused request is recorded by observer, under the API
+// its path serves, and answered 429 with a JSON body the GraphQL playground
+// shows.
+func (c *startCfg) newRateLimit(observer *observe.Observer, logger *zap.Logger) func(http.Handler) http.Handler {
+	return httprate.Limit(
+		c.rateLimit,
+		rateLimitWindow,
+		httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
+			return c.clientKey(r), nil
+		}),
+		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+			logger.Debug("too many requests", zap.String("from", c.clientKey(r)))
+
+			observer.Refused(c.clientAddress(r), apiOf(r.URL.Path), metrics.RefusalHTTPRateLimit, rateLimitWindow)
+
+			http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
+		}),
+	)
 }
 
 // apiOf names the API a request path serves: JSON-RPC's POST endpoint and its

@@ -157,6 +157,32 @@ func (c *Call) End(ctx context.Context, err error) {
 	)
 }
 
+// Refused records a request over api, from client, refused for reason before
+// it was served, its client told to retry after retryAfter: it counts it, and
+// with the request log on logs it in one line at info, under the status
+// refused. A refused request has no operation: it was refused before it was
+// read.
+func (o *Observer) Refused(client, api string, reason metrics.Refusal, retryAfter time.Duration) {
+	if o == nil {
+		return
+	}
+
+	o.metrics.RequestRefused(api, reason)
+
+	if o.log == nil {
+		return
+	}
+
+	o.log.Info(
+		"refused request",
+		zap.String("client", client),
+		zap.String("api", api),
+		zap.String("reason", reason.String()),
+		zap.Duration("retry-after", retryAfter),
+		zap.String("status", "refused"),
+	)
+}
+
 // status is the outcome of a request answered with err: the query deadline's
 // when err is the deadline, as the client is told by the same test, and an
 // error of its own otherwise, even one surfacing after the deadline passed

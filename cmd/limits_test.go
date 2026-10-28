@@ -23,3 +23,48 @@ func TestStartCfg_LimitsLeaveTheOtherRoutesAlone(t *testing.T) {
 		}
 	}
 }
+
+// refusedSeries is the series of the refusals over api for reason, as the
+// scrape writes it
+func refusedSeries(api, reason string) string {
+	return `tx_indexer_requests_refused_total{api="` + api + `",reason="` + reason + `"}`
+}
+
+// A request past the count limit is counted as refused for the rate limit,
+// under the API its path serves, and never as served
+func TestStartCfg_CountsARateLimitRefusal(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, true, "--http-rate-limit", "1")
+
+	assert.Equal(
+		t,
+		[]int{http.StatusOK, http.StatusTooManyRequests},
+		statuses(t, started.apiAddress, http.Header{}, http.Header{}),
+	)
+
+	graphql := fetchURL(
+		t,
+		http.MethodPost,
+		"http://"+started.apiAddress+"/graphql/query",
+		http.Header{"Content-Type": {"application/json"}},
+		`{"query": "{ getBlocks(where: {}) { height } }"}`,
+	)
+	require.NotNil(t, graphql)
+	assert.Equal(t, http.StatusTooManyRequests, graphql.status)
+
+	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
+	require.NotNil(t, scrape)
+
+	for series, want := range map[string]string{
+		refusedSeries("jsonrpc", "http_rate_limit"):    "1",
+		refusedSeries("graphql", "http_rate_limit"):    "1",
+		refusedSeries("jsonrpc", "client_time_budget"): "0",
+		refusedSeries("graphql", "client_time_budget"): "0",
+	} {
+		assert.Equal(t, series+" "+want, sample(scrape.body, series))
+	}
+
+	served := `tx_indexer_requests_total{api="jsonrpc",operation="getBlock",status="ok"}`
+	assert.Equal(t, served+" 1", sample(scrape.body, served))
+}
