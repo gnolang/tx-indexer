@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -312,6 +314,89 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
+}
+
+// failedUpgrades are requests gqlgen's WebSocket transport takes, by their
+// Upgrade header, and fails to upgrade, which any client may send: curl
+// --http2's h2c upgrade, and a query posted with a WebSocket's header
+var failedUpgrades = []struct {
+	header http.Header
+	method string
+	body   string
+}{
+	{
+		http.Header{
+			"Connection":     {"Upgrade, HTTP2-Settings"},
+			"Upgrade":        {"h2c"},
+			"Http2-Settings": {"AAMAAABkAAQCAAAAAAIAAAAA"},
+		},
+		http.MethodGet,
+		"",
+	},
+	{
+		http.Header{"Upgrade": {"websocket"}, "Content-Type": {"application/json"}},
+		http.MethodPost,
+		`{"query": "{ latestBlockHeight }"}`,
+	},
+}
+
+// sendWithHeader sends one request with header and returns its answer
+func sendWithHeader(t *testing.T, method, url, body string, header http.Header) httpResponse {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), method, url, strings.NewReader(body))
+	require.NoError(t, err)
+
+	req.Header = header
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, resp.Body.Close())
+	}()
+
+	read, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	return httpResponse{status: resp.StatusCode, body: string(read)}
+}
+
+// A request gqlgen's WebSocket transport fails to upgrade writes its line,
+// through the standard log package, as a line of the logger at warn under
+// stdlib: with --log-format json, every line is still one JSON object
+func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
+	t.Parallel()
+
+	p := startProcess(t, "--log-format", "json")
+
+	address := startedAddress.FindStringSubmatch(p.started)
+	require.Len(t, address, 2, "no address in %q", p.started)
+
+	for _, upgrade := range failedUpgrades {
+		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
+		assert.Equal(t, http.StatusBadRequest, response.status, response.body)
+	}
+
+	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
+
+	var stdlib []map[string]any
+
+	for _, entries := range jsonLines(t, p.output.String(), infoAndAbove...) {
+		for _, entry := range entries {
+			if entry["logger"] == "stdlib" {
+				stdlib = append(stdlib, entry)
+			}
+		}
+	}
+
+	require.Len(t, stdlib, len(failedUpgrades), p.output.String())
+
+	for _, entry := range stdlib {
+		assert.Equal(t, "warn", entry["level"])
+		assert.Contains(t, entry["msg"], "unable to upgrade")
+		assert.Contains(t, entry["caller"], "transport/websocket.go")
+	}
 }
 
 // The error that ends a run once the logger exists is logged, at error, under

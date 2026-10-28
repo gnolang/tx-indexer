@@ -262,6 +262,16 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
 
+	// A dependency's line through the standard log package, as gqlgen writes
+	// a failed WebSocket upgrade, is a line of the logger, at warn: no format
+	// has a plain line any client can cause
+	restoreStdLog, err := zap.RedirectStdLogAt(logger.Named("stdlib"), zap.WarnLevel)
+	if err != nil {
+		return fmt.Errorf("unable to redirect the standard logger, %w", err)
+	}
+
+	defer restoreStdLog()
+
 	// The command writes its own lines under the start logger, as each service
 	// writes under its own: every line names the logger it came from
 	startLogger := logger.Named("start")
