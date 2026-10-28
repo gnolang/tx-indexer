@@ -22,7 +22,7 @@ func TestJSONRPC_LogsAFailedWSUpgradeAtWarn(t *testing.T) {
 	j := NewJSONRPC(nil, WithLogger(zap.New(core)))
 
 	rec := httptest.NewRecorder()
-	j.SetupRoutes(chi.NewMux()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ws", nil))
+	j.SetupRoutes(chi.NewMux()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ws", http.NoBody))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	failed := logs.FilterMessage("unable to initialize WS connection").All()
