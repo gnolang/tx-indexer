@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -382,14 +381,21 @@ func (j *JSONRPC) chargeMessage(ctx context.Context, requests spec.BaseJSONReque
 	return end, nil
 }
 
-// subscriptionMethods are the calls that open or close a subscription
-var subscriptionMethods = []string{"subscribe", "unsubscribe"}
+// isSubscriptionMethod reports whether method opens or closes a subscription
+func isSubscriptionMethod(method string) bool {
+	switch method {
+	case "subscribe", "unsubscribe":
+		return true
+	default:
+		return false
+	}
+}
 
 // subscriptionsOnly reports whether requests open or close subscriptions and
 // nothing else
 func subscriptionsOnly(requests spec.BaseJSONRequests) bool {
 	for _, request := range requests {
-		if request == nil || !slices.Contains(subscriptionMethods, request.Method) {
+		if request == nil || !isSubscriptionMethod(request.Method) {
 			return false
 		}
 	}
