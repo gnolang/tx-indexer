@@ -97,6 +97,9 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	assert.Equal(t, spec.ClientTimeBudgetErrorCode, again.Error.Code)
 }
 
+// blocksQuery is a GraphQL query of every block's height
+const blocksQuery = `{ getBlocks(where: {}) { height } }`
+
 // graphqlMessage is one message of the graphql-transport-ws protocol, or of
 // the legacy graphql-ws, whose messages share its shape
 type graphqlMessage struct {
@@ -208,7 +211,7 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 	started := startIndexer(t, false, spendingBudget...)
 	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
-	query := `{ getBlocks(where: {}) { height } }`
+	query := blocksQuery
 
 	subscribeGraphQL(t, conn, "served", query)
 	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
@@ -242,7 +245,7 @@ func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
 	// The connection reads its messages in turn: a query after the
 	// subscription is read once the subscription has started, and served
 	// only if the subscription's start let go of the one place in flight
-	subscribeGraphQL(t, conn, "query", `{ getBlocks(where: {}) { height } }`)
+	subscribeGraphQL(t, conn, "query", blocksQuery)
 	assert.NotContains(t, graphqlResult(t, conn, "query"), "errors")
 
 	// A subscription that took the place once started would refuse every
@@ -267,7 +270,7 @@ func TestStartCfg_CountsATimeBudgetRefusalOverWebSocket(t *testing.T) {
 
 	graphql := dialGraphQLWS(t, started.apiAddress, nil)
 
-	subscribeGraphQL(t, graphql, "refused", `{ getBlocks(where: {}) { height } }`)
+	subscribeGraphQL(t, graphql, "refused", blocksQuery)
 	requireGraphQLRefusal(t, graphqlResult(t, graphql, "refused"))
 
 	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
@@ -303,7 +306,7 @@ func TestStartCfg_TimeBudgetChargesWebSocketClientsApart(t *testing.T) {
 		assert.NotEqual(t, spec.ClientTimeBudgetErrorCode, served.Error.Code)
 	}
 
-	query := `{ getBlocks(where: {}) { height } }`
+	query := blocksQuery
 
 	spentGraphQL := dialGraphQLWS(t, started.apiAddress, client("203.0.113.11"))
 
@@ -352,7 +355,7 @@ func TestStartCfg_TimeBudgetRefusesBeforeValidating(t *testing.T) {
 	started := startIndexer(t, false, spendingBudget...)
 	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
-	subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+	subscribeGraphQL(t, conn, "served", blocksQuery)
 	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
 
 	subscribeGraphQL(t, conn, "invalid", `{ notAField }`)
@@ -377,7 +380,7 @@ func TestStartCfg_TimeBudgetChargesAnInvalidDocument(t *testing.T) {
 		require.Len(t, invalid, 1)
 		assert.Equal(t, "error", invalid[0].Type, string(invalid[0].Payload))
 
-		subscribeGraphQL(t, conn, "refused", `{ getBlocks(where: {}) { height } }`)
+		subscribeGraphQL(t, conn, "refused", blocksQuery)
 		requireGraphQLRefusal(t, graphqlResult(t, conn, "refused"))
 	})
 
@@ -397,7 +400,7 @@ func TestStartCfg_TimeBudgetChargesAnInvalidDocument(t *testing.T) {
 		subscribeGraphQL(t, conn, "invalid", `{ notAField }`)
 		require.Len(t, graphqlMessages(t, conn, "invalid"), 1)
 
-		subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+		subscribeGraphQL(t, conn, "served", blocksQuery)
 		assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
 	})
 }
@@ -410,7 +413,7 @@ func TestStartCfg_TimeBudgetRefusesASubscriptionsStart(t *testing.T) {
 	started := startIndexer(t, false, spendingBudget...)
 	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
-	subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+	subscribeGraphQL(t, conn, "served", blocksQuery)
 	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
 
 	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
@@ -428,7 +431,7 @@ func TestStartCfg_RefusesAGraphQLDocumentOverTheTokenLimitOverWebSocket(t *testi
 	subscribeGraphQL(t, conn, "served", `{ __typename }`)
 	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
 
-	subscribeGraphQL(t, conn, "refused", `{ getBlocks(where: {}) { height } }`)
+	subscribeGraphQL(t, conn, "refused", blocksQuery)
 
 	refused := graphqlMessages(t, conn, "refused")
 	require.Len(t, refused, 1)
@@ -468,7 +471,7 @@ func TestStartCfg_TimeBudgetRefusesOverTheLegacyGraphQLWSProtocol(t *testing.T) 
 	started := startIndexer(t, false, spendingBudget...)
 	conn := dialGraphQLWSIn(t, started.apiAddress, nil, "graphql-ws")
 
-	query := `{ getBlocks(where: {}) { height } }`
+	query := blocksQuery
 
 	startGraphQL(t, conn, "start", "served", query)
 
