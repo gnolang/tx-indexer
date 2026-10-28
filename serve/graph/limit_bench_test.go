@@ -7,6 +7,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	bfttypes "github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/storage"
@@ -22,7 +23,7 @@ import (
 func BenchmarkGetTransactionsLimit(b *testing.B) {
 	const stored = 200_000
 
-	s, err := storage.NewPebble(b.TempDir())
+	s, err := storage.NewPebble(b.TempDir(), zap.NewNop())
 	if err != nil {
 		b.Fatalf("open: %v", err)
 	}
