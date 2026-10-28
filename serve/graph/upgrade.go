@@ -19,6 +19,10 @@ type hijackAwareWriter struct {
 	hijacked bool
 }
 
+// gorilla's upgrader takes the connection through http.Hijacker, by a type
+// assertion
+var _ http.Hijacker = (*hijackAwareWriter)(nil)
+
 // Hijack takes the connection from the HTTP server, and marks it taken once
 // it is
 func (w *hijackAwareWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
