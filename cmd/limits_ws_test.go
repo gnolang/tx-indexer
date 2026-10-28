@@ -221,8 +221,8 @@ func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
 	}
 }
 
-// A request the time budget refuses over a WebSocket is counted as refused,
-// under the API of the connection
+// A query or call the time budget refuses over a WebSocket is counted as
+// refused, under the API of the connection
 func TestStartCfg_CountsATimeBudgetRefusalOverWebSocket(t *testing.T) {
 	t.Parallel()
 
@@ -234,9 +234,16 @@ func TestStartCfg_CountsATimeBudgetRefusalOverWebSocket(t *testing.T) {
 		callWS(t, conn, id+1, "getBlock", "1")
 	}
 
+	graphql := dialGraphQLWS(t, started.apiAddress)
+
+	subscribeGraphQL(t, graphql, "refused", `{ getBlocks(where: {}) { height } }`)
+	requireGraphQLRefusal(t, graphqlResult(t, graphql, "refused"))
+
 	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
 	require.NotNil(t, scrape)
 
-	series := refusedSeries("jsonrpc", "client_time_budget")
-	assert.Equal(t, series+" 1", sample(scrape.body, series))
+	for _, api := range []string{"jsonrpc", "graphql"} {
+		series := refusedSeries(api, "client_time_budget")
+		assert.Equal(t, series+" 1", sample(scrape.body, series))
+	}
 }
