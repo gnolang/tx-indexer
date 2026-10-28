@@ -6,8 +6,10 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/gnolang/tx-indexer/metrics"
@@ -15,25 +17,66 @@ import (
 	"github.com/gnolang/tx-indexer/serve/observe"
 )
 
-// budgetExtension charges each query carried over a WebSocket connection to
-// the client that opened it, when a time budget admitted the connection, and
-// refuses it with the budget's error once that client has spent it. A
-// subscription is neither charged nor refused: it lives as long as its
-// connection. A query over HTTP carries no client: its request was charged
-// whole before it reached the endpoint.
+// budgetExtension charges each operation carried over a WebSocket connection
+// to the client that opened it, when a time budget admitted the connection,
+// and refuses it with the budget's error once that client has spent it. The
+// operation is admitted, and holds its place in flight, from before its
+// document is parsed: parsing and validating it are charged, and a client over
+// its budget has nothing parsed. A subscription lets go of its place once its
+// document is validated, and its stream is never charged: it lives as long as
+// its connection. An operation over HTTP carries no client: its request was
+// admitted whole before it reached the endpoint.
 type budgetExtension struct {
 	// observer records each refusal; nil records none
 	observer *observe.Observer
 }
 
 var (
-	_ graphql.HandlerExtension     = budgetExtension{}
-	_ graphql.OperationInterceptor = budgetExtension{}
+	_ graphql.HandlerExtension          = budgetExtension{}
+	_ graphql.OperationParameterMutator = budgetExtension{}
+	_ graphql.OperationContextMutator   = budgetExtension{}
+	_ graphql.OperationInterceptor      = budgetExtension{}
+	_ graphql.ResponseInterceptor       = budgetExtension{}
 )
+
+// reservationKey names an operation's reservation among its stats'
+// extensions
+const reservationKey = "ClientTimeBudget"
+
+// reservation is what an operation over a WebSocket holds of its client's
+// budget, from before its document is parsed
+type reservation struct {
+	// end lets go of the place in flight and charges the time since the
+	// operation's admission
+	end func()
+
+	// ended makes end run once, whichever way the operation ends first
+	ended sync.Once
+
+	// dispatched reports whether the operation reached its execution, which
+	// lets go of the reservation itself
+	dispatched atomic.Bool
+}
+
+// release ends the reservation, once
+func (r *reservation) release() {
+	r.ended.Do(r.end)
+}
+
+// reservationOf is the reservation the operation of ctx holds, nil for none
+func reservationOf(ctx context.Context) *reservation {
+	if !graphql.HasOperationContext(ctx) {
+		return nil
+	}
+
+	held, _ := graphql.GetOperationContext(ctx).Stats.GetExtension(reservationKey).(*reservation)
+
+	return held
+}
 
 // ExtensionName names the extension in gqlgen's stats and logs
 func (budgetExtension) ExtensionName() string {
-	return "ClientTimeBudget"
+	return reservationKey
 }
 
 // Validate accepts any schema: the budget does not depend on it
@@ -41,23 +84,14 @@ func (budgetExtension) Validate(graphql.ExecutableSchema) error {
 	return nil
 }
 
-// InterceptOperation charges an operation to the client of its connection,
-// from its admission until its last response has been sent: the transport
-// asks for responses until one is nil. An operation that never gets there, as
-// one that panics outside its resolvers, is charged until its context ends,
-// when the transport is done with it or at the latest with its connection. A
-// refused operation answers the budget's error once.
-func (e budgetExtension) InterceptOperation(
-	ctx context.Context,
-	next graphql.OperationHandler,
-) graphql.ResponseHandler {
-	if isSubscription(ctx) {
-		return next(ctx)
-	}
-
+// MutateOperationParameters admits an operation of the connection's client
+// before its document is parsed, and keeps the reservation in the operation's
+// stats; or refuses it, with the budget's error, which the transport answers
+// once
+func (e budgetExtension) MutateOperationParameters(ctx context.Context, _ *graphql.RawParams) *gqlerror.Error {
 	client, ok := budget.FromContext(ctx)
 	if !ok {
-		return next(ctx)
+		return nil
 	}
 
 	end, err := client.Reserve()
@@ -67,16 +101,45 @@ func (e budgetExtension) InterceptOperation(
 			e.observer.Refused(client.Address, metrics.APIGraphQL, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
 		}
 
-		return graphql.OneShot(&graphql.Response{Errors: gqlerror.List{refusalError(err)}})
+		return refusalError(err)
 	}
 
-	var ended sync.Once
+	graphql.GetOperationContext(ctx).Stats.SetExtension(reservationKey, &reservation{end: end})
 
-	release := func() {
-		ended.Do(end)
+	return nil
+}
+
+// MutateOperationContext lets a subscription go of its place in flight once
+// its document is validated, charging the parsing and the validating
+func (budgetExtension) MutateOperationContext(ctx context.Context, opCtx *graphql.OperationContext) *gqlerror.Error {
+	if opCtx.Operation == nil || opCtx.Operation.Operation != ast.Subscription {
+		return nil
 	}
 
-	stop := context.AfterFunc(ctx, release)
+	if held := reservationOf(ctx); held != nil {
+		held.release()
+	}
+
+	return nil
+}
+
+// InterceptOperation keeps an operation's reservation until its last response
+// has been sent: the transport asks for responses until one is nil. An
+// operation that never gets there, as one that panics outside its resolvers,
+// lets go of it once its context ends, when the transport is done with it or
+// at the latest with its connection.
+func (budgetExtension) InterceptOperation(
+	ctx context.Context,
+	next graphql.OperationHandler,
+) graphql.ResponseHandler {
+	held := reservationOf(ctx)
+	if held == nil {
+		return next(ctx)
+	}
+
+	held.dispatched.Store(true)
+
+	stop := context.AfterFunc(ctx, held.release)
 
 	responses := next(ctx)
 
@@ -84,11 +147,25 @@ func (e budgetExtension) InterceptOperation(
 		response := responses(ctx)
 		if response == nil {
 			stop()
-			release()
+			held.release()
 		}
 
 		return response
 	}
+}
+
+// InterceptResponse lets go of the reservation of an operation that failed
+// before its execution, its document invalid among such failures: the
+// transport answers the failure through the response interceptors, and the
+// operation never reaches its own
+func (budgetExtension) InterceptResponse(ctx context.Context, next graphql.ResponseHandler) *graphql.Response {
+	response := next(ctx)
+
+	if held := reservationOf(ctx); held != nil && !held.dispatched.Load() {
+		held.release()
+	}
+
+	return response
 }
 
 // WriteRefusal answers a GraphQL request refused before it was served with a

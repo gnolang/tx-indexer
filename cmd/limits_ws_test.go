@@ -183,9 +183,7 @@ func requireGraphQLRefusal(t *testing.T, result map[string]any) {
 
 // Each query sent over GraphQL's WebSocket is charged to the client that
 // opened the connection, and refused with the time budget's error once that
-// client has spent it. A subscription is neither charged nor refused: it
-// holds nothing while it waits for blocks. The upgrade itself is never
-// refused.
+// client has spent it. The upgrade itself is never refused.
 func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 	t.Parallel()
 
@@ -193,8 +191,6 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 	conn := dialGraphQLWS(t, started.apiAddress, nil)
 
 	query := `{ getBlocks(where: {}) { height } }`
-
-	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
 
 	subscribeGraphQL(t, conn, "served", query)
 	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
@@ -209,8 +205,8 @@ func TestStartCfg_TimeBudgetChargesEachQueryOverGraphQLWebSocket(t *testing.T) {
 }
 
 // A GraphQL subscription holds none of its client's budget while it waits for
-// blocks: with room for one request in flight, the client's queries are
-// served beside it
+// blocks, once started: with room for one request in flight, the client's
+// queries are served beside it
 func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
 	t.Parallel()
 
@@ -225,9 +221,14 @@ func TestStartCfg_TimeBudgetLeavesAGraphQLSubscriptionUncharged(t *testing.T) {
 
 	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
 
-	// The subscription starts beside the queries, so they are sent for a
-	// while: a subscription charged would take the one place in flight once
-	// it started
+	// The connection reads its messages in turn: a query after the
+	// subscription is read once the subscription has started, and served
+	// only if the subscription's start let go of the one place in flight
+	subscribeGraphQL(t, conn, "query", `{ getBlocks(where: {}) { height } }`)
+	assert.NotContains(t, graphqlResult(t, conn, "query"), "errors")
+
+	// A subscription that took the place once started would refuse every
+	// query sent beside it
 	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
 		require.Equal(t, http.StatusOK, statuses(t, started.apiAddress, http.Header{})[0])
 	}
@@ -298,4 +299,102 @@ func TestStartCfg_TimeBudgetChargesWebSocketClientsApart(t *testing.T) {
 
 	subscribeGraphQL(t, other, "other", query)
 	assert.NotContains(t, graphqlResult(t, other, "other"), "errors")
+}
+
+// graphqlMessages are the messages of operation id over conn up to its
+// completion, read past every other operation's messages
+func graphqlMessages(t *testing.T, conn *websocket.Conn, id string) []graphqlMessage {
+	t.Helper()
+
+	var messages []graphqlMessage
+
+	for {
+		var message graphqlMessage
+
+		require.NoError(t, conn.ReadJSON(&message))
+
+		if message.ID != id {
+			continue
+		}
+
+		if message.Type == "complete" {
+			return messages
+		}
+
+		messages = append(messages, message)
+	}
+}
+
+// A client over its budget is refused before its document is parsed and
+// validated, over a WebSocket: an invalid document answers the budget's
+// error, not a validation error
+func TestStartCfg_TimeBudgetRefusesBeforeValidating(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, spendingBudget...)
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+	subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
+
+	subscribeGraphQL(t, conn, "invalid", `{ notAField }`)
+	requireGraphQLRefusal(t, graphqlResult(t, conn, "invalid"))
+}
+
+// Parsing and validating a document is charged to its client over a
+// WebSocket, a document that fails validation included, and the operation's
+// reservation is let go once it fails
+func TestStartCfg_TimeBudgetChargesAnInvalidDocument(t *testing.T) {
+	t.Parallel()
+
+	t.Run("its validation is charged", func(t *testing.T) {
+		t.Parallel()
+
+		started := startIndexer(t, false, spendingBudget...)
+		conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+		subscribeGraphQL(t, conn, "invalid", `{ notAField }`)
+
+		invalid := graphqlMessages(t, conn, "invalid")
+		require.Len(t, invalid, 1)
+		assert.Equal(t, "error", invalid[0].Type, string(invalid[0].Payload))
+
+		subscribeGraphQL(t, conn, "refused", `{ getBlocks(where: {}) { height } }`)
+		requireGraphQLRefusal(t, graphqlResult(t, conn, "refused"))
+	})
+
+	t.Run("its reservation is let go", func(t *testing.T) {
+		t.Parallel()
+
+		// Room for one request in flight
+		started := startIndexer(
+			t,
+			false,
+			"--client-time-budget", "30s",
+			"--client-time-budget-refill", "30s",
+			"--query-deadline", "30s",
+		)
+		conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+		subscribeGraphQL(t, conn, "invalid", `{ notAField }`)
+		require.Len(t, graphqlMessages(t, conn, "invalid"), 1)
+
+		subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+		assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
+	})
+}
+
+// A subscription's start parses and validates its document, so a client over
+// its budget is refused one, as any other operation
+func TestStartCfg_TimeBudgetRefusesASubscriptionsStart(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, spendingBudget...)
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+	subscribeGraphQL(t, conn, "served", `{ getBlocks(where: {}) { height } }`)
+	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
+
+	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
+	requireGraphQLRefusal(t, graphqlResult(t, conn, "blocks"))
 }
