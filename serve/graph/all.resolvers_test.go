@@ -59,13 +59,13 @@ func seedTxs(t *testing.T, r *Resolver, to int64, txsPerHeight int) {
 	require.NoError(t, wb.Commit())
 }
 
-// seedBlocks writes one block at every height in [from, to]
-func seedBlocks(t *testing.T, r *Resolver, from, to int64) {
+// seedBlocks writes one block at every height in [1, to]
+func seedBlocks(t *testing.T, r *Resolver, to int64) {
 	t.Helper()
 
 	wb := r.store.WriteBatch()
 
-	for height := from; height <= to; height++ {
+	for height := int64(1); height <= to; height++ {
 		require.NoError(t, wb.SetBlock(&types.Block{
 			Header: types.Header{Height: height},
 		}))
@@ -92,7 +92,7 @@ func TestGetTransactions_UnderCapIsUnchanged(t *testing.T) {
 
 	ctx := testContext()
 
-	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil)
+	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil, nil)
 	require.NoError(t, err)
 
 	assert.Len(t, out, 30)
@@ -113,7 +113,7 @@ func TestGetTransactions_TruncationEndsOnBlockBoundary(t *testing.T) {
 
 	ctx := testContext()
 
-	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil)
+	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil, nil)
 	require.NoError(t, err)
 
 	require.Len(t, out, 9999)
@@ -143,6 +143,7 @@ func TestGetTransactions_TruncationEndsOnBlockBoundaryDescending(t *testing.T) {
 		ctx,
 		model.FilterTransaction{},
 		&model.TransactionOrder{HeightAndIndex: model.OrderDesc},
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -167,7 +168,7 @@ func TestGetTransactions_ResumingFromTheReportedHeightLosesNothing(t *testing.T)
 
 	ctx := testContext()
 
-	first, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil)
+	first, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil, nil)
 	require.NoError(t, err)
 
 	lastComplete := int(soleError(t, ctx).Extensions["lastCompleteBlockHeight"].(int64))
@@ -176,6 +177,7 @@ func TestGetTransactions_ResumingFromTheReportedHeightLosesNothing(t *testing.T)
 	second, err := r.Query().GetTransactions(
 		secondCtx,
 		model.FilterTransaction{BlockHeight: &model.FilterInt{Gt: &lastComplete}},
+		nil,
 		nil,
 	)
 	require.NoError(t, err)
@@ -202,7 +204,7 @@ func TestGetTransactions_SingleHeightExceedsCap(t *testing.T) {
 
 	ctx := testContext()
 
-	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil)
+	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil, nil)
 	require.NoError(t, err)
 
 	assert.Len(t, out, maxElementsPerQuery)
@@ -217,11 +219,11 @@ func TestGetBlocks_TruncationReportsResumeHeight(t *testing.T) {
 	t.Parallel()
 
 	r := testResolver(t)
-	seedBlocks(t, r, 1, maxElementsPerQuery+1)
+	seedBlocks(t, r, maxElementsPerQuery+1)
 
 	ctx := testContext()
 
-	out, err := r.Query().GetBlocks(ctx, model.FilterBlock{}, nil)
+	out, err := r.Query().GetBlocks(ctx, model.FilterBlock{}, nil, nil)
 	require.NoError(t, err)
 
 	require.Len(t, out, maxElementsPerQuery)
