@@ -89,23 +89,39 @@ const (
 const logFormatHelp = "the format of the log lines: console, columns for people to read, " +
 	"or json, one object per line for log pipelines to parse"
 
+// clientTimeBudgetHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const clientTimeBudgetHelp = "the most indexer time a client may hold, the wall time its GraphQL and " +
+	"JSON-RPC requests take, off at 0, the default; set with --client-time-budget-refill and --query-deadline"
+
+// clientTimeBudgetRefillHelp is built up over multiple lines so each stays
+// under the linter's line-length limit.
+const clientTimeBudgetRefillHelp = "the indexer time a client regains per minute, " +
+	"above 0 with --client-time-budget"
+
 type startCfg struct {
-	listenAddress        string
-	metricsListenAddress string
-	remote               string
-	dbPath               string
-	logLevel             string
-	logFormat            string
-	corsAllowedOrigins   string
-	supplyDenoms         string
-	clientIPHeader       string
-	maxSlots             int
-	maxChunkSize         int64
-	rateLimit            int
-	clientIPTrustedHops  int
-	queryDeadline        time.Duration
-	disableIntrospection bool
-	requestLog           bool
+	// flags is the flag set the configuration was parsed from, read to tell
+	// a flag left out from one set to its default
+	flags *flag.FlagSet
+
+	listenAddress          string
+	metricsListenAddress   string
+	remote                 string
+	dbPath                 string
+	logLevel               string
+	logFormat              string
+	corsAllowedOrigins     string
+	supplyDenoms           string
+	clientIPHeader         string
+	maxSlots               int
+	maxChunkSize           int64
+	rateLimit              int
+	clientIPTrustedHops    int
+	queryDeadline          time.Duration
+	clientTimeBudget       time.Duration
+	clientTimeBudgetRefill time.Duration
+	disableIntrospection   bool
+	requestLog             bool
 }
 
 // newStartCmd creates the indexer start command
@@ -129,6 +145,8 @@ func newStartCmd() *ffcli.Command {
 
 // registerFlags registers the indexer start command flags
 func (c *startCfg) registerFlags(fs *flag.FlagSet) {
+	c.flags = fs
+
 	fs.StringVar(
 		&c.listenAddress,
 		"listen-address",
@@ -240,6 +258,20 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		1,
 		clientIPTrustedHopsHelp,
 	)
+
+	fs.DurationVar(
+		&c.clientTimeBudget,
+		"client-time-budget",
+		0,
+		clientTimeBudgetHelp,
+	)
+
+	fs.DurationVar(
+		&c.clientTimeBudgetRefill,
+		"client-time-budget-refill",
+		0,
+		clientTimeBudgetRefillHelp,
+	)
 }
 
 // exec executes the indexer start command
@@ -253,6 +285,10 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// No trusted proxy would leave every entry of the header the client's own
 	if c.clientIPTrustedHops < 1 {
 		return fmt.Errorf("invalid --client-ip-trusted-hops %d: it must be 1 or more", c.clientIPTrustedHops)
+	}
+
+	if err := c.checkTimeBudget(); err != nil {
+		return err
 	}
 
 	// Parse the log level

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"flag"
+	"fmt"
 	"net/http"
 	"net/netip"
 	"time"
@@ -69,6 +72,57 @@ func (c *startCfg) newRateLimit(observer *observe.Observer, logger *zap.Logger) 
 			http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
 		}),
 	)
+}
+
+// checkTimeBudget refuses a time budget set inconsistently: one of its two
+// flags without the other, a negative value, a refill of 0, which would leave a
+// client that spent its budget refused for good and remembered forever, or a
+// budget without the query deadline, which bounds what a request overdraws
+func (c *startCfg) checkTimeBudget() error {
+	if c.isSet("client-time-budget") != c.isSet("client-time-budget-refill") {
+		return errors.New("--client-time-budget and --client-time-budget-refill must be set together")
+	}
+
+	if c.clientTimeBudget < 0 || c.clientTimeBudgetRefill < 0 {
+		return fmt.Errorf(
+			"invalid --client-time-budget %s or --client-time-budget-refill %s: neither may be negative",
+			c.clientTimeBudget,
+			c.clientTimeBudgetRefill,
+		)
+	}
+
+	if c.clientTimeBudget == 0 {
+		return nil
+	}
+
+	if c.clientTimeBudgetRefill == 0 {
+		return fmt.Errorf(
+			"invalid --client-time-budget-refill 0s with --client-time-budget %s: a budget needs a refill above 0",
+			c.clientTimeBudget,
+		)
+	}
+
+	if c.queryDeadline <= 0 {
+		return fmt.Errorf(
+			"--client-time-budget %s needs --query-deadline above 0: the deadline bounds what a request overdraws",
+			c.clientTimeBudget,
+		)
+	}
+
+	return nil
+}
+
+// isSet reports whether the flag named name was set, to its default or not
+func (c *startCfg) isSet(name string) bool {
+	set := false
+
+	if c.flags != nil {
+		c.flags.Visit(func(f *flag.Flag) {
+			set = set || f.Name == name
+		})
+	}
+
+	return set
 }
 
 // apiOf names the API a request path serves: JSON-RPC's POST endpoint and its
