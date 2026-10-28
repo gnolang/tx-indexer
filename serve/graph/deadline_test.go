@@ -335,7 +335,7 @@ func TestQueryDeadline_ClientLeftIsNotADeadline(t *testing.T) {
 
 	r := NewResolver(&slowStore{rows: slowRows}, nil, nil)
 
-	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil)
+	out, err := r.Query().GetTransactions(ctx, model.FilterTransaction{}, nil, nil)
 
 	assert.Nil(t, out)
 	require.ErrorIs(t, err, context.Canceled)
@@ -365,6 +365,7 @@ func TestQueryDeadline_StopsAnIndexWindowWalk(t *testing.T) {
 					ctx,
 					model.FilterTransaction{Index: &model.FilterInt{Gt: &fromIndex}},
 					nil,
+					nil,
 				)
 			},
 			"getTransactions",
@@ -375,6 +376,7 @@ func TestQueryDeadline_StopsAnIndexWindowWalk(t *testing.T) {
 					ctx,
 					model.FilterTransaction{Index: &model.FilterInt{Gt: &fromIndex}},
 					&model.TransactionOrder{HeightAndIndex: model.OrderDesc},
+					nil,
 				)
 			},
 			"getTransactions descending",
