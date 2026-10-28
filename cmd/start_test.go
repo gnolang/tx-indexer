@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -728,4 +729,21 @@ func TestStartCfg_UnknownLogFormat(t *testing.T) {
 	cancel()
 
 	require.ErrorContains(t, testCfg(t, "--log-format", "xml").exec(ctx), "--log-format")
+}
+
+// The standard log package writes to stderr again once the command returns:
+// its redirect ends with the logger it writes through. The test is
+// sequential: the standard logger is the process's own, and every other test
+// that runs the command redirects it.
+func TestStartCfg_RestoresTheStandardLogger(t *testing.T) {
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, taken.Close())
+	})
+
+	require.ErrorIs(t, testCfg(t, "--listen-address", taken.Addr().String()).exec(t.Context()), syscall.EADDRINUSE)
+
+	assert.Equal(t, io.Writer(os.Stderr), log.Writer())
 }
