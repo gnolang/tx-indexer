@@ -248,6 +248,10 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
 
+	// The command writes its own lines under the start logger, as each service
+	// writes under its own: every line names the logger it came from
+	startLogger := logger.Named("start")
+
 	// Create a DB instance
 	db, err := storage.NewPebble(c.dbPath)
 	if err != nil {
@@ -256,7 +260,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
-			logger.Error("unable to gracefully close DB", zap.Error(closeErr))
+			startLogger.Error("unable to gracefully close DB", zap.Error(closeErr))
 		}
 	}()
 
@@ -328,7 +332,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}))
 
 	if c.rateLimit != 0 {
-		logger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
+		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
 		mux.Use(httprate.Limit(
 			c.rateLimit,
 			1*time.Minute,
@@ -336,7 +340,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
 				//nolint:errcheck // no need to handle error here, it had been checked before
 				ip, _ := httprate.KeyByRealIP(r)
-				logger.Debug("too many requests", zap.String("from", ip))
+				startLogger.Debug("too many requests", zap.String("from", ip))
 
 				// send a json response to give more info when using the graphQL explorer
 				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
@@ -345,11 +349,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	if c.queryDeadline != 0 {
-		logger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
+		startLogger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
 	}
 
 	if c.requestLog {
-		logger.Info(
+		startLogger.Info(
 			"request log set",
 			zap.String("client-ip-header", c.clientIPHeader),
 			zap.Int("client-ip-trusted-hops", c.clientIPTrustedHops),

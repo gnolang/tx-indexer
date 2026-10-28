@@ -149,3 +149,30 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 
 	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 }
+
+// consoleTime matches the console format's time column: ISO 8601 to the
+// millisecond, in the local zone
+const consoleTime = `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(Z|[+-]\d{4})`
+
+// The console format, the default, writes the columns it always has: time,
+// level, logger, caller and message, then the fields as one JSON object. The
+// start command's own lines are under the start logger.
+func TestStartCfg_LogsTheConsoleFormatByDefault(t *testing.T) {
+	t.Parallel()
+
+	p := startProcess(t, "--request-log")
+	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
+
+	assert.Regexp(
+		t,
+		`^`+consoleTime+`\tINFO\thttp-server\tserve/server\.go:\d+\tHTTP server started\t`+
+			`\{"address": "127\.0\.0\.1:\d+"\}$`,
+		p.started,
+	)
+	assert.Regexp(
+		t,
+		`(?m)^`+consoleTime+`\tINFO\tstart\tcmd/start\.go:\d+\trequest log set\t`+
+			`\{"client-ip-header": "", "client-ip-trusted-hops": 1\}$`,
+		p.output.String(),
+	)
+}
