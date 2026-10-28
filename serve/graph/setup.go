@@ -109,6 +109,12 @@ func Setup(
 	srv.AddTransport(transport.MultipartForm{})
 
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+
+	// gqlgen runs the parameter mutators in the order they are added, and
+	// stops at the first error: the budget admits an operation before any
+	// other reads it, a persisted query's included
+	srv.Use(budgetExtension{observer: opts.Observer})
+
 	srv.Use(extension.AutomaticPersistedQuery{
 		Cache: lru.New[string](100),
 	})
@@ -118,8 +124,6 @@ func Setup(
 	}
 
 	srv.Use(deadlineExtension{deadline: opts.QueryDeadline})
-
-	srv.Use(budgetExtension{observer: opts.Observer})
 
 	// With nothing to record, every field is spared the extension
 	if opts.Observer != nil {

@@ -491,3 +491,32 @@ func TestStartCfg_TimeBudgetRefusesOverTheLegacyGraphQLWSProtocol(t *testing.T) 
 	require.NoError(t, json.Unmarshal(refused[0].Payload, &result))
 	requireGraphQLRefusal(t, result)
 }
+
+// A persisted query over a WebSocket is admitted before gqlgen's APQ reads
+// it: a client over its budget is refused with the budget's error, counted as
+// refused, whatever its persisted query holds, a hash that does not match
+// included
+func TestStartCfg_TimeBudgetRefusesAPersistedQueryOverWebSocket(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, true, spendingBudget...)
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+	subscribeGraphQL(t, conn, "served", blocksQuery)
+	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
+
+	payload, err := json.Marshal(map[string]any{
+		"query":      blocksQuery,
+		"extensions": map[string]any{"persistedQuery": map[string]any{"version": 1, "sha256Hash": "00"}},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, conn.WriteJSON(graphqlMessage{ID: "persisted", Type: "subscribe", Payload: payload}))
+	requireGraphQLRefusal(t, graphqlResult(t, conn, "persisted"))
+
+	scrape := get(t, "http://"+started.metricsAddress+"/metrics")
+	require.NotNil(t, scrape)
+
+	series := refusedSeries("graphql", "client_time_budget")
+	assert.Equal(t, series+" 1", sample(scrape.body, series))
+}
