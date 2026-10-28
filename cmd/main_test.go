@@ -36,25 +36,45 @@ func TestMain(m *testing.M) {
 // handles the stop signals by then: a signal sent earlier would kill it.
 const startedLine = "HTTP server started"
 
-// A stop on SIGTERM, as Docker and systemd send it, exits 0 when stderr is a
-// pipe, as both hand it to the indexer
-func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
-	t.Parallel()
+// indexerProcess is the start command running as a process of its own, its
+// stderr a pipe the test reads line by line
+type indexerProcess struct {
+	cmd   *exec.Cmd
+	lines *bufio.Scanner
+
+	// started is the line the HTTP server logged once it listened
+	started string
+
+	// output is every line read from stderr so far
+	output strings.Builder
+
+	// reaped reports whether stop waited for the process
+	reaped bool
+}
+
+// startProcess runs the start command as a process of its own, with args
+// after its test defaults, stdout a regular file and stderr a pipe, and
+// returns once the HTTP server listens. The process is killed and reaped when
+// the test ends, unless stop has reaped it.
+func startProcess(t *testing.T, args ...string) *indexerProcess {
+	t.Helper()
 
 	// A command that never stops is killed, so the test ends on a failure
 	// instead of hanging
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	cmd := exec.CommandContext(
 		ctx,
 		os.Args[0],
-		"start",
-		"--listen-address", "127.0.0.1:0",
-		"--db-path", t.TempDir(),
-		// No chain listens there: the genesis bootstrap retries until the
-		// stop, while the API serves the empty database
-		"--remote", "http://127.0.0.1:1",
+		append([]string{
+			"start",
+			"--listen-address", "127.0.0.1:0",
+			"--db-path", t.TempDir(),
+			// No chain listens there: the genesis bootstrap retries until the
+			// stop, while the API serves the empty database
+			"--remote", "http://127.0.0.1:1",
+		}, args...)...,
 	)
 
 	cmd.Env = append(os.Environ(), runMainEnv+"=1")
@@ -74,12 +94,12 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, cmd.Start())
 
-	// A failed assertion returns before the wait at the end: the child is
-	// then killed and reaped before the test's directories are removed
-	reaped := false
+	p := &indexerProcess{cmd: cmd, lines: bufio.NewScanner(stderr)}
 
+	// A failed assertion returns before stop's wait: the child is then killed
+	// and reaped before the test's directories are removed
 	t.Cleanup(func() {
-		if reaped {
+		if p.reaped {
 			return
 		}
 
@@ -87,30 +107,45 @@ func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
 		t.Logf("the indexer, killed on the test's failure, stopped: %v", cmd.Wait())
 	})
 
-	var (
-		output  strings.Builder
-		lines   = bufio.NewScanner(stderr)
-		started bool
-	)
+	for p.started == "" && p.lines.Scan() {
+		p.output.WriteString(p.lines.Text() + "\n")
 
-	for !started && lines.Scan() {
-		output.WriteString(lines.Text() + "\n")
-		started = strings.Contains(lines.Text(), startedLine)
+		if strings.Contains(p.lines.Text(), startedLine) {
+			p.started = p.lines.Text()
+		}
 	}
 
-	if started {
-		require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
-	}
+	require.NoError(t, p.lines.Err())
+	require.NotEmpty(t, p.started, "the indexer never served:\n%s", p.output.String())
+
+	return p
+}
+
+// stop sends the process SIGTERM, as Docker and systemd stop it, reads its
+// stderr to the end, and returns how it exited
+func (p *indexerProcess) stop(t *testing.T) error {
+	t.Helper()
+
+	require.NoError(t, p.cmd.Process.Signal(syscall.SIGTERM))
 
 	// The pipe is read to its end before the wait, which closes it
-	for lines.Scan() {
-		output.WriteString(lines.Text() + "\n")
+	for p.lines.Scan() {
+		p.output.WriteString(p.lines.Text() + "\n")
 	}
 
-	require.NoError(t, lines.Err())
-	require.True(t, started, "the indexer never served:\n%s", output.String())
+	require.NoError(t, p.lines.Err())
 
-	reaped = true
+	p.reaped = true
 
-	require.NoError(t, cmd.Wait(), "the indexer's stderr:\n%s", output.String())
+	return p.cmd.Wait()
+}
+
+// A stop on SIGTERM, as Docker and systemd send it, exits 0 when stderr is a
+// pipe, as both hand it to the indexer
+func TestStartCfg_StopExitsZeroWithStderrAPipe(t *testing.T) {
+	t.Parallel()
+
+	p := startProcess(t)
+
+	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
 }
