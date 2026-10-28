@@ -262,6 +262,10 @@ func (j *JSONRPC) setupWSListeners() {
 		ctx := s.Request.Context()
 		writer := wsWriter.New(j.logger, s)
 
+		// A refused message is answered under each call's ID, unlike a refused
+		// HTTP request: melody caps a message at 512 bytes, so the answer stays
+		// small, and a client multiplexing calls over the connection needs
+		// their IDs
 		end, err := j.chargeMessage(ctx, requests)
 		if err != nil {
 			writer.WriteResponse(refusalResponses(requests, err))
@@ -318,21 +322,15 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// WriteRefusal answers r, a request refused before it was served, with a 429
-// and err in place of each call's result, under each call's ID: a batch as a
-// batch, as handleRequest answers one. The body is read, no further than the
-// request size limit, only to name the IDs; a body that is no JSON-RPC
-// request is answered with one error and no ID.
-func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, r *http.Request, err error) {
-	requests, parseErr := readBaseRequests(w, r)
-	if parseErr != nil {
-		requests = nil
-	}
-
+// WriteRefusal answers a request refused before it was served with a 429 and
+// one error, err, naming no call. Its body is left unread, so a refusal costs
+// the same whatever the client sent: a batch of a megabyte would otherwise be
+// read, parsed and answered one error per call, uncharged.
+func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, _ *http.Request, err error) {
 	w.Header().Set("Content-Type", jsonMimeType)
 	w.WriteHeader(http.StatusTooManyRequests)
 
-	httpWriter.New(j.logger, w).WriteResponse(refusalResponses(requests, err))
+	httpWriter.New(j.logger, w).WriteResponse(refusalResponses(nil, err))
 }
 
 // refusalResponses answer requests, refused with err, with err in place of
@@ -401,17 +399,6 @@ func subscriptionsOnly(requests spec.BaseJSONRequests) bool {
 	}
 
 	return len(requests) > 0
-}
-
-// readBaseRequests reads the JSON-RPC requests of r's body, no further than
-// the request size limit
-func readBaseRequests(w http.ResponseWriter, r *http.Request) (spec.BaseJSONRequests, error) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodySize))
-	if err != nil {
-		return nil, err
-	}
-
-	return extractBaseRequests(body)
 }
 
 // handleWSRequest handles incoming WS requests. A failed upgrade is logged

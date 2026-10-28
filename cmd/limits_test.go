@@ -206,9 +206,9 @@ func requireRetryAfter(t *testing.T, refused *httpResponse) int {
 }
 
 // A JSON-RPC request of a client that spent its budget is answered 429, with
-// Retry-After, and an error with code -32005 in place of each call's result,
-// under each call's ID: a batch as a batch, and a body that is no JSON-RPC
-// request with one error and no ID
+// Retry-After, and one error with code -32005 naming no call, its body left
+// unread: a call, a batch, a body that is no JSON-RPC request and a batch of
+// 1 MB alike, so a refusal costs the same whatever the client sent
 func TestStartCfg_TimeBudgetRefusesJSONRPCCalls(t *testing.T) {
 	t.Parallel()
 
@@ -216,9 +216,9 @@ func TestStartCfg_TimeBudgetRefusesJSONRPCCalls(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, postTo(t, started.apiAddress, "/", jsonrpcCall).status)
 
-	// The refusal of call id names the Retry-After of the response it is in
-	refusal := func(id, seconds int) map[string]any {
-		answer := map[string]any{
+	// The refusal names the Retry-After of the response it is in
+	refusal := func(seconds int) map[string]any {
+		return map[string]any{
 			"jsonrpc": "2.0",
 			"result":  nil,
 			"error": map[string]any{
@@ -230,37 +230,36 @@ func TestStartCfg_TimeBudgetRefusesJSONRPCCalls(t *testing.T) {
 				},
 			},
 		}
-
-		if id != 0 {
-			answer["id"] = float64(id)
-		}
-
-		return answer
 	}
 
-	var answer any
+	bodies := map[string]string{
+		"a call": `{"jsonrpc": "2.0", "id": 7, "method": "getBlock", "params": ["1"]}`,
+		"a batch": `[
+			{"jsonrpc": "2.0", "id": 8, "method": "getBlock", "params": ["1"]},
+			{"jsonrpc": "2.0", "id": 9, "method": "getBlock", "params": ["2"]}
+		]`,
+		"no JSON-RPC request": `nonsense`,
+		// 1 MB, the request cap, of empty calls
+		"a batch of 1 MB": "[" + strings.Repeat("{},", maxBatchCalls-1) + "{}]",
+	}
 
-	single := postTo(t, started.apiAddress, "/", `{"jsonrpc": "2.0", "id": 7, "method": "getBlock", "params": ["1"]}`)
-	seconds := requireRetryAfter(t, single)
+	for name, body := range bodies {
+		refused := postTo(t, started.apiAddress, "/", body)
+		seconds := requireRetryAfter(t, refused)
 
-	require.NoError(t, json.Unmarshal([]byte(single.body), &answer))
-	assert.Equal(t, refusal(7, seconds), answer)
+		// The length alone: an answer per call would run to megabytes
+		require.Less(t, len(refused.body), 1024, name)
 
-	batch := postTo(t, started.apiAddress, "/", `[
-		{"jsonrpc": "2.0", "id": 8, "method": "getBlock", "params": ["1"]},
-		{"jsonrpc": "2.0", "id": 9, "method": "getBlock", "params": ["2"]}
-	]`)
-	seconds = requireRetryAfter(t, batch)
+		var answer any
 
-	require.NoError(t, json.Unmarshal([]byte(batch.body), &answer))
-	assert.Equal(t, []any{refusal(8, seconds), refusal(9, seconds)}, answer)
-
-	nonsense := postTo(t, started.apiAddress, "/", `nonsense`)
-	seconds = requireRetryAfter(t, nonsense)
-
-	require.NoError(t, json.Unmarshal([]byte(nonsense.body), &answer))
-	assert.Equal(t, refusal(0, seconds), answer)
+		require.NoError(t, json.Unmarshal([]byte(refused.body), &answer), name)
+		assert.Equal(t, refusal(seconds), answer, name)
+	}
 }
+
+// maxBatchCalls is the most empty calls a batch under the 1 MB request cap
+// holds: "[", then "{}," for each but the last, then "{}]"
+const maxBatchCalls = (1<<20 - 1) / 3
 
 // A GraphQL request of a client that spent its budget is answered 429, with
 // Retry-After, and a GraphQL error in the shape of the query deadline's

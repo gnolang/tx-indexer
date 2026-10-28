@@ -318,10 +318,11 @@ ending admits it, and its API's error, in the shape of the query deadline's:
 }
 ```
 
-Over JSON-RPC, each call is answered with code `-32005`, and the same `code` and `retryAfterSeconds` in the error's
-`data`, under its own ID: a batch as a batch. A query or call refused over a WebSocket answers the same error. To name
-those IDs, a JSON-RPC refusal still reads and parses the request's body, up to the 1 MB cap: what bounds how often a
-refused client costs that is the count limit, or a proxy's.
+Over JSON-RPC, a refused request is answered one error with code `-32005`, and the same `code` and `retryAfterSeconds`
+in the error's `data`, naming no call: its body is left unread, so a refusal costs the same whatever the client sent.
+A query refused over a WebSocket answers the same error. A message refused over JSON-RPC's WebSocket is answered under
+each call's ID, a batch as a batch: the connection caps a message at 512 bytes, and a client that multiplexes calls
+over it needs their IDs.
 
 The indexer remembers a client only while its balance is below the budget or a request of its is in flight: the
 clients active within one refill of the budget.
