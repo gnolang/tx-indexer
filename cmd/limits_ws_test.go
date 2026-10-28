@@ -158,32 +158,15 @@ func startGraphQL(t *testing.T, conn *websocket.Conn, messageType, id, query str
 func graphqlResult(t *testing.T, conn *websocket.Conn, id string) map[string]any {
 	t.Helper()
 
-	var results []map[string]any
+	messages := graphqlMessages(t, conn, id)
+	require.Len(t, messages, 1, "operation %s answered %d messages", id, len(messages))
+	require.Equal(t, "next", messages[0].Type, string(messages[0].Payload))
 
-	for {
-		var message graphqlMessage
+	var result map[string]any
 
-		require.NoError(t, conn.ReadJSON(&message))
+	require.NoError(t, json.Unmarshal(messages[0].Payload, &result))
 
-		if message.ID != id {
-			continue
-		}
-
-		if message.Type == "complete" {
-			require.Len(t, results, 1, "operation %s answered %d results", id, len(results))
-
-			return results[0]
-		}
-
-		require.Equal(t, "next", message.Type, string(message.Payload))
-		require.Empty(t, results, "operation %s answered a second result", id)
-
-		var result map[string]any
-
-		require.NoError(t, json.Unmarshal(message.Payload, &result))
-
-		results = append(results, result)
-	}
+	return result
 }
 
 // requireGraphQLRefusal requires result to be the time budget's refusal
