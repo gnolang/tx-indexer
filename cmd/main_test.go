@@ -230,7 +230,8 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 		_, err := time.Parse(time.RFC3339, ts)
 		require.NoError(t, err)
 
-		assert.Contains(t, []any{"debug", "info", "warn", "error"}, entry["level"], line)
+		// The run is at info, the default level
+		assert.Contains(t, []any{"info", "warn", "error"}, entry["level"], line)
 
 		for _, key := range []string{"logger", "caller", "msg"} {
 			assert.NotEmpty(t, entry[key], "no %s in %s", key, line)
