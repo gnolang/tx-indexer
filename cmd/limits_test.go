@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -14,6 +16,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // The client limits apply to the API routes alone: /health and /ready, which
@@ -499,5 +503,58 @@ func TestStartCfg_CountsATimeBudgetRefusal(t *testing.T) {
 		refusedSeries("graphql", "http_rate_limit"):    "0",
 	} {
 		assert.Equal(t, series+" "+want, sample(scrape.body, series))
+	}
+}
+
+// TestStartCfg_GraphQLTokenLimitFlag makes sure a GraphQL document is held to
+// 4000 tokens unless the operator sets another limit, 0 for none.
+func TestStartCfg_GraphQLTokenLimitFlag(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, 4000, testCfg(t).graphqlTokenLimit)
+	assert.Equal(t, 0, testCfg(t, "--graphql-token-limit", "0").graphqlTokenLimit)
+}
+
+// A negative token limit fails at startup, naming the flag
+func TestStartCfg_NegativeGraphQLTokenLimitRefusesToStart(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	require.ErrorContains(t, testCfg(t, "--graphql-token-limit", "-1").exec(ctx), "--graphql-token-limit")
+}
+
+// A GraphQL document over the token limit is refused before it is validated,
+// over HTTP; one under it is served
+func TestStartCfg_RefusesAGraphQLDocumentOverTheTokenLimit(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--graphql-token-limit", "10")
+
+	// 3 tokens, then 12
+	served := postTo(t, started.apiAddress, "/graphql/query", `{"query": "{ __typename }"}`)
+	assert.Equal(t, http.StatusOK, served.status, served.body)
+	assert.NotContains(t, served.body, "errors")
+
+	refused := postTo(t, started.apiAddress, "/graphql/query", `{"query": "{ getBlocks(where: {}) { height } }"}`)
+	assert.Equal(t, http.StatusUnprocessableEntity, refused.status)
+	assert.Contains(t, refused.body, "exceeded token limit of 10")
+}
+
+// Every example query of the playground parses under the default token limit
+func TestStartCfg_GraphQLTokenLimitHoldsTheExamples(t *testing.T) {
+	t.Parallel()
+
+	examples, err := filepath.Glob("../serve/graph/examples/*.gql")
+	require.NoError(t, err)
+	require.NotEmpty(t, examples)
+
+	for _, example := range examples {
+		query, err := os.ReadFile(example)
+		require.NoError(t, err)
+
+		_, err = parser.ParseQueryWithTokenLimit(&ast.Source{Input: string(query)}, defaultGraphQLTokenLimit)
+		assert.NoError(t, err, example)
 	}
 }

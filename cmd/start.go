@@ -90,6 +90,16 @@ const (
 const logFormatHelp = "the format of the log lines: console, columns for people to read, " +
 	"or json, one object per line for log pipelines to parse"
 
+// defaultGraphQLTokenLimit is the most tokens a GraphQL document may hold by
+// default: four times the 860 of the widest legitimate query, one naming every
+// filter field and every returned field of getTransactions once
+const defaultGraphQLTokenLimit = 4000
+
+// graphqlTokenLimitHelp is built up over multiple lines so each stays under
+// the linter's line-length limit.
+const graphqlTokenLimitHelp = "the most tokens a GraphQL document may hold, refused before it is validated, " +
+	"over HTTP and WebSocket alike; 0 for no limit"
+
 // clientTimeBudgetHelp is built up over multiple lines so each stays under the
 // linter's line-length limit.
 const clientTimeBudgetHelp = "the most indexer time a client may hold, the wall time its GraphQL and " +
@@ -118,6 +128,7 @@ type startCfg struct {
 	maxChunkSize           int64
 	rateLimit              int
 	clientIPTrustedHops    int
+	graphqlTokenLimit      int
 	queryDeadline          time.Duration
 	clientTimeBudget       time.Duration
 	clientTimeBudgetRefill time.Duration
@@ -260,6 +271,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		clientIPTrustedHopsHelp,
 	)
 
+	fs.IntVar(
+		&c.graphqlTokenLimit,
+		"graphql-token-limit",
+		defaultGraphQLTokenLimit,
+		graphqlTokenLimitHelp,
+	)
+
 	fs.DurationVar(
 		&c.clientTimeBudget,
 		"client-time-budget",
@@ -286,6 +304,12 @@ func (c *startCfg) exec(ctx context.Context) error {
 	// No trusted proxy would leave every entry of the header the client's own
 	if c.clientIPTrustedHops < 1 {
 		return fmt.Errorf("invalid --client-ip-trusted-hops %d: it must be 1 or more", c.clientIPTrustedHops)
+	}
+
+	// A negative limit is a typo rather than a setting: refuse it instead of
+	// serving with no limit
+	if c.graphqlTokenLimit < 0 {
+		return fmt.Errorf("invalid --graphql-token-limit %d: it must be 0 (off) or positive", c.graphqlTokenLimit)
 	}
 
 	if err := c.checkTimeBudget(); err != nil {
@@ -474,6 +498,7 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 		Observer:             observer,
 		Logger:               logger.Named("graphql"),
 		QueryDeadline:        c.queryDeadline,
+		TokenLimit:           c.graphqlTokenLimit,
 		DisableIntrospection: c.disableIntrospection,
 	})
 	mux = health.Setup(db, f, mux)

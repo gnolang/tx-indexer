@@ -43,6 +43,11 @@ type Options struct {
 	// QueryDeadline bounds each query; zero leaves queries unbounded
 	QueryDeadline time.Duration
 
+	// TokenLimit is the most tokens a document may hold, refused before it
+	// is validated, whose cost grows with the document; zero leaves documents
+	// unbounded
+	TokenLimit int
+
 	// DisableIntrospection refuses introspection queries
 	DisableIntrospection bool
 }
@@ -77,6 +82,10 @@ func Setup(
 	}
 
 	srv.SetRecoverFunc(recoverFunc(logger))
+
+	if opts.TokenLimit > 0 {
+		srv.SetParserTokenLimit(opts.TokenLimit)
+	}
 
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,

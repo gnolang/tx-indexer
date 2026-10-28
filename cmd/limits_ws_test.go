@@ -398,3 +398,22 @@ func TestStartCfg_TimeBudgetRefusesASubscriptionsStart(t *testing.T) {
 	subscribeGraphQL(t, conn, "blocks", `subscription { getBlocks(where: {}) { height } }`)
 	requireGraphQLRefusal(t, graphqlResult(t, conn, "blocks"))
 }
+
+// A GraphQL document over the token limit is refused before it is validated,
+// over a WebSocket too
+func TestStartCfg_RefusesAGraphQLDocumentOverTheTokenLimitOverWebSocket(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, "--graphql-token-limit", "10")
+	conn := dialGraphQLWS(t, started.apiAddress, nil)
+
+	subscribeGraphQL(t, conn, "served", `{ __typename }`)
+	assert.NotContains(t, graphqlResult(t, conn, "served"), "errors")
+
+	subscribeGraphQL(t, conn, "refused", `{ getBlocks(where: {}) { height } }`)
+
+	refused := graphqlMessages(t, conn, "refused")
+	require.Len(t, refused, 1)
+	assert.Equal(t, "error", refused[0].Type)
+	assert.Contains(t, string(refused[0].Payload), "exceeded token limit of 10")
+}
