@@ -637,8 +637,7 @@ func (failingSync) Sync() error {
 
 // The logger is synced, and the sync's error returned, when the stderr it
 // writes to is a regular file. A pipe, a socket or a character device takes no
-// sync, and is not synced. A
-// stderr whose kind cannot be told is an error.
+// sync, and is not synced. A stderr whose kind cannot be told is an error.
 func TestSyncLogger(t *testing.T) {
 	t.Parallel()
 
