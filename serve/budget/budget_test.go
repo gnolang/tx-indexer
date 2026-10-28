@@ -22,6 +22,9 @@ const (
 	testDeadline = 30 * time.Second
 )
 
+// testConfig is the budget the tests run with
+var testConfig = Config{Limit: testLimit, Refill: testRefill, Deadline: testDeadline}
+
 // testClient is the key the tests charge
 const testClient = "203.0.113.9"
 
@@ -44,7 +47,7 @@ func (c *fakeClock) advance(d time.Duration) {
 func newTestBudget() (*Budget, *fakeClock) {
 	clock := &fakeClock{now: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)}
 
-	return New(testLimit, testRefill, testDeadline, WithClock(clock.Now)), clock
+	return New(testConfig, WithClock(clock.Now)), clock
 }
 
 // balanceOf is testClient's balance as of the budget's clock, which must hold
@@ -282,7 +285,7 @@ func TestBudget_RunSweepsEachMinute(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
-		b := New(testLimit, testRefill, testDeadline)
+		b := New(testConfig)
 
 		end, err := b.Reserve(testClient)
 		require.NoError(t, err)
@@ -310,7 +313,7 @@ func TestBudget_RunSweepsEachMinute(t *testing.T) {
 func TestBudget_IsSafeUnderConcurrency(t *testing.T) {
 	t.Parallel()
 
-	b := New(testLimit, testRefill, testDeadline)
+	b := New(testConfig)
 
 	var wg sync.WaitGroup
 
@@ -364,7 +367,7 @@ func TestBudget_KeepsFractionsOfANanosecond(t *testing.T) {
 	clock := &fakeClock{now: time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)}
 
 	// 60 ns of indexer time, regained at 1 ns a minute
-	b := New(60, 1, 60, WithClock(clock.Now))
+	b := New(Config{Limit: 60, Refill: 1, Deadline: 60}, WithClock(clock.Now))
 
 	end, err := b.Reserve(testClient)
 	require.NoError(t, err)
@@ -393,7 +396,7 @@ func TestBudget_BoundsRetryAfter(t *testing.T) {
 	t.Parallel()
 
 	// 1 ns regained a minute, against 30 s held by a request in flight
-	b := New(1, 1, 30*time.Second)
+	b := New(Config{Limit: 1, Refill: 1, Deadline: 30 * time.Second})
 
 	end, err := b.Reserve(testClient)
 	require.NoError(t, err)

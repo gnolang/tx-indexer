@@ -27,7 +27,7 @@ func TestJSONRPC_ReleasesAPanickingCallOverWS(t *testing.T) {
 	t.Parallel()
 
 	// Room for one request in flight
-	b := budget.New(30*time.Second, 30*time.Second, 30*time.Second)
+	b := budget.New(budget.Config{Limit: 30 * time.Second, Refill: 30 * time.Second, Deadline: 30 * time.Second})
 	charged := budget.Client{Budget: b, Key: "203.0.113.9", Address: "203.0.113.9"}
 
 	reached := make(chan struct{})

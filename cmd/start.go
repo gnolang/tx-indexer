@@ -448,7 +448,11 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 			zap.Duration("client-time-budget-refill", c.clientTimeBudgetRefill),
 		)
 
-		timeBudget = budget.New(c.clientTimeBudget, c.clientTimeBudgetRefill, c.queryDeadline)
+		timeBudget = budget.New(budget.Config{
+			Limit:    c.clientTimeBudget,
+			Refill:   c.clientTimeBudgetRefill,
+			Deadline: c.queryDeadline,
+		})
 		mux.Use(onAPIRoutes(c.newTimeBudget(timeBudget, j, observer, startLogger)))
 	}
 

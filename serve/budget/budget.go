@@ -126,16 +126,28 @@ func WithClock(now func() time.Time) Option {
 	}
 }
 
-// New creates a budget of limit indexer time per client, of which refill is
-// regained per minute, for requests bounded by the query deadline deadline.
-// Each is above zero: the start command refuses any other.
-func New(limit, refill, deadline time.Duration, opts ...Option) *Budget {
+// Config is a budget's settings, each above zero: the start command refuses
+// any other
+type Config struct {
+	// Limit is the most indexer time a client holds
+	Limit time.Duration
+
+	// Refill is the indexer time a client regains per minute
+	Refill time.Duration
+
+	// Deadline is the query deadline, held of a client's balance for each
+	// of its requests in flight
+	Deadline time.Duration
+}
+
+// New creates a budget of indexer time per client, as config sets it
+func New(config Config, opts ...Option) *Budget {
 	b := &Budget{
 		now:      time.Now,
 		clients:  make(map[string]*account),
-		limit:    limit,
-		refill:   refill,
-		deadline: deadline,
+		limit:    config.Limit,
+		refill:   config.Refill,
+		deadline: config.Deadline,
 	}
 
 	for _, opt := range opts {
