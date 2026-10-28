@@ -279,10 +279,10 @@ its /64, the block one end site is given, so moving across its addresses leaves 
 its upgrade.
 
 **The time budget**, `--client-time-budget` with `--client-time-budget-refill`, caps the indexer time a client holds: the
-wall time its requests take, from the moment the indexer starts serving one until its answer is written, its body's
-upload, its parsing and its validation included. A client starts with the whole budget and regains the refill each
-minute, never past the budget. A request is admitted while the client's balance is above zero, and charged its wall
-time once served.
+wall time its requests take, its body's upload, its parsing and its validation included, from the moment the indexer
+starts serving one until its answer is written; over a WebSocket, a document that fails validation until its errors are
+made, just before they are written. A client starts with the whole budget and regains the refill each minute, never past
+the budget. A request is admitted while the client's balance is above zero, and charged its wall time once served.
 
 Each request in flight also holds one `--query-deadline` of its client's balance while it runs: a client holds at most
 ⌈budget ÷ deadline⌉ requests in flight, however many it sends at once. Size the budget for the parallelism a client may
