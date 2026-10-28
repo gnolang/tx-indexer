@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/httprate"
 	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/metrics"
+	"github.com/gnolang/tx-indexer/serve"
+	"github.com/gnolang/tx-indexer/serve/budget"
+	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/observe"
 )
 
@@ -72,6 +76,89 @@ func (c *startCfg) newRateLimit(observer *observe.Observer, logger *zap.Logger) 
 			http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
 		}),
 	)
+}
+
+// newTimeBudget is the time budget's admission of the requests of the API
+// routes, each client charged under its key in b. A request over HTTP is
+// admitted, then charged its wall time once served; one refused is recorded
+// by observer, under the API its path serves, and answered 429 with
+// Retry-After and its API's error. A WebSocket upgrade is neither charged nor
+// refused.
+func (c *startCfg) newTimeBudget(
+	b *budget.Budget,
+	j *serve.JSONRPC,
+	observer *observe.Observer,
+	logger *zap.Logger,
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if overWebSocket(r) {
+				next.ServeHTTP(w, r)
+
+				return
+			}
+
+			end, err := b.Reserve(c.clientKey(r))
+			if err != nil {
+				c.refuseOverBudget(w, r, err, j, observer, logger)
+
+				return
+			}
+
+			defer end()
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// refuseOverBudget answers r, refused by the time budget with err, with a 429,
+// Retry-After and its API's error, and records the refusal by observer
+func (c *startCfg) refuseOverBudget(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+	j *serve.JSONRPC,
+	observer *observe.Observer,
+	logger *zap.Logger,
+) {
+	var exhausted *budget.ExhaustedError
+	if !errors.As(err, &exhausted) {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	api := apiOf(r.URL.Path)
+
+	observer.Refused(c.clientAddress(r), api, metrics.RefusalClientTimeBudget, exhausted.RetryAfter)
+
+	w.Header().Set("Retry-After", strconv.Itoa(int(exhausted.RetryAfter/time.Second)))
+
+	if api == metrics.APIJSONRPC {
+		j.WriteRefusal(w, r, err)
+
+		return
+	}
+
+	if writeErr := graph.WriteRefusal(w, err); writeErr != nil {
+		logger.Debug("unable to write a refusal", zap.Error(writeErr))
+	}
+}
+
+// overWebSocket reports whether r opens a WebSocket connection: any request
+// to JSON-RPC's /ws, and a request to GraphQL's endpoint with an Upgrade
+// header, which gqlgen hands its WebSocket transport. Neither runs a query
+// before the connection is open.
+func overWebSocket(r *http.Request) bool {
+	switch r.URL.Path {
+	case "/ws":
+		return true
+	case "/graphql/query":
+		return r.Header.Get("Upgrade") != ""
+	default:
+		return false
+	}
 }
 
 // checkTimeBudget refuses a time budget set inconsistently: one of its two

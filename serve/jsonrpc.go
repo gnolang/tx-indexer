@@ -304,6 +304,55 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// WriteRefusal answers r, a request refused before it was served, with a 429
+// and err in place of each call's result, under each call's ID: a batch as a
+// batch, as handleRequest answers one. The body is read, no further than the
+// request size limit, only to name the IDs; a body that is no JSON-RPC
+// request is answered with one error and no ID.
+func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, r *http.Request, err error) {
+	refusal := spec.GenerateResponseError(err)
+
+	requests, parseErr := readBaseRequests(w, r)
+	if parseErr != nil || len(requests) == 0 {
+		requests = spec.BaseJSONRequests{nil}
+	}
+
+	responses := make(spec.BaseJSONResponses, len(requests))
+
+	for i, request := range requests {
+		var id uint
+		if request != nil {
+			id = request.ID
+		}
+
+		responses[i] = spec.NewJSONResponse(id, nil, refusal)
+	}
+
+	w.Header().Set("Content-Type", jsonMimeType)
+	w.WriteHeader(http.StatusTooManyRequests)
+
+	writer := httpWriter.New(j.logger, w)
+
+	if len(responses) == 1 {
+		writer.WriteResponse(responses[0])
+
+		return
+	}
+
+	writer.WriteResponse(responses)
+}
+
+// readBaseRequests reads the JSON-RPC requests of r's body, no further than
+// the request size limit
+func readBaseRequests(w http.ResponseWriter, r *http.Request) (spec.BaseJSONRequests, error) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodySize))
+	if err != nil {
+		return nil, err
+	}
+
+	return extractBaseRequests(body)
+}
+
 // handleWSRequest handles incoming WS requests. A failed upgrade is logged
 // at warn: any client causes one, and error marks the indexer's own failure.
 func (j *JSONRPC) handleWSRequest(w http.ResponseWriter, r *http.Request) {

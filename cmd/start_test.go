@@ -374,7 +374,7 @@ func fetchURL(t require.TestingT, method, url string, header http.Header, body s
 	read, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	return &httpResponse{status: resp.StatusCode, body: string(read)}
+	return &httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
 }
 
 // The metrics are served on their own listener and record the requests both

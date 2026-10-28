@@ -23,6 +23,7 @@ import (
 	"github.com/gnolang/tx-indexer/genesis"
 	"github.com/gnolang/tx-indexer/metrics"
 	"github.com/gnolang/tx-indexer/serve"
+	"github.com/gnolang/tx-indexer/serve/budget"
 	"github.com/gnolang/tx-indexer/serve/graph"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
 	"github.com/gnolang/tx-indexer/serve/health"
@@ -436,6 +437,21 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 		mux.Use(onAPIRoutes(c.newRateLimit(observer, logger)))
 	}
 
+	// The time budget admits what the count limit let through: a request the
+	// count refuses is never charged
+	var timeBudget *budget.Budget
+
+	if c.clientTimeBudget != 0 {
+		logger.Named("start").Info(
+			"client time budget set",
+			zap.Duration("client-time-budget", c.clientTimeBudget),
+			zap.Duration("client-time-budget-refill", c.clientTimeBudgetRefill),
+		)
+
+		timeBudget = budget.New(c.clientTimeBudget, c.clientTimeBudgetRefill, c.queryDeadline)
+		mux.Use(onAPIRoutes(c.newTimeBudget(timeBudget, j, observer, logger)))
+	}
+
 	if c.queryDeadline != 0 {
 		startLogger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
 	}
@@ -500,6 +516,11 @@ func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) err
 
 	// Add the JSON-RPC service
 	w.add(hs.Serve)
+
+	// Add the time budget's sweep of the clients that left
+	if timeBudget != nil {
+		w.add(timeBudget.Run)
+	}
 
 	// Add the metrics server. It listens apart from the public endpoints, so
 	// the operator decides who reaches it
