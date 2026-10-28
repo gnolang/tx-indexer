@@ -684,3 +684,35 @@ func TestSyncLogger(t *testing.T) {
 		})
 	}
 }
+
+// TestStartCfg_LogFormatFlag makes sure the logs are in the console format
+// unless the operator sets another.
+func TestStartCfg_LogFormatFlag(t *testing.T) {
+	t.Parallel()
+
+	unset := &startCfg{}
+	unsetFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	unset.registerFlags(unsetFlags)
+
+	require.NoError(t, unsetFlags.Parse(nil))
+	assert.Equal(t, "console", unset.logFormat)
+
+	set := &startCfg{}
+	setFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	set.registerFlags(setFlags)
+
+	require.NoError(t, setFlags.Parse([]string{"--log-format", "json"}))
+	assert.Equal(t, "json", set.logFormat)
+}
+
+// TestStartCfg_UnknownLogFormat makes sure a log format other than console or
+// json fails at startup, naming the flag, rather than log in a format no
+// reader expects.
+func TestStartCfg_UnknownLogFormat(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	require.ErrorContains(t, testCfg(t, "--log-format", "xml").exec(ctx), "--log-format")
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
@@ -72,12 +73,24 @@ const clientIPHeaderHelp = "the header trusted to carry the client address the r
 const clientIPTrustedHopsHelp = "the number of trusted proxies appending to --client-ip-header: " +
 	"the client address is that many entries from the right of its list"
 
+// The formats the log lines are written in, the values of --log-format
+const (
+	logFormatConsole = "console"
+	logFormatJSON    = "json"
+)
+
+// logFormatHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const logFormatHelp = "the format of the log lines: console, columns for people to read, " +
+	"or json, one object per line for log pipelines to parse"
+
 type startCfg struct {
 	listenAddress        string
 	metricsListenAddress string
 	remote               string
 	dbPath               string
 	logLevel             string
+	logFormat            string
 	corsAllowedOrigins   string
 	supplyDenoms         string
 	clientIPHeader       string
@@ -144,6 +157,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"log-level",
 		zap.InfoLevel.String(),
 		"the log level for the CLI output",
+	)
+
+	fs.StringVar(
+		&c.logFormat,
+		"log-format",
+		logFormatConsole,
+		logFormatHelp,
 	)
 
 	fs.IntVar(
@@ -236,14 +256,8 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to parse log level, %w", err)
 	}
 
-	// The development config's output paths are stderr alone, and syncLogger
-	// judges os.Stderr at the stop on that ground: an output path set here
-	// goes unsynced unless syncLogger is given it too
-	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = logLevel
-
 	// Create a new logger
-	logger, err := cfg.Build()
+	logger, err := newLogger(c.logFormat, logLevel)
 	if err != nil {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
@@ -448,6 +462,53 @@ func syncLogger(logger *zap.Logger, out *os.File) error {
 	}
 
 	return logger.Sync()
+}
+
+// newLogger builds the logger the command writes with, at level, in format.
+// It is zap's development config, its console encoder for the console
+// format. Its output paths are stderr alone, in either format, and syncLogger
+// judges os.Stderr at the stop on that ground: an output path set here goes
+// unsynced unless syncLogger is given it too.
+func newLogger(format string, level zap.AtomicLevel) (*zap.Logger, error) {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level = level
+
+	switch format {
+	case logFormatConsole:
+		// The development config encodes it
+	case logFormatJSON:
+		cfg.Encoding = "json"
+		cfg.EncoderConfig = jsonEncoderConfig()
+	default:
+		return nil, fmt.Errorf("invalid --log-format %q: it must be %s or %s", format, logFormatConsole, logFormatJSON)
+	}
+
+	return cfg.Build()
+}
+
+// jsonEncoderConfig encodes each line as one JSON object, its fields at the
+// top level beside ts, level, logger, caller and msg, and a stack trace under
+// stacktrace. It keeps the development encoders' values, durations as text
+// among them, but for the level, in lowercase, and the time, in RFC 3339 with
+// nanoseconds, in UTC.
+func jsonEncoderConfig() zapcore.EncoderConfig {
+	encoder := zap.NewDevelopmentEncoderConfig()
+
+	encoder.TimeKey = "ts"
+	encoder.LevelKey = "level"
+	encoder.NameKey = "logger"
+	encoder.CallerKey = "caller"
+	encoder.MessageKey = "msg"
+	encoder.StacktraceKey = "stacktrace"
+	encoder.EncodeLevel = zapcore.LowercaseLevelEncoder
+	encoder.EncodeTime = encodeUTCTime
+
+	return encoder
+}
+
+// encodeUTCTime writes t in RFC 3339 with nanoseconds, in UTC
+func encodeUTCTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.UTC().Format(time.RFC3339Nano))
 }
 
 // newObserver creates the observer of the served requests: it records them

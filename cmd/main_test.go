@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -175,4 +177,81 @@ func TestStartCfg_LogsTheConsoleFormatByDefault(t *testing.T) {
 			`\{"client-ip-header": "", "client-ip-trusted-hops": 1\}$`,
 		p.output.String(),
 	)
+}
+
+// mdbxForkNotice is a line libmdbx, linked in through gno, prints on stderr
+// on macOS, outside the indexer's logger
+const mdbxForkNotice = "rthc_afterfork:35891 drown 0 rthc entries"
+
+// startedAddress reads the address the HTTP server listens on from the line
+// it logged once it listened, in either format
+var startedAddress = regexp.MustCompile(`"address": ?"([^"]+)"`)
+
+// With --log-format json, every line is one JSON object: its time in RFC 3339
+// with nanoseconds, in UTC, under ts, then level, logger, caller and msg, and
+// each field at the top level, the request log's included
+func TestStartCfg_LogsJSONLines(t *testing.T) {
+	t.Parallel()
+
+	p := startProcess(
+		t,
+		"--log-format", "json",
+		"--request-log",
+		"--query-deadline", "10s",
+		"--http-rate-limit", "100",
+	)
+
+	address := startedAddress.FindStringSubmatch(p.started)
+	require.Len(t, address, 2, "no address in %q", p.started)
+
+	post(t, "http://"+address[1]+"/", `{"jsonrpc": "2.0", "id": 1, "method": "getBlock", "params": ["1"]}`)
+	post(t, "http://"+address[1]+"/graphql/query", `{"query": "{ getBlocks(where: {}) { height } }"}`)
+
+	require.NoError(t, p.stop(t), "the indexer's stderr:\n%s", p.output.String())
+
+	byMessage := make(map[string][]map[string]any)
+
+	for line := range strings.Lines(p.output.String()) {
+		line = strings.TrimSuffix(line, "\n")
+		if line == mdbxForkNotice {
+			continue
+		}
+
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry), "a line that is no JSON object: %s", line)
+
+		ts, ok := entry["ts"].(string)
+		require.True(t, ok, "no ts in %s", line)
+		assert.True(t, strings.HasSuffix(ts, "Z"), "ts %q is not in UTC", ts)
+
+		_, err := time.Parse(time.RFC3339Nano, ts)
+		require.NoError(t, err)
+
+		assert.Contains(t, []any{"debug", "info", "warn", "error"}, entry["level"], line)
+
+		for _, key := range []string{"logger", "caller", "msg"} {
+			assert.NotEmpty(t, entry[key], "no %s in %s", key, line)
+		}
+
+		msg, _ := entry["msg"].(string)
+		byMessage[msg] = append(byMessage[msg], entry)
+	}
+
+	for _, msg := range []string{"rate-limit set", "query deadline set", "request log set"} {
+		require.Len(t, byMessage[msg], 1, msg)
+		assert.Equal(t, "start", byMessage[msg][0]["logger"], msg)
+	}
+
+	served := byMessage["served request"]
+	require.Len(t, served, 2)
+
+	for _, entry := range served {
+		assert.Equal(t, "requests", entry["logger"])
+
+		for _, key := range []string{"api", "operation", "status", "duration", "rows-scanned", "rows-returned", "client"} {
+			assert.Contains(t, entry, key)
+		}
+	}
+
+	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
 }
