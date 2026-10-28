@@ -241,13 +241,19 @@ func (b *Budget) forgetIfFull(client string, a *account) {
 	}
 }
 
+// maxRetryAfterSeconds is the longest Retry-After a duration holds, in whole
+// seconds
+const maxRetryAfterSeconds = math.MaxInt64 / int64(time.Second)
+
 // retryAfter is the whole seconds until available, the balance less what the
 // requests in flight hold, in nanoseconds, refills above zero: at least one,
-// since a balance at zero is above it only a moment later
+// since a balance at zero is above it only a moment later, and at most what a
+// duration holds, which a refill too slow for what the client holds exceeds
 func (b *Budget) retryAfter(available float64) time.Duration {
 	wait := -available / b.refillRate()
+	seconds := min(math.Floor(wait/float64(time.Second))+1, float64(maxRetryAfterSeconds))
 
-	return time.Duration(math.Floor(wait/float64(time.Second))+1) * time.Second
+	return time.Duration(seconds) * time.Second
 }
 
 // refillRate is the indexer time a client regains per unit of time

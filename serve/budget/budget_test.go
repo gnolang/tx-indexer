@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -383,4 +384,22 @@ func TestBudget_KeepsFractionsOfANanosecond(t *testing.T) {
 	}
 
 	assert.Equal(t, 39*time.Minute+time.Second, retryAfter(t, err))
+}
+
+// A wait too long for a duration, from a refill too slow for what the client
+// holds, is answered with the longest Retry-After a duration holds, never one
+// that wrapped around below zero
+func TestBudget_BoundsRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	// 1 ns regained a minute, against 30 s held by a request in flight
+	b := New(1, 1, 30*time.Second)
+
+	end, err := b.Reserve(testClient)
+	require.NoError(t, err)
+
+	defer end()
+
+	_, err = b.Reserve(testClient)
+	assert.Equal(t, time.Duration(math.MaxInt64).Truncate(time.Second), retryAfter(t, err))
 }
