@@ -97,7 +97,8 @@ func TestStartCfg_TimeBudgetChargesEachCallOverJSONRPCWebSocket(t *testing.T) {
 	assert.Equal(t, spec.ClientTimeBudgetErrorCode, again.Error.Code)
 }
 
-// graphqlMessage is one message of the graphql-transport-ws protocol
+// graphqlMessage is one message of the graphql-transport-ws protocol, or of
+// the legacy graphql-ws, whose messages share its shape
 type graphqlMessage struct {
 	ID      string          `json:"id,omitempty"`
 	Type    string          `json:"type"`
@@ -110,7 +111,16 @@ type graphqlMessage struct {
 func dialGraphQLWS(t *testing.T, address string, header http.Header) *websocket.Conn {
 	t.Helper()
 
-	conn := dialWS(t, "ws://"+address+"/graphql/query", header, "graphql-transport-ws")
+	return dialGraphQLWSIn(t, address, header, "graphql-transport-ws")
+}
+
+// dialGraphQLWSIn opens a GraphQL connection over WebSocket at address, its
+// upgrade request carrying header, in subprotocol, and returns once the
+// indexer acknowledges it
+func dialGraphQLWSIn(t *testing.T, address string, header http.Header, subprotocol string) *websocket.Conn {
+	t.Helper()
+
+	conn := dialWS(t, "ws://"+address+"/graphql/query", header, subprotocol)
 
 	require.NoError(t, conn.WriteJSON(graphqlMessage{Type: "connection_init"}))
 
@@ -126,10 +136,18 @@ func dialGraphQLWS(t *testing.T, address string, header http.Header) *websocket.
 func subscribeGraphQL(t *testing.T, conn *websocket.Conn, id, query string) {
 	t.Helper()
 
+	startGraphQL(t, conn, "subscribe", id, query)
+}
+
+// startGraphQL starts operation query as id over conn, in a message of
+// messageType, the one its protocol starts an operation with
+func startGraphQL(t *testing.T, conn *websocket.Conn, messageType, id, query string) {
+	t.Helper()
+
 	payload, err := json.Marshal(map[string]string{"query": query})
 	require.NoError(t, err)
 
-	require.NoError(t, conn.WriteJSON(graphqlMessage{ID: id, Type: "subscribe", Payload: payload}))
+	require.NoError(t, conn.WriteJSON(graphqlMessage{ID: id, Type: messageType, Payload: payload}))
 }
 
 // graphqlResult is the one result of operation id over conn, which must
@@ -439,4 +457,34 @@ func TestStartCfg_TimeBudgetReleasesEachCallOverJSONRPCWebSocket(t *testing.T) {
 			assert.NotEqual(t, spec.ClientTimeBudgetErrorCode, answer.Error.Code, "call %d", id+1)
 		}
 	}
+}
+
+// The legacy graphql-ws protocol, which gqlgen still speaks, answers an
+// operation the time budget refuses as graphql-transport-ws does: one data
+// message holding the budget's error, then the operation's completion
+func TestStartCfg_TimeBudgetRefusesOverTheLegacyGraphQLWSProtocol(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(t, false, spendingBudget...)
+	conn := dialGraphQLWSIn(t, started.apiAddress, nil, "graphql-ws")
+
+	query := `{ getBlocks(where: {}) { height } }`
+
+	startGraphQL(t, conn, "start", "served", query)
+
+	served := graphqlMessages(t, conn, "served")
+	require.Len(t, served, 1)
+	assert.Equal(t, "data", served[0].Type)
+	assert.NotContains(t, string(served[0].Payload), "errors")
+
+	startGraphQL(t, conn, "start", "refused", query)
+
+	refused := graphqlMessages(t, conn, "refused")
+	require.Len(t, refused, 1)
+	require.Equal(t, "data", refused[0].Type)
+
+	var result map[string]any
+
+	require.NoError(t, json.Unmarshal(refused[0].Payload, &result))
+	requireGraphQLRefusal(t, result)
 }
