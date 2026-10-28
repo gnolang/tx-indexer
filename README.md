@@ -99,6 +99,7 @@ FLAGS
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
   -http-rate-limit 0              the maximum HTTP requests allowed per minute per IP, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
+  -log-format console             the format of the log lines: console, columns for people to read, or json, one object per line for log pipelines to parse
   -log-level info                 the log level for the CLI output
   -max-chunk-size 100             the range for fetching blockchain data by a single worker
   -max-slots 100                  the amount of slots (workers) the fetcher employs
@@ -202,6 +203,41 @@ once per fetch round, and not while every fetch slot is busy catching up, so it 
 answering leaves it as it last was, so watch `tx_indexer_fetch_errors_total{stage="chain_height"}` beside the lag. That
 counter also counts the genesis bootstrap's failed reads of the node's status, so a node down when the indexer starts
 shows there too.
+
+### Logs
+
+The indexer logs to stderr, at `--log-level`, in the format `--log-format` names. `console`, the default, writes columns
+for people to read: the time, the level, the logger, the caller and the message, then the fields as one JSON object.
+
+```
+2026-10-28T10:01:28.290+0100	INFO	requests	observe/observe.go:148	served request	{"api": "jsonrpc", "operation": "getBlock", "status": "ok", "duration": "25.791µs", "rows-scanned": 1, "rows-returned": 0, "client": "127.0.0.1"}
+```
+
+`json` writes one JSON object per line, for a log pipeline to parse: its `level`, its time under `ts`, in RFC 3339 with
+all nine digits of nanoseconds and in UTC, its `logger`, `caller` and `msg`, then each field as a key of its own. A line
+at warn or above carries its stack trace under `stacktrace`, but a `stdlib` line, which carries one from error up: any
+client can cause a `stdlib` warning.
+
+```json
+{"level":"info","ts":"2026-10-28T10:41:26.526435000Z","logger":"requests","caller":"observe/observe.go:148","msg":"served request","api":"jsonrpc","operation":"getBlock","status":"ok","duration":"29.791µs","rows-scanned":1,"rows-returned":0,"client":"127.0.0.1"}
+```
+
+Each line names the logger it came from: a service's (`fetcher`, `http-server`, `graphql`, `pebble`, `requests`, ...),
+or `start` for the start command's own lines, the error that ends a run among them. The HTTP servers' own errors, a
+GraphQL resolver's panic and pebble's messages go through the logger too, at error for the errors, at fatal for pebble's
+fatal ones. A dependency's line through Go's standard `log` package is logged under `stdlib`, at warn.
+
+A line at error marks the indexer's own failure. What a client alone causes is at warn or below: a failed WebSocket
+upgrade, a WebSocket closed before its answer.
+
+Four kinds of line stay outside the logger, as plain text on stderr:
+
+- an error raised before the logger exists: a flag that does not parse, an unknown log level or format, or a
+  `--query-deadline` or `--client-ip-trusted-hops` out of range;
+- the error that ends a run when `--log-level` is above error, which leaves it out of the log, and a failed sync of
+  the log at the stop;
+- a Go runtime crash outside any recover;
+- on macOS, the fork notice of libmdbx, a library gno links in: `rthc_afterfork:… drown … rthc entries`.
 
 ### Request log
 

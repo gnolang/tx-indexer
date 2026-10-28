@@ -4,11 +4,16 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
+	"log"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -24,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gnolang/tx-indexer/metrics"
@@ -256,7 +262,7 @@ func tryStartIndexer(t *testing.T, serveMetrics bool, args []string) (indexer, b
 
 				select {
 				case err := <-stopped:
-					assert.NoError(t, withoutStderrSync(err))
+					assert.NoError(t, err)
 				case <-time.After(10 * time.Second):
 					assert.Fail(t, "the indexer did not stop")
 				}
@@ -318,29 +324,6 @@ func sample(scrape, series string) string {
 	return ""
 }
 
-// withoutStderrSync is what the start command returned at shutdown, less the
-// error of its logger's sync. The command returns the error logger.Sync
-// returns, and zap fails to sync a stderr that is not a terminal, as under go
-// test or a container's log pipe: a clean stop of the indexer ends on that
-// error, and main exits 1. The test drops that one error and fails on any
-// other.
-func withoutStderrSync(err error) error {
-	joined, ok := err.(interface{ Unwrap() []error })
-	if !ok {
-		return err
-	}
-
-	var rest []error
-
-	for _, e := range joined.Unwrap() {
-		if !strings.HasPrefix(e.Error(), "sync /dev/stderr") {
-			rest = append(rest, e)
-		}
-	}
-
-	return errors.Join(rest...)
-}
-
 // get fetches url and returns the response with its body read, or nil if
 // nothing answers there
 func get(t require.TestingT, url string) *httpResponse {
@@ -348,28 +331,29 @@ func get(t require.TestingT, url string) *httpResponse {
 		h.Helper()
 	}
 
-	return fetchURL(t, http.MethodGet, url, "", "")
+	return fetchURL(t, http.MethodGet, url, nil, "")
 }
 
 // post sends body to url as JSON, and requires an OK answer
 func post(t *testing.T, url, body string) {
 	t.Helper()
 
-	response := fetchURL(t, http.MethodPost, url, "application/json", body)
+	response := fetchURL(t, http.MethodPost, url, http.Header{"Content-Type": {"application/json"}}, body)
 	require.NotNil(t, response, "nothing answers at %s", url)
 	require.Equal(t, http.StatusOK, response.status, response.body)
 }
 
 // httpResponse is an answer with its body read
 type httpResponse struct {
+	header http.Header
 	body   string
 	status int
 }
 
-// fetchURL sends one request and returns its answer, or nil if nothing
-// answers at url. It takes a *testing.T, or the *assert.CollectT of an
+// fetchURL sends one request with header and returns its answer, or nil if
+// nothing answers at url. It takes a *testing.T, or the *assert.CollectT of an
 // EventuallyWithT condition.
-func fetchURL(t require.TestingT, method, url, contentType, body string) *httpResponse {
+func fetchURL(t require.TestingT, method, url string, header http.Header, body string) *httpResponse {
 	if h, ok := t.(interface{ Helper() }); ok {
 		h.Helper()
 	}
@@ -377,9 +361,7 @@ func fetchURL(t require.TestingT, method, url, contentType, body string) *httpRe
 	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
 	require.NoError(t, err)
 
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
+	maps.Copy(req.Header, header)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -393,7 +375,7 @@ func fetchURL(t require.TestingT, method, url, contentType, body string) *httpRe
 	read, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	return &httpResponse{status: resp.StatusCode, body: string(read)}
+	return &httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
 }
 
 // The metrics are served on their own listener and record the requests both
@@ -533,7 +515,7 @@ func TestStartCfg_ReportsTheStoredHeightWithTheNodeDown(t *testing.T) {
 
 	dbPath := t.TempDir()
 
-	db, err := storage.NewPebble(dbPath)
+	db, err := storage.NewPebble(dbPath, zap.NewNop())
 	require.NoError(t, err)
 
 	wb := db.WriteBatch()
@@ -640,4 +622,167 @@ func TestStartCfg_ObserverLogsNothingByDefault(t *testing.T) {
 	serveCall(o)
 
 	assert.Empty(t, logs.All())
+}
+
+// errSyncFailed is the error a failingSync sink fails each sync with
+var errSyncFailed = errors.New("sync failed")
+
+// failingSync is a log sink whose every sync fails, as a disk's can
+type failingSync struct {
+	io.Writer
+}
+
+// Sync fails with errSyncFailed
+func (failingSync) Sync() error {
+	return errSyncFailed
+}
+
+// failingSyncLogger is a logger whose every sync fails with errSyncFailed
+func failingSyncLogger() *zap.Logger {
+	return failingSyncLoggerAt(zap.InfoLevel)
+}
+
+// failingSyncLoggerAt is a logger at level whose every sync fails with
+// errSyncFailed
+func failingSyncLoggerAt(level zapcore.Level) *zap.Logger {
+	return zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		failingSync{io.Discard},
+		level,
+	))
+}
+
+// The logger is synced, and the sync's error returned, when the stderr it
+// writes to is a regular file. A pipe or a character device takes no sync, and
+// is not synced, as a socket is not (start_unix_test.go). A stderr whose kind
+// cannot be told is an error.
+func TestSyncLogger(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, file.Close())
+	})
+
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, reader.Close())
+		assert.NoError(t, writer.Close())
+	})
+
+	closed, err := os.Create(filepath.Join(t.TempDir(), "closed"))
+	require.NoError(t, err)
+	require.NoError(t, closed.Close())
+
+	// A character device
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, devNull.Close())
+	})
+
+	testTable := []struct {
+		want error
+		out  *os.File
+		name string
+	}{
+		{errSyncFailed, file, "a regular file"},
+		{nil, writer, "a pipe"},
+		{nil, devNull, "/dev/null"},
+		{os.ErrClosed, closed, "a closed file"},
+	}
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.ErrorIs(t, syncLogger(failingSyncLogger(), testCase.out), testCase.want)
+		})
+	}
+}
+
+// TestStartCfg_LogFormatFlag makes sure the logs are in the console format
+// unless the operator sets another.
+func TestStartCfg_LogFormatFlag(t *testing.T) {
+	t.Parallel()
+
+	unset := &startCfg{}
+	unsetFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	unset.registerFlags(unsetFlags)
+
+	require.NoError(t, unsetFlags.Parse(nil))
+	assert.Equal(t, "console", unset.logFormat)
+
+	set := &startCfg{}
+	setFlags := flag.NewFlagSet("start", flag.ContinueOnError)
+	set.registerFlags(setFlags)
+
+	require.NoError(t, setFlags.Parse([]string{"--log-format", "json"}))
+	assert.Equal(t, "json", set.logFormat)
+}
+
+// TestStartCfg_UnknownLogFormat makes sure a log format other than console or
+// json fails at startup, naming the flag, rather than log in a format no
+// reader expects.
+func TestStartCfg_UnknownLogFormat(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	require.ErrorContains(t, testCfg(t, "--log-format", "xml").exec(ctx), "--log-format")
+}
+
+// The standard log package writes to stderr again once the command returns:
+// its redirect ends with the logger it writes through. The test is
+// sequential: the standard logger is the process's own, and every other test
+// that runs the command redirects it.
+func TestStartCfg_RestoresTheStandardLogger(t *testing.T) {
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, taken.Close())
+	})
+
+	require.ErrorIs(t, testCfg(t, "--listen-address", taken.Addr().String()).exec(t.Context()), syscall.EADDRINUSE)
+
+	assert.Equal(t, io.Writer(os.Stderr), log.Writer())
+}
+
+// A failed sync at the stop, which the logger cannot log, is returned beside
+// the error that ended the run: with it, for main to print both, when the
+// level left that error out of the log; alone when the log holds that error,
+// so main never prints it twice
+func TestStopped_ReturnsAFailedSyncBesideTheRunsError(t *testing.T) {
+	t.Parallel()
+
+	stderr, err := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, stderr.Close())
+	})
+
+	runErr := fmt.Errorf("unable to listen, %w", syscall.EADDRINUSE)
+
+	var logged *loggedError
+
+	unlogged := failingSyncLoggerAt(zap.FatalLevel)
+	ended := stopped(runErr, unlogged, unlogged.Named("start"), stderr)
+
+	assert.ErrorIs(t, ended, syscall.EADDRINUSE)
+	assert.ErrorIs(t, ended, errSyncFailed)
+	assert.False(t, errors.As(ended, &logged), "main would print nothing")
+
+	inTheLog := failingSyncLoggerAt(zap.InfoLevel)
+	ended = stopped(runErr, inTheLog, inTheLog.Named("start"), stderr)
+
+	assert.ErrorIs(t, ended, errSyncFailed)
+	assert.NotErrorIs(t, ended, syscall.EADDRINUSE, "main would print the logged error again")
 }

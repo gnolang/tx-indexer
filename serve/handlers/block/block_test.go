@@ -10,6 +10,7 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/internal/tally"
 	"github.com/gnolang/tx-indexer/serve/spec"
@@ -147,7 +148,7 @@ func TestGetBlock_Handler(t *testing.T) {
 func TestGetBlock_TalliesTheRowItReads(t *testing.T) {
 	t.Parallel()
 
-	s, err := storage.NewPebble(t.TempDir())
+	s, err := storage.NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/gnolang/tx-indexer/client"
 	"github.com/gnolang/tx-indexer/events"
@@ -71,12 +73,24 @@ const clientIPHeaderHelp = "the header trusted to carry the client address the r
 const clientIPTrustedHopsHelp = "the number of trusted proxies appending to --client-ip-header: " +
 	"the client address is that many entries from the right of its list"
 
+// The formats the log lines are written in, the values of --log-format
+const (
+	logFormatConsole = "console"
+	logFormatJSON    = "json"
+)
+
+// logFormatHelp is built up over multiple lines so each stays under the
+// linter's line-length limit.
+const logFormatHelp = "the format of the log lines: console, columns for people to read, " +
+	"or json, one object per line for log pipelines to parse"
+
 type startCfg struct {
 	listenAddress        string
 	metricsListenAddress string
 	remote               string
 	dbPath               string
 	logLevel             string
+	logFormat            string
 	corsAllowedOrigins   string
 	supplyDenoms         string
 	clientIPHeader       string
@@ -143,6 +157,13 @@ func (c *startCfg) registerFlags(fs *flag.FlagSet) {
 		"log-level",
 		zap.InfoLevel.String(),
 		"the log level for the CLI output",
+	)
+
+	fs.StringVar(
+		&c.logFormat,
+		"log-format",
+		logFormatConsole,
+		logFormatHelp,
 	)
 
 	fs.IntVar(
@@ -235,24 +256,87 @@ func (c *startCfg) exec(ctx context.Context) error {
 		return fmt.Errorf("unable to parse log level, %w", err)
 	}
 
-	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = logLevel
-
 	// Create a new logger
-	logger, err := cfg.Build()
+	logger, err := newLogger(c.logFormat, logLevel)
 	if err != nil {
 		return fmt.Errorf("unable to create logger, %w", err)
 	}
 
+	// A dependency's line through the standard log package, as gqlgen writes
+	// a failed WebSocket upgrade, is a line of the logger, at warn: no format
+	// has a plain line any client can cause. It carries a stack only from
+	// error up, as a stack per request would fill the log.
+	stdLogger := logger.Named("stdlib").WithOptions(zap.AddStacktrace(zap.ErrorLevel))
+
+	restoreStdLog, err := zap.RedirectStdLogAt(stdLogger, zap.WarnLevel)
+	if err != nil {
+		return fmt.Errorf("unable to redirect the standard logger, %w", err)
+	}
+
+	defer restoreStdLog()
+
+	// The command writes its own lines under the start logger, as each service
+	// writes under its own: every line names the logger it came from
+	startLogger := logger.Named("start")
+
+	return stopped(c.run(ctx, logger, startLogger), logger, startLogger, os.Stderr)
+}
+
+// stopped is the error a run ends on, once it has returned runErr: runErr
+// is logged at error under startLogger, then logger is synced to out, its
+// output. An error the log holds is a loggedError, which main does not print
+// again; one the level leaves out of the log is returned as it is, for main
+// to print. A failed sync, which the logger cannot log, is returned with the
+// run's error when the log does not hold that, and alone when it does.
+func stopped(runErr error, logger, startLogger *zap.Logger, out *os.File) error {
+	if runErr != nil {
+		if entry := startLogger.Check(zap.ErrorLevel, "stopped on an error"); entry != nil {
+			entry.Write(zap.Error(runErr))
+
+			runErr = &loggedError{err: runErr}
+		}
+	}
+
+	syncErr := syncLogger(logger, out)
+	if syncErr == nil {
+		return runErr
+	}
+
+	var logged *loggedError
+	if errors.As(runErr, &logged) {
+		return syncErr
+	}
+
+	return errors.Join(runErr, syncErr)
+}
+
+// loggedError is an error the start command has logged already, so main does
+// not print it again
+type loggedError struct {
+	err error
+}
+
+func (e *loggedError) Error() string {
+	return e.err.Error()
+}
+
+// Unwrap is the error that was logged
+func (e *loggedError) Unwrap() error {
+	return e.err
+}
+
+// run runs the indexer's services until ctx ends or one of them fails,
+// writing through logger, the command's own lines through startLogger
+func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) error {
 	// Create a DB instance
-	db, err := storage.NewPebble(c.dbPath)
+	db, err := storage.NewPebble(c.dbPath, logger.Named("pebble"))
 	if err != nil {
 		return fmt.Errorf("unable to open storage DB, %w", err)
 	}
 
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
-			logger.Error("unable to gracefully close DB", zap.Error(closeErr))
+			startLogger.Error("unable to gracefully close DB", zap.Error(closeErr))
 		}
 	}()
 
@@ -324,7 +408,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}))
 
 	if c.rateLimit != 0 {
-		logger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
+		startLogger.Info("rate-limit set", zap.Int("rate-limit", c.rateLimit))
 		mux.Use(httprate.Limit(
 			c.rateLimit,
 			1*time.Minute,
@@ -332,7 +416,7 @@ func (c *startCfg) exec(ctx context.Context) error {
 			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
 				//nolint:errcheck // no need to handle error here, it had been checked before
 				ip, _ := httprate.KeyByRealIP(r)
-				logger.Debug("too many requests", zap.String("from", ip))
+				startLogger.Debug("too many requests", zap.String("from", ip))
 
 				// send a json response to give more info when using the graphQL explorer
 				http.Error(w, `{"error": "too many requests"}`, http.StatusTooManyRequests)
@@ -341,11 +425,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	if c.queryDeadline != 0 {
-		logger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
+		startLogger.Info("query deadline set", zap.Duration("query-deadline", c.queryDeadline))
 	}
 
 	if c.requestLog {
-		logger.Info(
+		startLogger.Info(
 			"request log set",
 			zap.String("client-ip-header", c.clientIPHeader),
 			zap.Int("client-ip-trusted-hops", c.clientIPTrustedHops),
@@ -353,7 +437,12 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline, observer)
+	mux = graph.Setup(db, em, supplyHandler, mux, graph.Options{
+		Observer:             observer,
+		Logger:               logger.Named("graphql"),
+		QueryDeadline:        c.queryDeadline,
+		DisableIntrospection: c.disableIntrospection,
+	})
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
@@ -416,10 +505,71 @@ func (c *startCfg) exec(ctx context.Context) error {
 	w.add(afterGenesis(genesisReady, supplyHandler.Start))
 
 	// Wait for the services to stop
-	return errors.Join(
-		w.wait(),
-		logger.Sync(),
-	)
+	return w.wait()
+}
+
+// syncLogger flushes logger to storage when out, the stderr it writes to, is a
+// regular file: zap writes each line to out as it logs it, and only a file
+// holds lines the kernel has yet to store. A terminal, a pipe or a socket, as
+// Docker and systemd hand the indexer, takes no sync: zap's Sync fails on one
+// with an error that differs by OS and by kind of file (EINVAL on Linux;
+// EBADF, ENODEV or ENOTTY on macOS: uber-go/zap#370 and #880), and would end
+// a clean stop with exit 1.
+func syncLogger(logger *zap.Logger, out *os.File) error {
+	info, err := out.Stat()
+	if err != nil {
+		return fmt.Errorf("unable to stat the log output, %w", err)
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+
+	return logger.Sync()
+}
+
+// newLogger builds the logger the command writes with, at level, in format.
+// It is zap's development config, its console encoder for the console
+// format. Its output paths are stderr alone, in either format, and syncLogger
+// judges os.Stderr at the stop on that ground: an output path set here goes
+// unsynced unless syncLogger is given it too.
+func newLogger(format string, level zap.AtomicLevel) (*zap.Logger, error) {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level = level
+
+	switch format {
+	case logFormatConsole:
+		// The development config encodes it
+	case logFormatJSON:
+		cfg.Encoding = "json"
+		cfg.EncoderConfig = jsonEncoderConfig()
+	default:
+		return nil, fmt.Errorf("invalid --log-format %q: it must be %s or %s", format, logFormatConsole, logFormatJSON)
+	}
+
+	return cfg.Build()
+}
+
+// jsonEncoderConfig encodes each line as one JSON object, its fields at the
+// top level beside ts, level, logger, caller and msg, and a stack trace under
+// stacktrace. It is zap's production encoder config, but for durations, as
+// text, and the time, in RFC 3339 with nanoseconds, in UTC.
+func jsonEncoderConfig() zapcore.EncoderConfig {
+	encoder := zap.NewProductionEncoderConfig()
+
+	encoder.EncodeTime = encodeUTCTime
+	encoder.EncodeDuration = zapcore.StringDurationEncoder
+
+	return encoder
+}
+
+// utcTimeLayout is RFC 3339 with all nine digits of nanoseconds, so every
+// line's time has one width, a whole second included
+const utcTimeLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
+// encodeUTCTime writes t in RFC 3339 with nanoseconds, in UTC
+func encodeUTCTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.UTC().Format(utcTimeLayout))
 }
 
 // newObserver creates the observer of the served requests: it records them

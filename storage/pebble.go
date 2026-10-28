@@ -11,6 +11,7 @@ import (
 	"github.com/gnolang/gno/gno.land/pkg/gnoland"
 	"github.com/gnolang/gno/tm2/pkg/bft/types"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/internal/tally"
 	storageErrors "github.com/gnolang/tx-indexer/storage/errors"
@@ -74,12 +75,10 @@ type Pebble struct {
 	db *pebble.DB
 }
 
-// NewPebble creates a new storage instance at the given path
-func NewPebble(path string) (*Pebble, error) {
-	db, err := pebble.Open(path, &pebble.Options{
-		// TODO: EventListener
-		// Start with defaults
-	})
+// NewPebble creates a new storage instance at the given path. pebble's own
+// messages are written through logger.
+func NewPebble(path string, logger *zap.Logger) (*Pebble, error) {
+	db, err := pebble.Open(path, pebbleOptions(logger))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create DB, %w", err)
 	}
@@ -87,6 +86,22 @@ func NewPebble(path string) (*Pebble, error) {
 	return &Pebble{
 		db: db,
 	}, nil
+}
+
+// pebbleOptions are pebble's defaults, its messages written through logger:
+// its information at info, its background errors at error, and its fatal
+// errors through the logger's fatal, which ends the process as pebble's own
+// logger does
+func pebbleOptions(logger *zap.Logger) *pebble.Options {
+	return &pebble.Options{
+		// A sugared logger is a pebble.Logger, its call site pebble's
+		Logger: logger.Sugar(),
+		EventListener: &pebble.EventListener{
+			BackgroundError: func(err error) {
+				logger.Error("background error", zap.Error(err))
+			},
+		},
+	}
 }
 
 // GetLatestHeight fetches the latest saved height from storage

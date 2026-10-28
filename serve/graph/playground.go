@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"bytes"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -91,26 +92,37 @@ var page = template.Must(template.New("graphiql").Parse(`<!DOCTYPE html>
 </html>
 `))
 
+// HandlerWithDefaultTabs serves the GraphQL playground of endpoint, under
+// title, its tabs opened on defaultTabs. The page is rendered once, here: a
+// page that fails to render panics when the handler is built, not at a
+// request.
 func HandlerWithDefaultTabs(title, endpoint string, defaultTabs []string) http.HandlerFunc {
+	var rendered bytes.Buffer
+
+	if err := page.Execute(&rendered, map[string]any{
+		"title":                title,
+		"endpoint":             endpoint,
+		"fetcherHeaders":       nil,
+		"uiHeaders":            nil,
+		"defaultTabs":          defaultTabs,
+		"endpointIsAbsolute":   endpointHasScheme(endpoint),
+		"subscriptionEndpoint": getSubscriptionEndpoint(endpoint),
+		"version":              "3.0.6",
+		"cssSRI":               "sha256-wTzfn13a+pLMB5rMeysPPR1hO7x0SwSeQI+cnw7VdbE=",
+		"jsSRI":                "sha256-eNxH+Ah7Z9up9aJYTQycgyNuy953zYZwE9Rqf5rH+r4=",
+		"reactSRI":             "sha256-S0lp+k7zWUMk2ixteM6HZvu8L9Eh//OVrt+ZfbCpmgY=",
+		"reactDOMSRI":          "sha256-IXWO0ITNDjfnNXIu5POVfqlgYoop36bDzhodR6LW5Pc=",
+	}); err != nil {
+		panic(err)
+	}
+
+	body := rendered.Bytes()
+
 	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Add("Content-Type", "text/html; charset=UTF-8")
 
-		if err := page.Execute(w, map[string]any{
-			"title":                title,
-			"endpoint":             endpoint,
-			"fetcherHeaders":       nil,
-			"uiHeaders":            nil,
-			"defaultTabs":          defaultTabs,
-			"endpointIsAbsolute":   endpointHasScheme(endpoint),
-			"subscriptionEndpoint": getSubscriptionEndpoint(endpoint),
-			"version":              "3.0.6",
-			"cssSRI":               "sha256-wTzfn13a+pLMB5rMeysPPR1hO7x0SwSeQI+cnw7VdbE=",
-			"jsSRI":                "sha256-eNxH+Ah7Z9up9aJYTQycgyNuy953zYZwE9Rqf5rH+r4=",
-			"reactSRI":             "sha256-S0lp+k7zWUMk2ixteM6HZvu8L9Eh//OVrt+ZfbCpmgY=",
-			"reactDOMSRI":          "sha256-IXWO0ITNDjfnNXIu5POVfqlgYoop36bDzhodR6LW5Pc=",
-		}); err != nil {
-			panic(err)
-		}
+		//nolint:errcheck // a write fails only once the client is gone, with no one left to answer
+		_, _ = w.Write(body)
 	}
 }
 

@@ -151,7 +151,13 @@ func TestQueryDeadline_StopsAScanWithANamedError(t *testing.T) {
 			t.Parallel()
 
 			synctest.Test(t, func(t *testing.T) {
-				mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, nil)
+				mux := Setup(
+					&slowStore{rows: slowRows},
+					events.NewManager(),
+					nil,
+					chi.NewMux(),
+					Options{QueryDeadline: testDeadline},
+				)
 
 				start := time.Now()
 				resp := postQuery(t, mux, query)
@@ -200,7 +206,7 @@ func TestQueryDeadline_StopsAScanWithANamedError(t *testing.T) {
 func TestQueryDeadline_BoundsAQueryOverWebSocket(t *testing.T) {
 	t.Parallel()
 
-	mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, nil)
+	mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), Options{QueryDeadline: testDeadline})
 
 	var resp map[string]any
 
@@ -222,7 +228,13 @@ func TestQueryDeadline_LeavesAScanInsideItWhole(t *testing.T) {
 			t.Parallel()
 
 			synctest.Test(t, func(t *testing.T) {
-				mux := Setup(&slowStore{rows: insideRows}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, nil)
+				mux := Setup(
+					&slowStore{rows: insideRows},
+					events.NewManager(),
+					nil,
+					chi.NewMux(),
+					Options{QueryDeadline: testDeadline},
+				)
 
 				resp := postQuery(t, mux, query)
 				assert.Empty(t, resp.Errors)
@@ -244,7 +256,7 @@ func TestQueryDeadline_ZeroLeavesScansUnbounded(t *testing.T) {
 			t.Parallel()
 
 			synctest.Test(t, func(t *testing.T) {
-				mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), false, 0, nil)
+				mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), Options{})
 
 				resp := postQuery(t, mux, query)
 				assert.Empty(t, resp.Errors)
@@ -263,7 +275,7 @@ func TestQueryDeadline_SubscriptionOutlivesIt(t *testing.T) {
 	t.Parallel()
 
 	manager := events.NewManager()
-	mux := Setup(&slowStore{rows: slowRows}, manager, nil, chi.NewMux(), false, testDeadline, nil)
+	mux := Setup(&slowStore{rows: slowRows}, manager, nil, chi.NewMux(), Options{QueryDeadline: testDeadline})
 
 	sub := client.New(mux, client.Path("/graphql/query")).
 		Websocket(`subscription { getBlocks(where: {}) { height } }`)
@@ -308,7 +320,7 @@ func TestQueryDeadline_SubscriptionOutlivesIt(t *testing.T) {
 func TestQueryDeadline_UndecodableRequestIsAnswered(t *testing.T) {
 	t.Parallel()
 
-	mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, nil)
+	mux := Setup(&slowStore{rows: slowRows}, events.NewManager(), nil, chi.NewMux(), Options{QueryDeadline: testDeadline})
 
 	req := httptest.NewRequest(http.MethodPost, "/graphql/query", strings.NewReader(`{"query":`))
 	req.Header.Set("Content-Type", "application/json")

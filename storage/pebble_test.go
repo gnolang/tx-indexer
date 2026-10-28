@@ -14,6 +14,9 @@ import (
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gnolang/tx-indexer/internal/contexttest"
 	"github.com/gnolang/tx-indexer/internal/tally"
@@ -23,7 +26,7 @@ import (
 func TestStorage_New(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NotNil(t, s)
 
 	assert.NoError(t, err)
@@ -33,7 +36,7 @@ func TestStorage_New(t *testing.T) {
 func TestStorage_LatestHeight(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	defer func() {
@@ -62,7 +65,7 @@ func TestStorage_LatestHeight(t *testing.T) {
 func TestStorage_GenesisChainID(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	defer func() {
@@ -87,7 +90,7 @@ func TestStorage_GenesisChainID(t *testing.T) {
 func TestStorage_GenesisBalances(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	defer func() {
@@ -130,7 +133,7 @@ func TestStorage_GenesisBalances(t *testing.T) {
 func TestStorage_Block(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	defer func() {
@@ -157,7 +160,7 @@ func TestStorage_Block(t *testing.T) {
 func TestStorage_Tx(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	defer func() {
@@ -185,7 +188,7 @@ func TestStorage_Tx(t *testing.T) {
 func TestStorageIters(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	txs := generateRandomTxs(t, 100)
@@ -295,7 +298,7 @@ func TestStorageIters(t *testing.T) {
 func TestStorage_TxIteratorsWalkInKeyOrder(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -421,7 +424,7 @@ func TestStorage_TxIteratorWalkStopsWithItsContext(t *testing.T) {
 		budget  = 10
 	)
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -508,7 +511,7 @@ func TestStorage_IteratorsTallyTheKeysTheyWalk(t *testing.T) {
 		txsPerHeight = 3
 	)
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -637,7 +640,7 @@ func TestStorage_IteratorsTallyTheKeysTheyWalk(t *testing.T) {
 func TestStorage_PointReadsTallyOneRowEach(t *testing.T) {
 	t.Parallel()
 
-	s, err := NewPebble(t.TempDir())
+	s, err := NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -730,4 +733,65 @@ func TestStorage_PointReadsTallyOneRowEach(t *testing.T) {
 			assert.Equal(t, int64(1), rows.Scanned())
 		})
 	}
+}
+
+// pebble's own messages are written through the indexer's logger: its
+// information at info, its background errors at error, and its fatal errors
+// through the logger's fatal
+func TestPebble_LogsThroughTheLogger(t *testing.T) {
+	t.Parallel()
+
+	core, logs := observer.New(zap.InfoLevel)
+	options := pebbleOptions(zap.New(core, zap.WithFatalHook(zapcore.WriteThenPanic)))
+
+	options.Logger.Infof("compacted %d tables", 3)
+	options.EventListener.BackgroundError(errors.New("the disk failed"))
+
+	assert.Panics(t, func() {
+		options.Logger.Fatalf("corrupted %s", "MANIFEST")
+	})
+
+	entries := logs.All()
+	require.Len(t, entries, 3)
+
+	assert.Equal(t, zap.InfoLevel, entries[0].Level)
+	assert.Equal(t, "compacted 3 tables", entries[0].Message)
+
+	assert.Equal(t, zap.ErrorLevel, entries[1].Level)
+	assert.Equal(t, "the disk failed", entries[1].ContextMap()["error"])
+
+	assert.Equal(t, zap.FatalLevel, entries[2].Level)
+	assert.Equal(t, "corrupted MANIFEST", entries[2].Message)
+}
+
+// A store reopened replays its write-ahead log, and pebble reports the replay
+// through the logger the store was opened with, under pebble's own caller
+func TestPebble_ReportsThroughItsLogger(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir()
+
+	s, err := NewPebble(path, zap.NewNop())
+	require.NoError(t, err)
+
+	batch := s.WriteBatch()
+	require.NoError(t, batch.SetLatestHeight(5))
+	require.NoError(t, batch.Commit())
+	require.NoError(t, s.Close())
+
+	core, logs := observer.New(zap.InfoLevel)
+
+	s, err = NewPebble(path, zap.New(core, zap.AddCaller()))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	replayed := logs.FilterMessageSnippet("replayed 1 keys").All()
+	require.Len(t, replayed, 1, "%v", logs.All())
+
+	// The line names pebble's own caller, the function that replays the log,
+	// not the adapter that writes it
+	assert.Equal(t, "github.com/cockroachdb/pebble.(*DB).replayWAL", replayed[0].Caller.Function)
 }

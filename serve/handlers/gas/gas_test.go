@@ -16,6 +16,7 @@ import (
 	"github.com/gnolang/tx-indexer/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestGetGasPriceHandler_InvalidParams(t *testing.T) {
@@ -229,7 +230,7 @@ func TestGetGasPriceHandler_DeadlinePassesBeforeTheComputation(t *testing.T) {
 func TestGetGasPriceHandler_TalliesTheBlocksItScans(t *testing.T) {
 	t.Parallel()
 
-	s, err := storage.NewPebble(t.TempDir())
+	s, err := storage.NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

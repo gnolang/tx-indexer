@@ -53,7 +53,7 @@ func emptyBlock(number uint64) (*core_types.ResultBlock, error) {
 func newStore(t *testing.T) *storage.Pebble {
 	t.Helper()
 
-	s, err := storage.NewPebble(t.TempDir())
+	s, err := storage.NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

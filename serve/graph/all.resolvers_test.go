@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+	"go.uber.org/zap"
 
 	"github.com/gnolang/tx-indexer/serve/graph/model"
 	"github.com/gnolang/tx-indexer/storage"
@@ -20,7 +21,7 @@ import (
 func testResolver(t *testing.T) *Resolver {
 	t.Helper()
 
-	s, err := storage.NewPebble(t.TempDir())
+	s, err := storage.NewPebble(t.TempDir(), zap.NewNop())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
