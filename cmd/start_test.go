@@ -343,6 +343,7 @@ func post(t *testing.T, url, body string) {
 
 // httpResponse is an answer with its body read
 type httpResponse struct {
+	header http.Header
 	body   string
 	status int
 }

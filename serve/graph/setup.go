@@ -83,9 +83,12 @@ func Setup(
 		// gqlgen answers a failed upgrade with its own 400: the upgrader's,
 		// written first, would make gqlgen's a superfluous WriteHeader, which
 		// the HTTP server logs at error for any client that sends an Upgrade
-		// header
+		// header. The upgrader only names the WebSocket version it speaks, as
+		// its own answer does (RFC 6455 §4.4).
 		Upgrader: websocket.Upgrader{
-			Error: func(http.ResponseWriter, *http.Request, int, error) {},
+			Error: func(w http.ResponseWriter, _ *http.Request, _ int, _ error) {
+				w.Header().Set("Sec-Websocket-Version", "13")
+			},
 		},
 	})
 	srv.AddTransport(transport.Options{})

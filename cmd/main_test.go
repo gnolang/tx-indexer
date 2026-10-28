@@ -368,7 +368,7 @@ func sendWithHeader(t *testing.T, method, url, body string, header http.Header) 
 	read, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	return httpResponse{status: resp.StatusCode, body: string(read)}
+	return httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
 }
 
 // upgradeWithTrailingByte is a valid GraphQL WebSocket upgrade to host with
@@ -382,10 +382,11 @@ func upgradeWithTrailingByte(host string) string {
 }
 
 // A request gqlgen's WebSocket transport fails to upgrade is answered gqlgen's
-// 400 alone, or nothing once gorilla has taken the connection, and writes its
-// line, through the standard log package, as a line of the logger at warn
-// under stdlib: with --log-format json, every line is still one JSON object,
-// and none is at error, as no client alone causes one
+// 400 alone, naming the WebSocket version it speaks, or nothing once gorilla
+// has taken the connection, and writes its line, through the standard log
+// package, as a line of the logger at warn under stdlib: with --log-format
+// json, every line is still one JSON object, and none is at error, as no
+// client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -398,6 +399,9 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
 		assert.Equal(t, http.StatusBadRequest, response.status, response.body)
 		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
+		// The version a WebSocket client is to retry with, as RFC 6455 §4.4 has
+		// a server name it
+		assert.Equal(t, "13", response.header.Get("Sec-Websocket-Version"))
 	}
 
 	conn, err := net.Dial("tcp", address[1])
