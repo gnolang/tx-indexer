@@ -791,6 +791,7 @@ func TestPebble_ReportsThroughItsLogger(t *testing.T) {
 	replayed := logs.FilterMessageSnippet("replayed 1 keys").All()
 	require.Len(t, replayed, 1, "%v", logs.All())
 
-	// The line names pebble's own caller, not the adapter that writes it
-	assert.Contains(t, replayed[0].Caller.File, "cockroachdb/pebble")
+	// The line names pebble's own caller, the function that replays the log,
+	// not the adapter that writes it
+	assert.Equal(t, "github.com/cockroachdb/pebble.(*DB).replayWAL", replayed[0].Caller.Function)
 }
