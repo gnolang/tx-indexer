@@ -763,3 +763,30 @@ func TestPebble_LogsThroughTheLogger(t *testing.T) {
 	assert.Equal(t, zap.FatalLevel, entries[2].Level)
 	assert.Equal(t, "corrupted MANIFEST", entries[2].Message)
 }
+
+// A store reopened replays its write-ahead log, and pebble reports the replay
+// through the logger the store was opened with
+func TestPebble_ReportsThroughItsLogger(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir()
+
+	s, err := NewPebble(path, zap.NewNop())
+	require.NoError(t, err)
+
+	batch := s.WriteBatch()
+	require.NoError(t, batch.SetLatestHeight(5))
+	require.NoError(t, batch.Commit())
+	require.NoError(t, s.Close())
+
+	core, logs := observer.New(zap.InfoLevel)
+
+	s, err = NewPebble(path, zap.New(core))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, s.Close())
+	})
+
+	assert.Equal(t, 1, logs.FilterMessageSnippet("replayed 1 keys").Len(), "%v", logs.All())
+}
