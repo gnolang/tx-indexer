@@ -141,7 +141,7 @@ func (g *timeBudgetGate) refuse(w http.ResponseWriter, r *http.Request, err erro
 	w.Header().Set("Retry-After", strconv.FormatInt(exhausted.RetryAfterSeconds(), 10))
 
 	if api == metrics.APIJSONRPC {
-		g.jsonrpc.WriteRefusal(w, r, err)
+		g.jsonrpc.WriteRefusal(w, err)
 
 		return
 	}

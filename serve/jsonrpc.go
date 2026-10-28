@@ -326,7 +326,7 @@ func (j *JSONRPC) handleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 // one error, err, naming no call. Its body is left unread, so a refusal costs
 // the same whatever the client sent: a batch of a megabyte would otherwise be
 // read, parsed and answered one error per call, uncharged.
-func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, _ *http.Request, err error) {
+func (j *JSONRPC) WriteRefusal(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", jsonMimeType)
 	w.WriteHeader(http.StatusTooManyRequests)
 
