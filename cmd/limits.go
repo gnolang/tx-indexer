@@ -170,7 +170,7 @@ func overWebSocket(r *http.Request) bool {
 // checkTimeBudget refuses a time budget set inconsistently: one of its two
 // flags without the other, a negative value, a refill of 0, which would leave a
 // client that spent its budget refused for good and remembered forever, or a
-// budget without the query deadline, which bounds what a request overdraws
+// budget without the query deadline, which bounds each query's execution
 func (c *startCfg) checkTimeBudget() error {
 	if c.isSet("client-time-budget") != c.isSet("client-time-budget-refill") {
 		return errors.New("--client-time-budget and --client-time-budget-refill must be set together")
@@ -197,7 +197,7 @@ func (c *startCfg) checkTimeBudget() error {
 
 	if c.queryDeadline <= 0 {
 		return fmt.Errorf(
-			"--client-time-budget %s needs --query-deadline above 0: the deadline bounds what a request overdraws",
+			"--client-time-budget %s needs --query-deadline above 0: the deadline bounds each query's execution",
 			c.clientTimeBudget,
 		)
 	}

@@ -99,6 +99,7 @@ FLAGS
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
+  -graphql-token-limit 4000       the most tokens a GraphQL document may hold, refused before it is validated, over HTTP and WebSocket alike; 0 for no limit
   -http-rate-limit 0              the maximum HTTP requests allowed per minute per client address, as --client-ip-header reads it, an IPv6 one by its /64, unlimited by default
   -listen-address 0.0.0.0:8546    the IP:PORT URL for the indexer JSON-RPC server
   -log-format console             the format of the log lines: console, columns for people to read, or json, one object per line for log pipelines to parse
@@ -274,22 +275,28 @@ its /64, the block one end site is given, so moving across its addresses leaves 
 `--client-ip-header`: without it, every client is the proxy, and shares the proxy's limits.
 
 **The count limit**, `--http-rate-limit`, caps the requests a client sends per minute. One past it is answered 429, with
-`Retry-After: 60` and `{"error": "too many requests"}`. A WebSocket connection counts once, for its upgrade.
+`Retry-After: 60` and `{"error": "too many requests"}`. It counts HTTP requests: a WebSocket connection counts once, at
+its upgrade.
 
 **The time budget**, `--client-time-budget` with `--client-time-budget-refill`, caps the indexer time a client holds: the
-wall time its requests take, from the moment the indexer starts serving one, its body's upload included, until its
-answer is written. A client starts with the whole budget and regains the refill each minute, never past the budget. A
-request is admitted while the client's balance is above zero, and charged its wall time once served.
+wall time its requests take, from the moment the indexer starts serving one until its answer is written, its body's
+upload, its parsing and its validation included. A client starts with the whole budget and regains the refill each
+minute, never past the budget. A request is admitted while the client's balance is above zero, and charged its wall
+time once served.
 
-Each request in flight also holds one `--query-deadline` of its client's balance while it runs, so a client overdraws one
-deadline at most, however many requests it sends at once: it holds at most ⌈budget ÷ deadline⌉ requests in flight.
-Size the budget for the parallelism a client may have. The budget therefore needs `--query-deadline`, and the start
-refuses one without it, as it refuses a refill of `0`, which would leave a client that spent its budget refused for
-good, and either flag without the other. The budget counts wall time, not CPU, as the deadline does.
+Each request in flight also holds one `--query-deadline` of its client's balance while it runs: a client holds at most
+⌈budget ÷ deadline⌉ requests in flight, however many it sends at once. Size the budget for the parallelism a client may
+have. The deadline bounds a query's execution, not its upload, its parsing, its validation or the writing of its answer,
+so what a request overdraws its client's balance by is what those take beyond the deadline; the token limit below
+bounds the parsing and the validation. The budget needs `--query-deadline`, and the start refuses one without it, as it
+refuses a refill of `0`, which would leave a client that spent its budget refused for good, and either flag without the
+other. The budget counts wall time, not CPU, as the deadline does.
 
-Over a WebSocket, each GraphQL query or JSON-RPC call is charged to the client that opened the connection, and holds its
-share of the balance while it runs. Subscriptions are neither charged nor refused, and the upgrade itself is never
-refused.
+Over a WebSocket, each GraphQL operation or JSON-RPC call is charged to the client that opened the connection, and holds
+its share of the balance while it runs. A GraphQL operation is admitted before its document is parsed: a client over its
+budget has nothing parsed, and parsing and validating a document are charged, an invalid one included. A subscription's
+start is admitted and charged so too; once started, its stream holds nothing. A JSON-RPC `subscribe` or `unsubscribe` is
+neither charged nor refused. The upgrade itself is never refused.
 
 A request the budget refuses is answered 429, with `Retry-After`, the whole seconds until its client's balance is back
 above zero, and its API's error, in the shape of the query deadline's:
@@ -307,7 +314,9 @@ above zero, and its API's error, in the shape of the query deadline's:
 ```
 
 Over JSON-RPC, each call is answered with code `-32005`, and the same `code` and `retryAfterSeconds` in the error's
-`data`, under its own ID: a batch as a batch. A query or call refused over a WebSocket answers the same error.
+`data`, under its own ID: a batch as a batch. A query or call refused over a WebSocket answers the same error. To name
+those IDs, a JSON-RPC refusal still reads and parses the request's body, up to the 1 MB cap: what bounds how often a
+refused client costs that is the count limit, or a proxy's.
 
 The indexer remembers a client only while its balance is below the budget or a request of its is in flight: the
 clients active within one refill of the budget.
@@ -319,6 +328,12 @@ once, and once it has spent its budget, regain 30 s a minute: one 30 s query a m
 
 Both limits count their refusals in `tx_indexer_requests_refused_total`, by `api` and `reason`, and with `--request-log`
 on, log each.
+
+**The GraphQL token limit**, `--graphql-token-limit`, caps the tokens a GraphQL document may hold, over HTTP and WebSocket
+alike, and refuses a longer one before validating it: validating a document takes time that grows faster than the
+document, and the limit bounds it. It is 4000 by default, four times the 860 tokens of the widest legitimate query, one
+naming every filter field and every returned field of `getTransactions` once; `0` lifts it. A refused document is
+answered as any document that does not parse: `exceeded token limit of 4000`.
 
 ## GraphQL Endpoint
 

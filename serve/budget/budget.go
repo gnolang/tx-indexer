@@ -82,9 +82,12 @@ const sweepInterval = time.Minute
 // A request is admitted while its client's balance, less one query deadline
 // for each of the client's requests in flight, is above zero, and is charged
 // the wall time it took once it ends. The deadline a request holds while it
-// runs bounds a client's overdraw to one deadline, however many requests it
-// sends at once. A client whose balance is full, with nothing in flight, is
-// forgotten, so the budget holds the clients active within one refill of it.
+// runs keeps its client's requests in flight to what the balance covers. What
+// a request overdraws is the part of its wall time the deadline does not
+// bound: the deadline bounds a query's execution, not its upload, its
+// parsing, its validation or the writing of its answer. A client whose
+// balance is full, with nothing in flight, is forgotten, so the budget holds
+// the clients active within one refill of it.
 type Budget struct {
 	// now is the clock the balances are kept by
 	now func() time.Time
