@@ -181,9 +181,10 @@ func TestStartCfg_LogsTheConsoleFormatByDefault(t *testing.T) {
 	)
 }
 
-// mdbxForkNotice is a line libmdbx, linked in through gno, prints on stderr
-// on macOS, outside the indexer's logger
-const mdbxForkNotice = "rthc_afterfork:35891 drown 0 rthc entries"
+// mdbxForkNotice matches a line libmdbx, linked in through gno, prints on
+// stderr on macOS, outside the indexer's logger. Its numbers are a line of
+// libmdbx's source and a count, so it is matched by its shape.
+var mdbxForkNotice = regexp.MustCompile(`^rthc_afterfork:\d+ drown \d+ rthc entries$`)
 
 // startedAddress reads the address the HTTP server listens on from the line
 // it logged once it listened, in either format
@@ -215,7 +216,7 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 
 	for line := range strings.Lines(p.output.String()) {
 		line = strings.TrimSuffix(line, "\n")
-		if line == mdbxForkNotice {
+		if mdbxForkNotice.MatchString(line) {
 			continue
 		}
 
