@@ -583,6 +583,45 @@ func TestStartCfg_GraphQLTokenLimitZeroLiftsIt(t *testing.T) {
 	assert.Contains(t, refused.body, "exceeded token limit of 4000")
 }
 
+// A long list passed as a variable is not counted by the token limit, which
+// counts the document's tokens alone: 500 hashes in an _or, 4,500 tokens and
+// over the default inline, are served as a variable
+func TestStartCfg_GraphQLTokenLimitLeavesVariablesUncounted(t *testing.T) {
+	t.Parallel()
+
+	hashes := make([]map[string]any, 500)
+	for i := range hashes {
+		hashes[i] = map[string]any{"hash": map[string]any{"eq": fmt.Sprintf("h%d", i)}}
+	}
+
+	where, err := json.Marshal(map[string]any{"_or": hashes})
+	require.NoError(t, err)
+
+	// GraphQL's input object syntax is JSON's, with its keys unquoted
+	inline := strings.NewReplacer(`"_or":`, "_or:", `"hash":`, "hash:", `"eq":`, "eq:").Replace(string(where))
+
+	started := startIndexer(t, false)
+
+	refusedBody, err := json.Marshal(map[string]any{
+		"query": "{ getTransactions(where: " + inline + ") { hash } }",
+	})
+	require.NoError(t, err)
+
+	refused := postTo(t, started.apiAddress, "/graphql/query", string(refusedBody))
+	assert.Equal(t, http.StatusUnprocessableEntity, refused.status)
+	assert.Contains(t, refused.body, "exceeded token limit of 4000")
+
+	servedBody, err := json.Marshal(map[string]any{
+		"query":     "query ($where: FilterTransaction!) { getTransactions(where: $where) { hash } }",
+		"variables": map[string]any{"where": map[string]any{"_or": hashes}},
+	})
+	require.NoError(t, err)
+
+	served := postTo(t, started.apiAddress, "/graphql/query", string(servedBody))
+	assert.Equal(t, http.StatusOK, served.status, served.body)
+	assert.NotContains(t, served.body, "errors")
+}
+
 // Every example query of the playground parses under the default token limit
 func TestStartCfg_GraphQLTokenLimitHoldsTheExamples(t *testing.T) {
 	t.Parallel()
