@@ -186,3 +186,30 @@ func TestBudgetExtension_ReleasesAnOperationThatPanicsBeforeItsExecution(t *test
 		return admitted(charged)
 	}, 5*time.Second, 10*time.Millisecond, "the client's reservation was never released")
 }
+
+// An operation released at its last response unregisters the release it
+// registered at its admission, at the end of the context it was admitted
+// under: a connection's context holds none per operation it carried
+func TestBudgetExtension_UnregistersTheAdmissionReleaseOnceReleased(t *testing.T) {
+	t.Parallel()
+
+	exec, charged := budgetExecutor()
+
+	ctx := graphql.StartOperationTrace(budget.NewContext(t.Context(), charged))
+
+	operation, errs := exec.CreateOperationContext(ctx, &graphql.RawParams{Query: `{ getBlocks(where: {}) { height } }`})
+	require.Empty(t, errs)
+
+	responses, ctx := exec.DispatchOperation(graphql.WithOperationContext(ctx, operation), operation)
+
+	require.NotNil(t, responses(ctx))
+	require.Nil(t, responses(ctx))
+
+	held, ok := operation.Stats.GetExtension(reservationKey).(*reservation)
+	require.True(t, ok, "the operation holds no reservation")
+
+	stop := held.stop.Load()
+	require.NotNil(t, stop, "no release was registered at the admission")
+
+	assert.False(t, (*stop)(), "the admission's release was still registered")
+}
