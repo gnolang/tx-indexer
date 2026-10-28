@@ -66,7 +66,7 @@ const requestLogHelp = "log one line per GraphQL root field or JSON-RPC call ser
 // clientIPHeaderHelp is built up over multiple lines so each stays under the
 // linter's line-length limit.
 const clientIPHeaderHelp = "the header trusted to carry the client address the request log names " +
-	"and the rate limit counts by, such as CF-Connecting-IP or X-Forwarded-For; " +
+	"and the client limits count by, such as CF-Connecting-IP or X-Forwarded-For; " +
 	"unset, the address the request came from"
 
 // rateLimitHelp is built up over multiple lines so each stays under the

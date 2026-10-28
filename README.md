@@ -92,8 +92,10 @@ USAGE
 Starts the indexer service, which includes the fetcher and JSON-RPC server
 
 FLAGS
-  -client-ip-header string        the header trusted to carry the client address the request log names and the rate limit counts by, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
+  -client-ip-header string        the header trusted to carry the client address the request log names and the client limits count by, such as CF-Connecting-IP or X-Forwarded-For; unset, the address the request came from
   -client-ip-trusted-hops 1       the number of trusted proxies appending to --client-ip-header: the client address is that many entries from the right of its list
+  -client-time-budget 0s          the most indexer time a client may hold, the wall time its GraphQL and JSON-RPC requests take, off at 0, the default; set with --client-time-budget-refill and --query-deadline
+  -client-time-budget-refill 0s   the indexer time a client regains per minute, above 0 with --client-time-budget
   -cors-allowed-origins *         a comma-separated list of origins allowed to make cross-origin requests to the GraphQL and JSON-RPC endpoints, or "*" to allow any origin
   -db-path indexer-db             the absolute path for the indexer DB (embedded)
   -disable-introspection=false    disable GraphQL introspection queries if needed. This will cause malfunctions when using the GraphQL playground
@@ -174,6 +176,7 @@ request's arguments.
 | Metric                                | Type      | Labels                       | Value                                                                                                        |
 | ------------------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `tx_indexer_requests_total`           | counter   | `api`, `operation`, `status` | requests served; `status` is `ok` (partial answers included), `error`, or `deadline` (`--query-deadline`)    |
+| `tx_indexer_requests_refused_total`   | counter   | `api`, `reason`              | requests the client limits refused, by `reason`: `client_time_budget` or `http_rate_limit`; never served     |
 | `tx_indexer_request_duration_seconds` | histogram | `api`, `operation`           | the time a request takes, the fields of the rows it answers included                                         |
 | `tx_indexer_rows_scanned_total`       | counter   | `api`, `operation`           | the blocks and transactions read from the database, the ones a filter or an index window then drops included |
 | `tx_indexer_rows_returned_total`      | counter   | `api`, `operation`           | the blocks and transactions answered                                                                         |
@@ -242,6 +245,9 @@ and `status`, its `duration`, its `rows-scanned` and `rows-returned`, and the `c
 request's arguments: a GraphQL query's variables or a JSON-RPC call's params. It is off by default, as it adds a line
 per call of every client and their addresses to the log.
 
+Each request a client limit refuses adds one line at info too, `refused request`: its `client` and `api`, the `reason`
+(`client_time_budget` or `http_rate_limit`), its `retry-after`, and the `status` `refused`.
+
 The client address is the address the request came from, which behind a proxy is the proxy's. `--client-ip-header`
 names a header the proxies in front of the indexer fill with the client's address instead:
 
@@ -255,13 +261,64 @@ An entry's port, which some proxies append (`203.0.113.7:51234`, `[2001:db8::1]:
 Trust a header only if every request reaches the indexer through the proxies that set it: one that reaches it directly
 writes the header it likes.
 
-### Rate limit
+### Client limits
 
-`--http-rate-limit` caps the requests one client sends per minute, and answers the rest with a 429. It counts each
-client under the client address the request log names: the address the request came from, or the one
-`--client-ip-header` reads behind trusted proxies. A header the client sets itself, such as `X-Real-IP` or
-`X-Forwarded-For` when no proxy is trusted, never names a client. An IPv6 client is counted under its /64, the block
-one end site is given, so moving across its addresses leaves it one client.
+Two limits, each off by default, keep one client from holding the indexer from the others. Both apply to the API
+endpoints alone, JSON-RPC's `/` and `/ws` and GraphQL's `/graphql/query`: `/health`, `/ready` and the playground are
+never refused, so a load balancer's health checks always reach the indexer.
+
+Both count each client under its client address, the one the request log names: the address the request came from, or
+the one `--client-ip-header` reads behind `--client-ip-trusted-hops` trusted proxies. A header the client sets itself,
+such as `X-Real-IP` or `X-Forwarded-For` when no proxy is trusted, never names a client. An IPv6 client is counted under
+its /64, the block one end site is given, so moving across its addresses leaves it one client. Behind a proxy, set
+`--client-ip-header`: without it, every client is the proxy, and shares the proxy's limits.
+
+**The count limit**, `--http-rate-limit`, caps the requests a client sends per minute. One past it is answered 429, with
+`Retry-After: 60` and `{"error": "too many requests"}`. A WebSocket connection counts once, for its upgrade.
+
+**The time budget**, `--client-time-budget` with `--client-time-budget-refill`, caps the indexer time a client holds: the
+wall time its requests take, from the moment the indexer starts serving one, its body's upload included, until its
+answer is written. A client starts with the whole budget and regains the refill each minute, never past the budget. A
+request is admitted while the client's balance is above zero, and charged its wall time once served.
+
+Each request in flight also holds one `--query-deadline` of its client's balance while it runs, so a client overdraws one
+deadline at most, however many requests it sends at once: it holds at most ⌈budget ÷ deadline⌉ requests in flight.
+Size the budget for the parallelism a client may have. The budget therefore needs `--query-deadline`, and the start
+refuses one without it, as it refuses a refill of `0`, which would leave a client that spent its budget refused for
+good, and either flag without the other. The budget counts wall time, not CPU, as the deadline does.
+
+Over a WebSocket, each GraphQL query or JSON-RPC call is charged to the client that opened the connection, and holds its
+share of the balance while it runs. Subscriptions are neither charged nor refused, and the upgrade itself is never
+refused.
+
+A request the budget refuses is answered 429, with `Retry-After`, the whole seconds until its client's balance is back
+above zero, and its API's error, in the shape of the query deadline's:
+
+```json
+{
+  "errors": [
+    {
+      "message": "client time budget exhausted; retry in 12s",
+      "extensions": { "code": "CLIENT_TIME_BUDGET_EXHAUSTED", "retryAfterSeconds": 12 }
+    }
+  ],
+  "data": null
+}
+```
+
+Over JSON-RPC, each call is answered with code `-32005`, and the same `code` and `retryAfterSeconds` in the error's
+`data`, under its own ID: a batch as a batch. A query or call refused over a WebSocket answers the same error.
+
+The indexer remembers a client only while its balance is below the budget or a request of its is in flight: the
+clients active within one refill of the budget.
+
+To size the budget, read the request log: the sum of a client's `duration` over a minute is about the indexer time it
+used, though a GraphQL query's root fields run in parallel and can add up to more than the request took. For example,
+`--query-deadline 30s --client-time-budget 60s --client-time-budget-refill 30s` lets a client run two 30 s queries at
+once, and once it has spent its budget, regain 30 s a minute: one 30 s query a minute, or thirty of one second.
+
+Both limits count their refusals in `tx_indexer_requests_refused_total`, by `api` and `reason`, and with `--request-log`
+on, log each.
 
 ## GraphQL Endpoint
 
