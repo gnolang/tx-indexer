@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -330,14 +331,14 @@ func get(t require.TestingT, url string) *httpResponse {
 		h.Helper()
 	}
 
-	return fetchURL(t, http.MethodGet, url, "", "")
+	return fetchURL(t, http.MethodGet, url, nil, "")
 }
 
 // post sends body to url as JSON, and requires an OK answer
 func post(t *testing.T, url, body string) {
 	t.Helper()
 
-	response := fetchURL(t, http.MethodPost, url, "application/json", body)
+	response := fetchURL(t, http.MethodPost, url, http.Header{"Content-Type": {"application/json"}}, body)
 	require.NotNil(t, response, "nothing answers at %s", url)
 	require.Equal(t, http.StatusOK, response.status, response.body)
 }
@@ -349,10 +350,10 @@ type httpResponse struct {
 	status int
 }
 
-// fetchURL sends one request and returns its answer, or nil if nothing
-// answers at url. It takes a *testing.T, or the *assert.CollectT of an
+// fetchURL sends one request with header and returns its answer, or nil if
+// nothing answers at url. It takes a *testing.T, or the *assert.CollectT of an
 // EventuallyWithT condition.
-func fetchURL(t require.TestingT, method, url, contentType, body string) *httpResponse {
+func fetchURL(t require.TestingT, method, url string, header http.Header, body string) *httpResponse {
 	if h, ok := t.(interface{ Helper() }); ok {
 		h.Helper()
 	}
@@ -360,9 +361,7 @@ func fetchURL(t require.TestingT, method, url, contentType, body string) *httpRe
 	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
 	require.NoError(t, err)
 
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
+	maps.Copy(req.Header, header)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -376,7 +375,7 @@ func fetchURL(t require.TestingT, method, url, contentType, body string) *httpRe
 	read, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	return &httpResponse{status: resp.StatusCode, body: string(read)}
+	return &httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
 }
 
 // The metrics are served on their own listener and record the requests both

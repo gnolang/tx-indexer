@@ -376,28 +376,6 @@ var failedUpgrades = []struct {
 	{webSocketHandshake(), http.MethodPost, "", http.StatusMethodNotAllowed},
 }
 
-// sendWithHeader sends one request with header and returns its answer
-func sendWithHeader(t *testing.T, method, url, body string, header http.Header) httpResponse {
-	t.Helper()
-
-	req, err := http.NewRequestWithContext(t.Context(), method, url, strings.NewReader(body))
-	require.NoError(t, err)
-
-	req.Header = header
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() {
-		assert.NoError(t, resp.Body.Close())
-	}()
-
-	read, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	return httpResponse{header: resp.Header, status: resp.StatusCode, body: string(read)}
-}
-
 // gorillaEarlyData is the text of gorilla's error for an upgrade whose client
 // sent data before the handshake completed, which gqlgen's line of the failed
 // upgrade holds
@@ -428,7 +406,8 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	require.Len(t, address, 2, "no address in %q", p.started)
 
 	for _, upgrade := range failedUpgrades {
-		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
+		response := fetchURL(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.header, upgrade.body)
+		require.NotNil(t, response, "nothing answers at %s", address[1])
 		assert.Equal(t, upgrade.status, response.status, response.body)
 		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
 		// The version a WebSocket client is to retry with, as RFC 6455 §4.4 has
