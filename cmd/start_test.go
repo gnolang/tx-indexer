@@ -513,7 +513,7 @@ func TestStartCfg_ReportsTheStoredHeightWithTheNodeDown(t *testing.T) {
 
 	dbPath := t.TempDir()
 
-	db, err := storage.NewPebble(dbPath)
+	db, err := storage.NewPebble(dbPath, zap.NewNop())
 	require.NoError(t, err)
 
 	wb := db.WriteBatch()

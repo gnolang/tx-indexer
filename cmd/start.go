@@ -302,7 +302,7 @@ func (e *loggedError) Unwrap() error {
 // writing through logger, the command's own lines through startLogger
 func (c *startCfg) run(ctx context.Context, logger, startLogger *zap.Logger) error {
 	// Create a DB instance
-	db, err := storage.NewPebble(c.dbPath)
+	db, err := storage.NewPebble(c.dbPath, logger.Named("pebble"))
 	if err != nil {
 		return fmt.Errorf("unable to open storage DB, %w", err)
 	}
