@@ -43,8 +43,10 @@ func (budgetExtension) Validate(graphql.ExecutableSchema) error {
 
 // InterceptOperation charges an operation to the client of its connection,
 // from its admission until its last response has been sent: the transport
-// asks for responses until one is nil. A refused operation answers the
-// budget's error once.
+// asks for responses until one is nil. An operation that never gets there, as
+// one that panics outside its resolvers, is charged until its context ends,
+// when the transport is done with it or at the latest with its connection. A
+// refused operation answers the budget's error once.
 func (e budgetExtension) InterceptOperation(
 	ctx context.Context,
 	next graphql.OperationHandler,
@@ -68,14 +70,21 @@ func (e budgetExtension) InterceptOperation(
 		return graphql.OneShot(&graphql.Response{Errors: gqlerror.List{refusalError(err)}})
 	}
 
-	responses := next(ctx)
-
 	var ended sync.Once
+
+	release := func() {
+		ended.Do(end)
+	}
+
+	stop := context.AfterFunc(ctx, release)
+
+	responses := next(ctx)
 
 	return func(ctx context.Context) *graphql.Response {
 		response := responses(ctx)
 		if response == nil {
-			ended.Do(end)
+			stop()
+			release()
 		}
 
 		return response
