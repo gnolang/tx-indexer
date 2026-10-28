@@ -58,9 +58,8 @@ type indexerProcess struct {
 }
 
 // newCommand is the start command as a process of its own, with args after
-// its test defaults and stdout a regular file. It is killed once it has run
-// for 30 s, or once ctx ends.
-func newCommand(t *testing.T, ctx context.Context, args ...string) *exec.Cmd {
+// its test defaults and stdout a regular file. It is killed once ctx ends.
+func newCommand(ctx context.Context, t *testing.T, args ...string) *exec.Cmd {
 	t.Helper()
 
 	cmd := exec.CommandContext(
@@ -101,10 +100,12 @@ func newCommand(t *testing.T, ctx context.Context, args ...string) *exec.Cmd {
 func runProcess(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 
+	// A command that never stops is killed, so the test ends on a failure
+	// instead of hanging
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
-	cmd := newCommand(t, ctx, args...)
+	cmd := newCommand(ctx, t, args...)
 
 	var stderr strings.Builder
 
@@ -127,7 +128,7 @@ func startProcess(t *testing.T, args ...string) *indexerProcess {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	t.Cleanup(cancel)
 
-	cmd := newCommand(t, ctx, args...)
+	cmd := newCommand(ctx, t, args...)
 
 	stderr, err := cmd.StderrPipe()
 	require.NoError(t, err)
