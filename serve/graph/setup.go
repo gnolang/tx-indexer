@@ -24,16 +24,27 @@ import (
 //go:embed examples/*.gql
 var examples embed.FS
 
-// Setup mounts the GraphQL playground and endpoint on m. observer records each
-// root query field served; a nil observer records none, at no cost to them.
+// Options configure the GraphQL endpoint Setup mounts. The zero value is an
+// endpoint with introspection, no query deadline and nothing recorded.
+type Options struct {
+	// Observer records each root query field served; nil records none, at no
+	// cost to them
+	Observer *observe.Observer
+
+	// QueryDeadline bounds each query; zero leaves queries unbounded
+	QueryDeadline time.Duration
+
+	// DisableIntrospection refuses introspection queries
+	DisableIntrospection bool
+}
+
+// Setup mounts the GraphQL playground and endpoint on m, as opts configure them
 func Setup(
 	s storage.Storage,
 	manager *events.Manager,
 	sup *supply.Handler,
 	m *chi.Mux,
-	disableIntrospection bool,
-	queryDeadline time.Duration,
-	observer *observe.Observer,
+	opts Options,
 ) *chi.Mux {
 	srv := handler.New(NewExecutableSchema(
 		Config{
@@ -64,15 +75,15 @@ func Setup(
 		Cache: lru.New[string](100),
 	})
 
-	if !disableIntrospection {
+	if !opts.DisableIntrospection {
 		srv.Use(extension.Introspection{})
 	}
 
-	srv.Use(deadlineExtension{deadline: queryDeadline})
+	srv.Use(deadlineExtension{deadline: opts.QueryDeadline})
 
 	// With nothing to record, every field is spared the extension
-	if observer != nil {
-		srv.Use(observeExtension{observer: observer})
+	if opts.Observer != nil {
+		srv.Use(observeExtension{observer: opts.Observer})
 	}
 
 	es, err := examplesToSlice()
@@ -83,7 +94,7 @@ func Setup(
 	m.Handle("/graphql", HandlerWithDefaultTabs("Gno Indexer: GraphQL playground", "/graphql/query", es))
 	// The observer reads the client address of each request, and of each
 	// WebSocket connection's upgrade request, before its fields are served
-	m.Handle("/graphql/query", observer.Middleware(srv))
+	m.Handle("/graphql/query", opts.Observer.Middleware(srv))
 
 	return m
 }

@@ -60,7 +60,7 @@ func observedStore(t *testing.T) (*metrics.Metrics, *chi.Mux) {
 
 	m := metrics.New()
 
-	return m, Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, observe.New(m))
+	return m, Setup(r.store, events.NewManager(), nil, chi.NewMux(), Options{Observer: observe.New(m)})
 }
 
 // Each root field of a query is one request, named after the field and not
@@ -149,9 +149,7 @@ func TestObserve_CountsADeadlineHit(t *testing.T) {
 					events.NewManager(),
 					nil,
 					chi.NewMux(),
-					false,
-					testDeadline,
-					observe.New(m),
+					Options{Observer: observe.New(m), QueryDeadline: testDeadline},
 				)
 
 				resp := postQuery(t, mux, query)
@@ -188,9 +186,7 @@ func TestObserve_CountsAPageCutAtTheCapAsOK(t *testing.T) {
 					events.NewManager(),
 					nil,
 					chi.NewMux(),
-					false,
-					0,
-					observe.New(m),
+					Options{Observer: observe.New(m)},
 				)
 
 				resp := postQuery(t, mux, listQueries[field])
@@ -223,7 +219,13 @@ func TestObserve_CountsAnOwnErrorPastTheDeadlineAsError(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		m := metrics.New()
-		mux := Setup(slowFailingStore{}, events.NewManager(), nil, chi.NewMux(), false, testDeadline, observe.New(m))
+		mux := Setup(
+			slowFailingStore{},
+			events.NewManager(),
+			nil,
+			chi.NewMux(),
+			Options{Observer: observe.New(m), QueryDeadline: testDeadline},
+		)
 
 		resp := postQuery(t, mux, `{ latestBlockHeight }`)
 		require.Len(t, resp.Errors, 1)
@@ -240,7 +242,7 @@ func TestObserve_CountsAFailedField(t *testing.T) {
 	t.Parallel()
 
 	m := metrics.New()
-	mux := Setup(failingStore{}, events.NewManager(), nil, chi.NewMux(), false, 0, observe.New(m))
+	mux := Setup(failingStore{}, events.NewManager(), nil, chi.NewMux(), Options{Observer: observe.New(m)})
 
 	resp := postQuery(t, mux, `{ latestBlockHeight }`)
 	require.Len(t, resp.Errors, 1)
@@ -258,7 +260,7 @@ func TestObserve_CountsAnArgumentThatDoesNotCoerceAsFailed(t *testing.T) {
 	seedBlocks(t, r, 1, 3)
 
 	m := metrics.New()
-	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, observe.New(m))
+	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), Options{Observer: observe.New(m)})
 
 	resp := postQuery(t, mux, `{ blocks(filter: {from_time: "not-a-time"}) { height } }`)
 	require.Len(t, resp.Errors, 1)
@@ -348,7 +350,7 @@ func TestObserve_NoObserverInstallsNothing(t *testing.T) {
 	t.Parallel()
 
 	store := contextProbeStore{scanned: &atomic.Bool{}, observed: &atomic.Bool{}}
-	mux := Setup(store, events.NewManager(), nil, chi.NewMux(), false, 0, nil)
+	mux := Setup(store, events.NewManager(), nil, chi.NewMux(), Options{})
 
 	resp := postQuery(t, mux, `{ getBlocks(where: {}) { height } }`)
 	require.Empty(t, resp.Errors)
@@ -378,7 +380,7 @@ func TestObserve_CountsAFieldInFlight(t *testing.T) {
 
 	m := metrics.New()
 	store := blockingStore{started: make(chan struct{}), release: make(chan struct{})}
-	mux := Setup(store, events.NewManager(), nil, chi.NewMux(), false, 0, observe.New(m))
+	mux := Setup(store, events.NewManager(), nil, chi.NewMux(), Options{Observer: observe.New(m)})
 
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -418,7 +420,7 @@ func TestObserve_LeavesSubscriptionsUncounted(t *testing.T) {
 
 	m := metrics.New()
 	manager := events.NewManager()
-	mux := Setup(&slowStore{}, manager, nil, chi.NewMux(), false, 0, observe.New(m))
+	mux := Setup(&slowStore{}, manager, nil, chi.NewMux(), Options{Observer: observe.New(m)})
 
 	sub := client.New(mux, client.Path("/graphql/query")).
 		Websocket(`subscription { getBlocks(where: {}) { height } }`)
@@ -470,7 +472,7 @@ func TestObserve_LogsEachRootField(t *testing.T) {
 	o := observe.New(nil, observe.WithRequestLog(zap.New(core)), observe.WithClientIPHeader("X-Forwarded-For", 1))
 
 	r := testResolver(t)
-	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, o)
+	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), Options{Observer: o})
 
 	body, err := json.Marshal(map[string]any{
 		"query":     `query($hash: String!) { getTransactions(where: {hash: {eq: $hash}}) { block_height } }`,
@@ -510,7 +512,7 @@ func TestObserve_LogsAFieldOverWebSocket(t *testing.T) {
 	o := observe.New(nil, observe.WithRequestLog(zap.New(core)), observe.WithClientIPHeader("X-Forwarded-For", 1))
 
 	r := testResolver(t)
-	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), false, 0, o)
+	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), Options{Observer: o})
 
 	var resp map[string]any
 

@@ -375,7 +375,11 @@ func (c *startCfg) exec(ctx context.Context) error {
 	}
 
 	mux = j.SetupRoutes(mux)
-	mux = graph.Setup(db, em, supplyHandler, mux, c.disableIntrospection, c.queryDeadline, observer)
+	mux = graph.Setup(db, em, supplyHandler, mux, graph.Options{
+		Observer:             observer,
+		QueryDeadline:        c.queryDeadline,
+		DisableIntrospection: c.disableIntrospection,
+	})
 	mux = health.Setup(db, f, mux)
 
 	// Create the HTTP server
