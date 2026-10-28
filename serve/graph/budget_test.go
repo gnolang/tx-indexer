@@ -9,6 +9,7 @@ import (
 
 	"github.com/99designs/gqlgen/client"
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/stretchr/testify/assert"
@@ -83,4 +84,55 @@ func TestBudgetExtension_ReleasesAPanickingOperation(t *testing.T) {
 
 		return true
 	}, 5*time.Second, 10*time.Millisecond, "the client's reservation was never released")
+}
+
+// budgetExecutor is an executor of the endpoint's schema with the budget
+// extension, after exts, and a client of a budget with room for one request in
+// flight
+func budgetExecutor(exts ...graphql.HandlerExtension) (*executor.Executor, budget.Client) {
+	b := budget.New(budget.Config{Limit: 30 * time.Second, Refill: 30 * time.Second, Deadline: 30 * time.Second})
+
+	exec := executor.New(NewExecutableSchema(Config{Resolvers: NewResolver(&slowStore{rows: 1}, events.NewManager(), nil)}))
+	exec.Use(budgetExtension{})
+
+	for _, ext := range exts {
+		exec.Use(ext)
+	}
+
+	return exec, budget.Client{Budget: b, Key: "203.0.113.9", Address: "203.0.113.9"}
+}
+
+// admitted reports whether client is admitted a request, which it lets go of
+// at once
+func admitted(client budget.Client) bool {
+	end, err := client.Reserve()
+	if err != nil {
+		return false
+	}
+
+	end()
+
+	return true
+}
+
+// An operation keeps its place in flight until the transport asks for its
+// last response, the nil one, after writing the others: a response the
+// operation has made but the transport has yet to write still holds it
+func TestBudgetExtension_HoldsAnOperationUntilItsLastResponse(t *testing.T) {
+	t.Parallel()
+
+	exec, charged := budgetExecutor()
+
+	ctx := graphql.StartOperationTrace(budget.NewContext(t.Context(), charged))
+
+	operation, errs := exec.CreateOperationContext(ctx, &graphql.RawParams{Query: `{ getBlocks(where: {}) { height } }`})
+	require.Empty(t, errs)
+
+	responses, ctx := exec.DispatchOperation(graphql.WithOperationContext(ctx, operation), operation)
+
+	require.NotNil(t, responses(ctx))
+	assert.False(t, admitted(charged), "the place was let go before the response was written")
+
+	require.Nil(t, responses(ctx))
+	assert.True(t, admitted(charged), "the place was held past the last response")
 }
