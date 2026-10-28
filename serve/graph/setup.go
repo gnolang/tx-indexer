@@ -80,14 +80,15 @@ func Setup(
 
 	srv.AddTransport(transport.Websocket{
 		KeepAlivePingInterval: 10 * time.Second,
-		// gqlgen answers a failed upgrade with its own 400: the upgrader's,
-		// written first, would make gqlgen's a superfluous WriteHeader, which
-		// the HTTP server logs at error for any client that sends an Upgrade
-		// header. The upgrader only names the WebSocket version it speaks, as
-		// its own answer does (RFC 6455 §4.4).
+		// A failed upgrade is answered gorilla's status, 403 for a refused
+		// origin (RFC 6455 §10.2) or 405 for a method other than GET, naming
+		// the WebSocket version gorilla speaks (§4.4), and gqlgen's body:
+		// gqlgen's own status follows, superfluous, and hijackAware drops it
+		// where the HTTP server would log it at error for any client
 		Upgrader: websocket.Upgrader{
-			Error: func(w http.ResponseWriter, _ *http.Request, _ int, _ error) {
+			Error: func(w http.ResponseWriter, _ *http.Request, status int, _ error) {
 				w.Header().Set("Sec-Websocket-Version", "13")
+				w.WriteHeader(status)
 			},
 		},
 	})

@@ -325,13 +325,36 @@ func TestStartCfg_LogsJSONLines(t *testing.T) {
 	assert.ElementsMatch(t, []any{"jsonrpc", "graphql"}, []any{served[0]["api"], served[1]["api"]})
 }
 
+// webSocketHandshake is the header of a WebSocket upgrade gorilla accepts
+// from a client of the indexer's own origin
+func webSocketHandshake() http.Header {
+	return http.Header{
+		"Connection":            {"Upgrade"},
+		"Upgrade":               {"websocket"},
+		"Sec-Websocket-Version": {"13"},
+		"Sec-Websocket-Key":     {"dGhlIHNhbXBsZSBub25jZQ=="},
+	}
+}
+
+// crossOrigin is a WebSocket handshake from another origin, which gorilla
+// refuses
+func crossOrigin() http.Header {
+	header := webSocketHandshake()
+	header.Set("Origin", "http://elsewhere.example")
+
+	return header
+}
+
 // failedUpgrades are requests gqlgen's WebSocket transport takes, by their
-// Upgrade header, and fails to upgrade, which any client may send: curl
-// --http2's h2c upgrade, and a query posted with a WebSocket's header
+// Upgrade header, and fails to upgrade, which any client may send, with the
+// status gorilla refuses each with: curl --http2's h2c upgrade, a query
+// posted with a WebSocket's header, a handshake from another origin, and one
+// posted
 var failedUpgrades = []struct {
 	header http.Header
 	method string
 	body   string
+	status int
 }{
 	{
 		http.Header{
@@ -341,12 +364,16 @@ var failedUpgrades = []struct {
 		},
 		http.MethodGet,
 		"",
+		http.StatusBadRequest,
 	},
 	{
 		http.Header{"Upgrade": {"websocket"}, "Content-Type": {"application/json"}},
 		http.MethodPost,
 		`{"query": "{ latestBlockHeight }"}`,
+		http.StatusBadRequest,
 	},
+	{crossOrigin(), http.MethodGet, "", http.StatusForbidden},
+	{webSocketHandshake(), http.MethodPost, "", http.StatusMethodNotAllowed},
 }
 
 // sendWithHeader sends one request with header and returns its answer
@@ -387,11 +414,11 @@ func upgradeWithTrailingByte(host string) string {
 }
 
 // A request gqlgen's WebSocket transport fails to upgrade is answered gqlgen's
-// 400 alone, naming the WebSocket version it speaks, or nothing once gorilla
-// has taken the connection, and writes its line, through the standard log
-// package, as a line of the logger at warn under stdlib: with --log-format
-// json, every line is still one JSON object, and none is at error, as no
-// client alone causes one
+// body under gorilla's status, naming the WebSocket version it speaks, or
+// nothing once gorilla has taken the connection, and writes its line, through
+// the standard log package, as a line of the logger at warn under stdlib:
+// with --log-format json, every line is still one JSON object, and none is
+// at error, as no client alone causes one
 func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 	t.Parallel()
 
@@ -402,7 +429,7 @@ func TestStartCfg_LogsAFailedGraphQLUpgradeAtWarn(t *testing.T) {
 
 	for _, upgrade := range failedUpgrades {
 		response := sendWithHeader(t, upgrade.method, "http://"+address[1]+"/graphql/query", upgrade.body, upgrade.header)
-		assert.Equal(t, http.StatusBadRequest, response.status, response.body)
+		assert.Equal(t, upgrade.status, response.status, response.body)
 		assert.JSONEq(t, `{"errors": [{"message": "unable to upgrade"}], "data": null}`, response.body)
 		// The version a WebSocket client is to retry with, as RFC 6455 §4.4 has
 		// a server name it

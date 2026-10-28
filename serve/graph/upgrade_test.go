@@ -89,3 +89,53 @@ func TestHijackAware_WrapsTheUpgradeRequestsAlone(t *testing.T) {
 	handler.ServeHTTP(httptest.NewRecorder(), upgrade)
 	assert.IsType(t, &hijackAwareWriter{}, reached)
 }
+
+// statusLog is a response that records each status written to it
+type statusLog struct {
+	*httptest.ResponseRecorder
+
+	statuses []int
+}
+
+// WriteHeader records code
+func (s *statusLog) WriteHeader(code int) {
+	s.statuses = append(s.statuses, code)
+}
+
+// The first status written stands: a second, as gqlgen writes after gorilla's
+// for an upgrade it refuses, is dropped, as is one after a write, which
+// answered 200. An informational status leaves room for the one that follows.
+func TestHijackAwareWriter_KeepsTheFirstStatus(t *testing.T) {
+	t.Parallel()
+
+	refused := &statusLog{ResponseRecorder: httptest.NewRecorder()}
+	w := &hijackAwareWriter{ResponseWriter: refused}
+
+	w.WriteHeader(http.StatusForbidden)
+	w.WriteHeader(http.StatusBadRequest)
+
+	_, err := w.Write([]byte("unable to upgrade"))
+	require.NoError(t, err)
+
+	assert.Equal(t, []int{http.StatusForbidden}, refused.statuses)
+	assert.Equal(t, "unable to upgrade", refused.Body.String())
+
+	written := &statusLog{ResponseRecorder: httptest.NewRecorder()}
+	w = &hijackAwareWriter{ResponseWriter: written}
+
+	_, err = w.Write([]byte("an answer"))
+	require.NoError(t, err)
+
+	w.WriteHeader(http.StatusBadRequest)
+
+	assert.Empty(t, written.statuses)
+
+	informed := &statusLog{ResponseRecorder: httptest.NewRecorder()}
+	w = &hijackAwareWriter{ResponseWriter: informed}
+
+	w.WriteHeader(http.StatusEarlyHints)
+	w.WriteHeader(http.StatusForbidden)
+	w.WriteHeader(http.StatusBadRequest)
+
+	assert.Equal(t, []int{http.StatusEarlyHints, http.StatusForbidden}, informed.statuses)
+}
