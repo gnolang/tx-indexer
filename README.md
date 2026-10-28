@@ -223,11 +223,15 @@ at warn or above carries its stack trace under `stacktrace`.
 
 Each line names the logger it came from: a service's (`fetcher`, `http-server`, `graphql`, `pebble`, `requests`, ...),
 or `start` for the start command's own lines, the error that ends a run among them. The HTTP servers' own errors, a
-GraphQL resolver's panic and pebble's messages go through the logger too, at error for the errors.
+GraphQL resolver's panic and pebble's messages go through the logger too, at error for the errors, at fatal for pebble's
+fatal ones. A dependency's line through Go's standard `log` package is logged under `stdlib`, at warn.
+
+A line at error marks the indexer's own failure. What a client alone causes is at warn or below: a failed WebSocket
+upgrade, a WebSocket closed before its answer.
 
 Three kinds of line stay outside the logger, as plain text on stderr:
 
-- an error raised before the logger exists: a flag that does not parse, a log level or format the indexer does not know;
+- an error raised before the logger exists: a flag value the indexer refuses, an unknown log level or format among them;
 - a Go runtime crash outside any recover;
 - on macOS, the fork notice of libmdbx, a library gno links in: `rthc_afterfork:… drown … rthc entries`.
 
