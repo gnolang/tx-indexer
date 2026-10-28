@@ -37,16 +37,15 @@ func postDocument(t *testing.T, mux http.Handler, query string) (int, []byte) {
 	return rec.Code, answer
 }
 
-// widestConflicts is the document of at most 4000 tokens whose validation
-// finds the most errors: 1,999 fields alternating latestBlockHeight and
+// conflicts is a document of n fields alternating latestBlockHeight and
 // latestBlockHeight: __typename, each bare one in conflict with each aliased
-// one, 999,000 conflicts
-func widestConflicts() string {
+// one: ⌈n/2⌉ × ⌊n/2⌋ errors of OverlappingFieldsCanBeMerged
+func conflicts(n int) string {
 	var b strings.Builder
 
 	b.WriteString("{ ")
 
-	for i := range 1999 {
+	for i := range n {
 		if i%2 == 0 {
 			b.WriteString("latestBlockHeight ")
 		} else {
@@ -98,17 +97,20 @@ func requireCapped(t *testing.T, mux http.Handler, query, rule, prefix string) {
 	assert.Equal(t, "GRAPHQL_VALIDATION_FAILED", notice.Extensions["code"])
 }
 
-// The widest conflicts under the default token limit, 999,000 errors of one
-// rule, are answered the first 100 and one saying the rest are left out. Each
-// validation counts its own: the same document sent again answers the same.
+// conflictMessage begins each error of a conflicts document, which names
+// the two fields in either order
+const conflictMessage = `Fields "latestBlockHeight" conflict because `
+
+// A document's 420 errors of one rule are answered the first 100 and one
+// saying the rest are left out. Each validation counts its own: the same
+// document sent again answers the same.
 func TestValidation_CapsTheErrorsOfEachRule(t *testing.T) {
 	t.Parallel()
 
 	mux := Setup(&slowStore{}, events.NewManager(), nil, chi.NewMux(), Options{TokenLimit: 4000})
 
 	for range 2 {
-		requireCapped(t, mux, widestConflicts(), "OverlappingFieldsCanBeMerged",
-			`Fields "latestBlockHeight" conflict because "latestBlockHeight" and "__typename" are different fields.`)
+		requireCapped(t, mux, conflicts(41), "OverlappingFieldsCanBeMerged", conflictMessage)
 	}
 }
 
