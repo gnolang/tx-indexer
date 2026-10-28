@@ -486,13 +486,41 @@ func TestStartCfg_PrintsAnErrorBeforeTheLogger(t *testing.T) {
 	require.ErrorAs(t, err, &exited)
 	assert.Equal(t, 1, exited.ExitCode())
 
-	var printed strings.Builder
+	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, withoutForkNotice(stderr))
+}
+
+// withoutForkNotice is stderr without libmdbx's fork notice
+func withoutForkNotice(stderr string) string {
+	var kept strings.Builder
 
 	for line := range strings.Lines(stderr) {
 		if !mdbxForkNotice.MatchString(strings.TrimSuffix(line, "\n")) {
-			printed.WriteString(line)
+			kept.WriteString(line)
 		}
 	}
 
-	assert.Regexp(t, `^unable to parse log level, .*nonsense.*\n$`, printed.String())
+	return kept.String()
+}
+
+// At a level above error, the error that ends a run is not logged: it is
+// printed plain on stderr, on a line of its own, as an error before the
+// logger exists is
+func TestStartCfg_PrintsTheErrorThatEndsARunAboveTheErrorLevel(t *testing.T) {
+	t.Parallel()
+
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, taken.Close())
+	})
+
+	stderr, err := runProcess(t, "--log-level", "fatal", "--listen-address", taken.Addr().String())
+
+	var exited *exec.ExitError
+
+	require.ErrorAs(t, err, &exited)
+	assert.Equal(t, 1, exited.ExitCode())
+
+	assert.Regexp(t, `^[^\n]*address already in use[^\n]*\n$`, withoutForkNotice(stderr))
 }
