@@ -18,8 +18,8 @@ type Query {
    Incomplete results due to errors return both the partial Blocks and
    the associated errors.
 
-   At most 10000 Blocks are returned. A result cut short at that limit
-   carries an error whose extensions hold "code": "MAX_ELEMENTS_REACHED"
+   At most 10000 Blocks are returned, whatever limit asks for. A result
+   cut short at that hard cap carries an error whose extensions hold "code": "MAX_ELEMENTS_REACHED"
    and "lastCompleteBlockHeight", the height the caller received in full.
    Resume from it with a height greater than that value when ordering
    ascending, or less than it when ordering descending. Read the
@@ -32,22 +32,34 @@ type Query {
    whole, so resume past the last height returned: greater than it when
    ordering ascending, less than it when ordering descending.
    """
-   getBlocks(where: FilterBlock!, order: BlockOrder): [Block!]
+   getBlocks(
+      where: FilterBlock!
+      order: BlockOrder
+      """
+      Returns the first limit matching Blocks in the requested order. It
+      must be at least 1: a smaller value is an error. A value above the
+      10000 cap is clamped to it, and the cap error then applies as without
+      limit. Reaching limit is not a truncation, so it raises no error and
+      names no lastCompleteBlockHeight. Every Block is whole, so a client
+      paging with limit resumes past the last height returned.
+      """
+      limit: Int
+   ): [Block!]
 
    """
    Retrieves a list of Transactions that match the given
    where criteria. If the result is incomplete due to errors, both partial
    results and errors are returned.
 
-   At most 10000 Transactions are returned. A result cut short at that
-   limit ends on a block boundary, because a filter cannot express a
+   At most 10000 Transactions are returned, whatever limit asks for. A
+   result cut short at that hard cap ends on a block boundary, because a filter cannot express a
    resume point inside a block: its index window applies to every block
    in the range rather than to the boundary block alone. The error's
    extensions hold "code": "MAX_ELEMENTS_REACHED" and
    "lastCompleteBlockHeight", the height the caller received in full;
    resume with block_height greater than it when ordering ascending, or
    less than it when ordering descending. Where one block alone holds
-   more Transactions than the limit no boundary exists, so the partial
+   more Transactions than the cap no boundary exists, so the partial
    block is returned with "code": "BLOCK_EXCEEDS_MAX_ELEMENTS" and
    "blockHeight". Read the extensions rather than the message text.
 
@@ -57,7 +69,20 @@ type Query {
    "queryDeadline", the configured deadline. Narrow the block_height
    range and retry.
    """
-   getTransactions(where: FilterTransaction!, order: TransactionOrder): [Transaction!]
+   getTransactions(
+      where: FilterTransaction!
+      order: TransactionOrder
+      """
+      Returns the first limit matching Transactions in the requested order.
+      It must be at least 1: a smaller value is an error. A value above the
+      10000 cap is clamped to it, and the cap error then applies as without
+      limit. Reaching limit is not a truncation, so it raises no error and
+      names no lastCompleteBlockHeight. A page cut by limit can end inside a
+      block, so it is not a resume point: resuming with block_height past
+      its last row can skip the rest of that block.
+      """
+      limit: Int
+   ): [Transaction!]
 }
 
 type Subscription {

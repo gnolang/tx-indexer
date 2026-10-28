@@ -143,7 +143,12 @@ func (r *queryResolver) GetSupply(ctx context.Context, denom string) (*model.Sup
 }
 
 // GetBlocks is the resolver for the getBlocks field.
-func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder) ([]*model.Block, error) {
+func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, order *model.BlockOrder, limit *int) ([]*model.Block, error) {
+	ceiling, capped, err := effectiveLimit(limit)
+	if err != nil {
+		return nil, err
+	}
+
 	fromh, toh := where.MinMaxHeight()
 	dfromh := uint64(deref(fromh))
 	dtoh := uint64(deref(toh))
@@ -153,7 +158,6 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 		dtoh++
 	}
 
-	var err error
 	var it storage.Iterator[*bfttypes.Block]
 	if order != nil && order.Height == model.OrderDesc {
 		it, err = r.
@@ -178,10 +182,22 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 
 	var out []*model.Block
 
+	// When the cap applies, one row past it is read to tell a page it cut short
+	// from one that holds every match. Reaching the caller's own limit is the
+	// query working as asked, not a truncation, so it reads no further.
+	stop := ceiling
+	if capped {
+		stop++
+	}
+
 	i := 0
 	for {
-		if i == maxElementsPerQuery {
-			truncateBlocks(ctx, out)
+		if i == stop {
+			if capped {
+				out = out[:ceiling]
+				truncateBlocks(ctx, out)
+			}
+
 			return out, nil
 		}
 
@@ -215,7 +231,12 @@ func (r *queryResolver) GetBlocks(ctx context.Context, where model.FilterBlock, 
 }
 
 // GetTransactions is the resolver for the getTransactions field.
-func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder) ([]*model.Transaction, error) {
+func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterTransaction, order *model.TransactionOrder, limit *int) ([]*model.Transaction, error) {
+	ceiling, capped, err := effectiveLimit(limit)
+	if err != nil {
+		return nil, err
+	}
+
 	// corner case
 	if where.Hash != nil &&
 		where.Hash.Eq != nil &&
@@ -255,7 +276,6 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 
 	descending := order != nil && order.HeightAndIndex == model.OrderDesc
 
-	var err error
 	var it storage.Iterator[*bfttypes.TxResult]
 	if descending {
 		it, err = r.
@@ -283,10 +303,22 @@ func (r *queryResolver) GetTransactions(ctx context.Context, where model.FilterT
 	defer it.Close()
 
 	var out []*model.Transaction
+
+	// See GetBlocks: when the cap applies, one row past it is read to tell a cut
+	// page from a complete one, and the caller's own limit is no truncation.
+	stop := ceiling
+	if capped {
+		stop++
+	}
+
 	i := 0
 	for {
-		if i == maxElementsPerQuery {
-			return truncateTransactions(ctx, out, descending), nil
+		if i == stop {
+			if capped {
+				return truncateTransactions(ctx, out[:ceiling], descending), nil
+			}
+
+			return out, nil
 		}
 
 		if !it.Next(ctx) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/handlers/supply"
@@ -19,6 +20,28 @@ import (
 // It serves as dependency injection for your app, add any dependencies you require here.
 
 const maxElementsPerQuery = 10000
+
+// effectiveLimit resolves the caller's `limit` against the hard cap. It
+// returns how many rows to read and whether that bound is the cap, the only
+// bound whose reach is reported as a truncation.
+//
+// Without one, a query that matches many rows returns up to maxElementsPerQuery
+// of them, rows a caller usually did not want and has to transfer anyway. A
+// page of twenty is the common case, and asking for twenty should cost twenty.
+//
+// The cap stays the ceiling: limit only ever lowers it, and a limit above it
+// is capped as with no limit. A limit below 1 is rejected: it can only be a
+// caller's mistake, and treating it as absent would answer it with the cap.
+func effectiveLimit(limit *int) (int, bool, error) {
+	switch {
+	case limit == nil, *limit > maxElementsPerQuery:
+		return maxElementsPerQuery, true, nil
+	case *limit < 1:
+		return 0, false, gqlerror.Errorf("limit must be at least 1, got %d", *limit)
+	default:
+		return *limit, false, nil
+	}
+}
 
 func deref[T any](v *T) T {
 	if v == nil {

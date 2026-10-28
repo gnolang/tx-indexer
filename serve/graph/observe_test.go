@@ -55,7 +55,7 @@ func observedStore(t *testing.T) (*metrics.Metrics, *chi.Mux) {
 	t.Helper()
 
 	r := testResolver(t)
-	seedBlocks(t, r, 1, 10)
+	seedBlocks(t, r, 10)
 	seedTxs(t, r, 10, 3)
 
 	m := metrics.New()
@@ -257,7 +257,7 @@ func TestObserve_CountsAnArgumentThatDoesNotCoerceAsFailed(t *testing.T) {
 	t.Parallel()
 
 	r := testResolver(t)
-	seedBlocks(t, r, 1, 3)
+	seedBlocks(t, r, 3)
 
 	m := metrics.New()
 	mux := Setup(r.store, events.NewManager(), nil, chi.NewMux(), Options{Observer: observe.New(m)})
