@@ -14,6 +14,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/gnolang/tx-indexer/events"
 	"github.com/gnolang/tx-indexer/serve/budget"
@@ -92,7 +93,9 @@ func TestBudgetExtension_ReleasesAPanickingOperation(t *testing.T) {
 func budgetExecutor(exts ...graphql.HandlerExtension) (*executor.Executor, budget.Client) {
 	b := budget.New(budget.Config{Limit: 30 * time.Second, Refill: 30 * time.Second, Deadline: 30 * time.Second})
 
-	exec := executor.New(NewExecutableSchema(Config{Resolvers: NewResolver(&slowStore{rows: 1}, events.NewManager(), nil)}))
+	resolver := NewResolver(&slowStore{rows: 1}, events.NewManager(), nil)
+
+	exec := executor.New(NewExecutableSchema(Config{Resolvers: resolver}))
 	exec.Use(budgetExtension{})
 
 	for _, ext := range exts {
@@ -135,4 +138,51 @@ func TestBudgetExtension_HoldsAnOperationUntilItsLastResponse(t *testing.T) {
 
 	require.Nil(t, responses(ctx))
 	assert.True(t, admitted(charged), "the place was held past the last response")
+}
+
+// panickingMutator panics in the making of every operation's context, after
+// the operation's admission and before its execution
+type panickingMutator struct{}
+
+var _ graphql.OperationContextMutator = panickingMutator{}
+
+// ExtensionName names the extension in gqlgen's stats and logs
+func (panickingMutator) ExtensionName() string {
+	return "Panicking"
+}
+
+// Validate accepts any schema
+func (panickingMutator) Validate(graphql.ExecutableSchema) error {
+	return nil
+}
+
+// MutateOperationContext panics
+func (panickingMutator) MutateOperationContext(context.Context, *graphql.OperationContext) *gqlerror.Error {
+	panic("the mutator failed")
+}
+
+// An operation that panics after its admission and before its execution
+// never reaches the interceptors that let go of its place: it lets go of it
+// once its context ends, as its connection's does, so its client is admitted
+// again
+func TestBudgetExtension_ReleasesAnOperationThatPanicsBeforeItsExecution(t *testing.T) {
+	t.Parallel()
+
+	exec, charged := budgetExecutor(panickingMutator{})
+
+	connection, closeConnection := context.WithCancel(t.Context())
+	ctx := graphql.StartOperationTrace(budget.NewContext(connection, charged))
+
+	assert.PanicsWithValue(t, "the mutator failed", func() {
+		_, errs := exec.CreateOperationContext(ctx, &graphql.RawParams{Query: `{ getBlocks(where: {}) { height } }`})
+		assert.Empty(t, errs)
+	})
+
+	require.False(t, admitted(charged), "the operation was never admitted")
+
+	closeConnection()
+
+	assert.Eventually(t, func() bool {
+		return admitted(charged)
+	}, 5*time.Second, 10*time.Millisecond, "the client's reservation was never released")
 }

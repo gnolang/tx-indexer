@@ -50,6 +50,11 @@ type reservation struct {
 	// operation's admission
 	end func()
 
+	// stop unregisters the release at the end of the context the operation
+	// was admitted under, once the reservation is released; nil until the
+	// release is registered
+	stop atomic.Pointer[func() bool]
+
 	// ended makes end run once, whichever way the operation ends first
 	ended sync.Once
 
@@ -58,9 +63,16 @@ type reservation struct {
 	dispatched atomic.Bool
 }
 
-// release ends the reservation, once
+// release ends the reservation, once, and unregisters its release at the end
+// of the context the operation was admitted under
 func (r *reservation) release() {
-	r.ended.Do(r.end)
+	r.ended.Do(func() {
+		if stop := r.stop.Load(); stop != nil {
+			(*stop)()
+		}
+
+		r.end()
+	})
 }
 
 // reservationOf is the reservation the operation of ctx holds, nil for none
@@ -87,7 +99,10 @@ func (budgetExtension) Validate(graphql.ExecutableSchema) error {
 // MutateOperationParameters admits an operation of the connection's client
 // before its document is parsed, and keeps the reservation in the operation's
 // stats; or refuses it, with the budget's error, which the transport answers
-// once
+// once. An operation that fails between its admission and its execution, as
+// one that panics there, reaches none of the interceptors that release it: it
+// is released once the context it was admitted under ends, with its
+// connection's at the latest.
 func (e budgetExtension) MutateOperationParameters(ctx context.Context, _ *graphql.RawParams) *gqlerror.Error {
 	client, ok := budget.FromContext(ctx)
 	if !ok {
@@ -104,7 +119,12 @@ func (e budgetExtension) MutateOperationParameters(ctx context.Context, _ *graph
 		return refusalError(err)
 	}
 
-	graphql.GetOperationContext(ctx).Stats.SetExtension(reservationKey, &reservation{end: end})
+	held := &reservation{end: end}
+
+	stop := context.AfterFunc(ctx, held.release)
+	held.stop.Store(&stop)
+
+	graphql.GetOperationContext(ctx).Stats.SetExtension(reservationKey, held)
 
 	return nil
 }
