@@ -636,7 +636,8 @@ func (failingSync) Sync() error {
 }
 
 // The logger is synced, and the sync's error returned, when the stderr it
-// writes to is a regular file. A pipe takes no sync, and is not synced. A
+// writes to is a regular file. A pipe, a socket or a character device takes no
+// sync, and is not synced. A
 // stderr whose kind cannot be told is an error.
 func TestSyncLogger(t *testing.T) {
 	t.Parallel()
@@ -660,6 +661,25 @@ func TestSyncLogger(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, closed.Close())
 
+	// A socket, as systemd hands the indexer its journal's
+	sockets, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	require.NoError(t, err)
+
+	socket, peer := os.NewFile(uintptr(sockets[0]), "socket"), os.NewFile(uintptr(sockets[1]), "peer")
+
+	t.Cleanup(func() {
+		assert.NoError(t, socket.Close())
+		assert.NoError(t, peer.Close())
+	})
+
+	// A character device
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		assert.NoError(t, devNull.Close())
+	})
+
 	logger := zap.New(zapcore.NewCore(
 		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 		failingSync{io.Discard},
@@ -673,6 +693,8 @@ func TestSyncLogger(t *testing.T) {
 	}{
 		{errSyncFailed, file, "a regular file"},
 		{nil, writer, "a pipe"},
+		{nil, socket, "a socket"},
+		{nil, devNull, "/dev/null"},
 		{os.ErrClosed, closed, "a closed file"},
 	}
 
