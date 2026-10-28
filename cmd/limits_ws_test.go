@@ -417,3 +417,26 @@ func TestStartCfg_RefusesAGraphQLDocumentOverTheTokenLimitOverWebSocket(t *testi
 	assert.Equal(t, "error", refused[0].Type)
 	assert.Contains(t, string(refused[0].Payload), "exceeded token limit of 10")
 }
+
+// A call over JSON-RPC's WebSocket lets go of its place in flight once
+// answered: with room for one request in flight, the client's calls are
+// served one after the other
+func TestStartCfg_TimeBudgetReleasesEachCallOverJSONRPCWebSocket(t *testing.T) {
+	t.Parallel()
+
+	started := startIndexer(
+		t,
+		false,
+		"--client-time-budget", "30s",
+		"--client-time-budget-refill", "30s",
+		"--query-deadline", "30s",
+	)
+	conn := dialWS(t, "ws://"+started.apiAddress+"/ws", nil)
+
+	for id := range uint(3) {
+		answer := callWS(t, conn, id+1, "getBlock", "1")
+		if answer.Error != nil {
+			assert.NotEqual(t, spec.ClientTimeBudgetErrorCode, answer.Error.Code, "call %d", id+1)
+		}
+	}
+}
