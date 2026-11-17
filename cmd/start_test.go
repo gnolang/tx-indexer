@@ -464,7 +464,8 @@ func startNode(t *testing.T, height int64) string {
 	}
 
 	mux := http.NewServeMux()
-	rpcserver.RegisterRPCFuncs(mux, routes, slog.New(slog.DiscardHandler))
+	// 0 admits a JSON-RPC batch of any size
+	rpcserver.RegisterRPCFuncs(mux, routes, slog.New(slog.DiscardHandler), 0)
 
 	node := httptest.NewServer(mux)
 	t.Cleanup(node.Close)
