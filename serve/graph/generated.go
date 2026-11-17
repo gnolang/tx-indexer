@@ -135,6 +135,7 @@ type ComplexityRoot struct {
 	MsgRun struct {
 		Caller     func(childComplexity int) int
 		MaxDeposit func(childComplexity int) int
+		MaxSend    func(childComplexity int) int
 		Package    func(childComplexity int) int
 		Send       func(childComplexity int) int
 	}
@@ -617,6 +618,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MsgRun.MaxDeposit(childComplexity), true
+	case "MsgRun.max_send":
+		if e.ComplexityRoot.MsgRun.MaxSend == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MsgRun.MaxSend(childComplexity), true
 	case "MsgRun.package":
 		if e.ComplexityRoot.MsgRun.Package == nil {
 			break
@@ -1993,6 +2000,10 @@ input FilterMsgRun {
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+	"""
+	filter for max_send field.
+	"""
+	max_send: FilterString
 }
 """
 filter for StorageDepositEvent objects
@@ -2706,6 +2717,12 @@ type MsgRun {
 	ex) ` + "`" + `1000000ugnot` + "`" + `
 	"""
 	max_deposit: String! @filterable
+	"""
+	the maximum amount of funds the run may send out of the caller's account ("<amount><denomination>").
+	Empty when the run sets no cap, in which case a chain on gno v1.8.0 or later refuses any transfer out of that account.
+	ex) ` + "`" + `1000000ugnot` + "`" + `
+	"""
+	max_send: String! @filterable
 }
 """
 ` + "`" + `MsgRunInput` + "`" + ` represents input parameters required when the message type is ` + "`" + `run` + "`" + `.
@@ -3193,6 +3210,10 @@ input NestedFilterMsgRun {
 	filter for max_deposit field.
 	"""
 	max_deposit: FilterString
+	"""
+	filter for max_send field.
+	"""
+	max_send: FilterString
 }
 """
 filter for StorageDepositEvent objects
@@ -6744,6 +6765,48 @@ func (ec *executionContext) _MsgRun_max_deposit(ctx context.Context, field graph
 }
 
 func (ec *executionContext) fieldContext_MsgRun_max_deposit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MsgRun",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MsgRun_max_send(ctx context.Context, field graphql.CollectedField, obj *model.MsgRun) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MsgRun_max_send,
+		func(ctx context.Context) (any, error) {
+			return obj.MaxSend, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.Filterable == nil {
+					var zeroVal string
+					return zeroVal, errors.New("directive filterable is not implemented")
+				}
+				return ec.Directives.Filterable(ctx, obj, directive0, nil)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_MsgRun_max_send(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "MsgRun",
 		Field:      field,
@@ -12160,7 +12223,7 @@ func (ec *executionContext) unmarshalInputFilterMsgRun(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "package", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "package", "max_deposit", "max_send"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -12216,6 +12279,13 @@ func (ec *executionContext) unmarshalInputFilterMsgRun(ctx context.Context, obj 
 				return it, err
 			}
 			it.MaxDeposit = data
+		case "max_send":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_send"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MaxSend = data
 		}
 	}
 	return it, nil
@@ -14235,7 +14305,7 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgRun(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "package", "max_deposit"}
+	fieldsInOrder := [...]string{"_and", "_or", "_not", "caller", "send", "package", "max_deposit", "max_send"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -14291,6 +14361,13 @@ func (ec *executionContext) unmarshalInputNestedFilterMsgRun(ctx context.Context
 				return it, err
 			}
 			it.MaxDeposit = data
+		case "max_send":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("max_send"))
+			data, err := ec.unmarshalOFilterString2ᚖgithubᚗcomᚋgnolangᚋtxᚑindexerᚋserveᚋgraphᚋmodelᚐFilterString(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MaxSend = data
 		}
 	}
 	return it, nil
@@ -16071,6 +16148,11 @@ func (ec *executionContext) _MsgRun(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "max_deposit":
 			out.Values[i] = ec._MsgRun_max_deposit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max_send":
+			out.Values[i] = ec._MsgRun_max_send(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

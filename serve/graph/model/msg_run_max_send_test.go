@@ -55,3 +55,41 @@ func TestTransaction_DecodesMsgRunWithMaxSend(t *testing.T) {
 	require.Equal(t, msgRunWithMaxSendCaller, run.Caller)
 	require.Equal(t, "gno.land/e/"+msgRunWithMaxSendCaller+"/run", run.Package.Path)
 }
+
+// GraphQL's MsgRun carries every field of vm.MsgRun, MaxSend included, in the
+// "<amount><denomination>" form the other coin fields use.
+func TestTransaction_ExposesMsgRunMaxSend(t *testing.T) {
+	t.Parallel()
+
+	messages := msgRunWithMaxSend(t).Messages()
+	require.Len(t, messages, 1)
+
+	run := messages[0].VMMsgRun()
+	require.Equal(t, "1000ugnot", run.MaxSend)
+	require.Empty(t, run.Send)
+	require.Empty(t, run.MaxDeposit)
+}
+
+func TestFilterTransaction_ByMsgRunMaxSend(t *testing.T) {
+	t.Parallel()
+
+	byMaxSend := func(value string) FilterTransaction {
+		return FilterTransaction{
+			Messages: &NestedFilterTransactionMessage{
+				Value: &NestedFilterMessageValue{
+					MsgRun: &NestedFilterMsgRun{
+						MaxSend: &FilterString{Eq: &value},
+					},
+				},
+			},
+		}
+	}
+
+	tx := msgRunWithMaxSend(t)
+
+	matching := byMaxSend("1000ugnot")
+	require.True(t, matching.Eval(tx))
+
+	other := byMaxSend("5ugnot")
+	require.False(t, other.Eval(tx))
+}

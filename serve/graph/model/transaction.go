@@ -446,6 +446,7 @@ func makeVMMsgRun(value std.Msg) MsgRun {
 		Caller:     decodedMessage.Caller.String(),
 		Send:       decodedMessage.Send.String(),
 		MaxDeposit: decodedMessage.MaxDeposit.String(),
+		MaxSend:    decodedMessage.MaxSend.String(),
 		Package: &MemPackage{
 			Name:  decodedMessage.Package.Name,
 			Path:  decodedMessage.Package.Path,

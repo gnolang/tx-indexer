@@ -446,6 +446,8 @@ type FilterMsgRun struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
+	// filter for max_send field.
+	MaxSend *FilterString `json:"max_send,omitempty"`
 }
 
 // filter for StorageDepositEvent objects
@@ -848,6 +850,10 @@ type MsgRun struct {
 	// the maximum amount of funds to be deposited used for storage, if any ("<amount><denomination>").
 	// ex) `1000000ugnot`
 	MaxDeposit string `json:"max_deposit"`
+	// the maximum amount of funds the run may send out of the caller's account ("<amount><denomination>").
+	// Empty when the run sets no cap, in which case a chain on gno v1.8.0 or later refuses any transfer out of that account.
+	// ex) `1000000ugnot`
+	MaxSend string `json:"max_send"`
 }
 
 func (MsgRun) IsMessageValue() {}
@@ -1119,6 +1125,8 @@ type NestedFilterMsgRun struct {
 	Package *NestedFilterMemPackage `json:"package,omitempty"`
 	// filter for max_deposit field.
 	MaxDeposit *FilterString `json:"max_deposit,omitempty"`
+	// filter for max_send field.
+	MaxSend *FilterString `json:"max_send,omitempty"`
 }
 
 // filter for StorageDepositEvent objects
