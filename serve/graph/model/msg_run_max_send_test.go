@@ -9,7 +9,7 @@ import (
 )
 
 // A MsgRun signed and encoded by gno v1.8.0, which adds MsgRun.MaxSend
-// (gnolang/gno#179): the coins the run may send out of its caller's account,
+// (gnolang/gno 020954348): the coins the run may send out of its caller's account,
 // required from v1.8.0 on for any run that sends coins. It is the canonical
 // encoding v1.8.0 accepts, with MaxSend "1000ugnot" as its trailing field 5.
 //
