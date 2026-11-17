@@ -298,6 +298,13 @@ type MsgRun {
   ex) `1000000ugnot`
   """
   max_deposit: String! @filterable
+
+  """
+  the maximum amount of funds the run may send out of the caller's account ("<amount><denomination>").
+  Empty when the run sets no cap, in which case a chain on gno v1.8.0 or later refuses any transfer out of that account.
+  ex) `1000000ugnot`
+  """
+  max_send: String! @filterable
 }
 
 """

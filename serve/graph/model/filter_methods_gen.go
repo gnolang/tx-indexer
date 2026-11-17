@@ -443,6 +443,12 @@ func (f *NestedFilterMsgRun) Eval(obj *MsgRun) bool {
 		return false
 	}
 
+	// Handle MaxSend field
+	toEvalMaxSend := obj.MaxSend
+	if f.MaxSend != nil && !f.MaxSend.Eval(&toEvalMaxSend) {
+		return false
+	}
+
 	// Handle MaxDeposit field
 	toEvalMaxDeposit := obj.MaxDeposit
 	if f.MaxDeposit != nil && !f.MaxDeposit.Eval(&toEvalMaxDeposit) {
@@ -2017,6 +2023,12 @@ func (f *FilterMsgRun) Eval(obj *MsgRun) bool {
 	// Handle Package field
 	toEvalPackage := obj.Package
 	if f.Package != nil && !f.Package.Eval(toEvalPackage) {
+		return false
+	}
+
+	// Handle MaxSend field
+	toEvalMaxSend := obj.MaxSend
+	if f.MaxSend != nil && !f.MaxSend.Eval(&toEvalMaxSend) {
 		return false
 	}
 
