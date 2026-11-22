@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/gnolang/gno/gno.land/pkg/sdk/vm"
@@ -177,8 +178,12 @@ func (tr *TransactionResponse) Error() string {
 	return ""
 }
 
+// Data returns the response data as a string. The chain treats it as opaque
+// bytes, but a GraphQL String, and the JSON response carrying it, must be valid
+// UTF-8: each run of invalid bytes is replaced with U+FFFD. Valid data, the
+// common case, is returned unchanged.
 func (tr *TransactionResponse) Data() string {
-	return string(tr.response.Data)
+	return strings.ToValidUTF8(string(tr.response.Data), "\uFFFD")
 }
 
 func (tr *TransactionResponse) Events() []Event {
